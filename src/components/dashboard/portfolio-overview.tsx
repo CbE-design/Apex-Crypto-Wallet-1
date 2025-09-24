@@ -35,7 +35,7 @@ export function PortfolioOverview() {
         <CardDescription>Your current crypto holdings and their values.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col md:flex-row items-center gap-8">
-        <div className="relative w-full md:w-1/2 h-64">
+        <div className="relative w-full md:w-1/2 h-72">
           <ChartContainer config={chartConfig} className="min-h-[200px] w-full h-full">
             <PieChart>
               <ChartTooltip
