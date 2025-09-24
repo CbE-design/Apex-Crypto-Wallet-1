@@ -2,7 +2,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
-import { AuthProvider } from '@/context/auth-context';
+import { WalletProvider } from '@/context/wallet-context';
 import AppContent from './app-content';
 import { cn } from '@/lib/utils';
 
@@ -24,11 +24,11 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
       <body className={cn("font-body antialiased h-full", "dark")}>
-        <AuthProvider>
+        <WalletProvider>
             <AppContent>
               {children}
             </AppContent>
-        </AuthProvider>
+        </WalletProvider>
         <Toaster />
       </body>
     </html>

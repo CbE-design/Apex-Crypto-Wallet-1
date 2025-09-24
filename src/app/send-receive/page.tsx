@@ -12,15 +12,17 @@ import { portfolioAssets } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowRight, QrCode, Copy, Loader2 } from 'lucide-react';
 import { CryptoIcon } from '@/components/crypto-icon';
+import { useWallet } from '@/context/wallet-context';
 
 export default function SendReceivePage() {
   const { toast } = useToast();
+  const { wallet } = useWallet();
   const [sendAsset, setSendAsset] = useState(portfolioAssets[0].symbol);
   const [sendAmount, setSendAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [isSending, setIsSending] = useState(false);
   
-  const userAddress = '0x... (address not available)';
+  const userAddress = wallet?.address || '0x... (address not available)';
   const networkFee = 0.001; // Example network fee in ETH
 
   const selectedAssetData = portfolioAssets.find(a => a.symbol === sendAsset);
@@ -41,11 +43,13 @@ export default function SendReceivePage() {
   };
   
   const handleCopyAddress = () => {
-    navigator.clipboard.writeText(userAddress);
-    toast({
-      title: 'Address Copied',
-      description: 'Your wallet address has been copied to the clipboard.',
-    });
+    if (wallet?.address) {
+        navigator.clipboard.writeText(wallet.address);
+        toast({
+        title: 'Address Copied',
+        description: 'Your wallet address has been copied to the clipboard.',
+        });
+    }
   };
   
   const isSendButtonDisabled = !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || isSending;
@@ -187,7 +191,7 @@ export default function SendReceivePage() {
                   <path d="M30 90H40V100H30V90Z" fill="currentColor"/>
                   <path d="M50 90H60V100H50V90Z" fill="currentColor"/>
                   <path d="M70 90H80V100H70V90Z" fill="currentColor"/>
-                  <path d="M90 90H100V100H90V90Z" fill="currentColor"/>
+                  <path d="M90 90H100V90V90Z" fill="currentColor"/>
                   <path d="M110 90H120V100H110V90Z" fill="currentColor"/>
                   <path d="M130 90H140V100H130V90Z" fill="currentColor"/>
                   <path d="M150 90H160V100H150V90Z" fill="currentColor"/>
@@ -208,7 +212,7 @@ export default function SendReceivePage() {
             <p className="text-sm text-center text-muted-foreground">Your primary wallet address:</p>
             <div className="flex items-center gap-2 p-2 rounded-md bg-muted w-full justify-center">
                 <code className="text-sm break-all text-center">{userAddress}</code>
-                <Button variant="ghost" size="icon" onClick={handleCopyAddress}>
+                <Button variant="ghost" size="icon" onClick={handleCopyAddress} disabled={!wallet?.address}>
                     <Copy className="h-4 w-4" />
                     <span className="sr-only">Copy address</span>
                 </Button>

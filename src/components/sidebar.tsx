@@ -8,10 +8,10 @@ import {
   SidebarFooter
 } from "@/components/ui/sidebar";
 import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles, Bot, Repeat, ShieldCheck } from "lucide-react";
-import { useAuth } from "@/context/auth-context";
+import { useWallet } from "@/context/wallet-context";
 
 export function AppSidebar() {
-  const { userProfile } = useAuth();
+  const { wallet } = useWallet();
 
   return (
     <>

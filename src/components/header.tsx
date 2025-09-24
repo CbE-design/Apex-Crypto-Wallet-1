@@ -4,19 +4,23 @@
 import { Bell, UserCircle, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { useAuth } from '@/context/auth-context';
-import { handleSignOut } from '@/lib/firebase/auth';
+import { useWallet } from '@/context/wallet-context';
 import { useRouter } from 'next/navigation';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
 
 export function Header() {
-  const { user } = useAuth();
+  const { wallet, disconnectWallet } = useWallet();
   const router = useRouter();
+  const { toast } = useToast();
 
-  const onSignOut = async () => {
-    await handleSignOut();
+  const onDisconnect = () => {
+    disconnectWallet();
+    toast({ title: 'Wallet Disconnected' });
     router.push('/login');
   };
+
+  const truncatedAddress = wallet?.address ? `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}` : '';
 
   return (
     <header className="flex items-center justify-between p-4 border-b bg-background shadow-sm sticky top-0 z-10">
@@ -37,14 +41,14 @@ export function Header() {
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuLabel>My Wallet</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem disabled>
-                    {user?.email}
+                    <span className="font-mono">{truncatedAddress}</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={onSignOut}>
+                <DropdownMenuItem onClick={onDisconnect}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Sign Out</span>
+                    <span>Disconnect</span>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

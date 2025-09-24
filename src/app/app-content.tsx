@@ -6,7 +6,7 @@ import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/sidebar';
 import { Header } from '@/components/header';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/context/auth-context';
+import { useWallet } from '@/context/wallet-context';
 import { PrivateRoute } from '@/components/private-route';
 
 export default function AppContent({
@@ -15,7 +15,7 @@ export default function AppContent({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { wallet } = useWallet();
 
   const isPublicPage = pathname === '/login';
 

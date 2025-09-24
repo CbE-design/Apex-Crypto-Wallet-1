@@ -9,87 +9,130 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { signUpWithEmail, signInWithEmail } from '@/lib/firebase/auth';
-import { Loader2 } from 'lucide-react';
+import { useWallet } from '@/context/wallet-context';
+import { Loader2, Copy, Eye, EyeOff } from 'lucide-react';
 
-export default function LoginPage() {
+export default function ConnectWalletPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('signin');
+  const { createWallet, importWallet, loading } = useWallet();
+  const [activeTab, setActiveTab] = useState('create');
+  const [newMnemonic, setNewMnemonic] = useState('');
+  const [importMnemonic, setImportMnemonic] = useState('');
+  const [mnemonicVisible, setMnemonicVisible] = useState(false);
+  const [hasCopied, setHasCopied] = useState(false);
 
-  const handleAuthAction = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
+  const handleCreateWallet = async () => {
     try {
-      if (activeTab === 'signin') {
-        await signInWithEmail(email, password);
-        toast({ title: 'Success', description: 'Signed in successfully.' });
-      } else {
-        await signUpWithEmail(email, password);
-        toast({ title: 'Success', description: 'Account created successfully! Please sign in.' });
-        setActiveTab('signin'); // Switch to signin tab after signup
-      }
-      router.push('/');
+      const mnemonic = await createWallet();
+      setNewMnemonic(mnemonic);
+      toast({ title: 'Wallet Created!', description: 'Please securely back up your seed phrase.' });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
       toast({
-        title: 'Authentication Error',
-        description: errorMessage,
+        title: 'Error',
+        description: 'Could not create a new wallet. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
   };
+
+  const handleImportWallet = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!importMnemonic.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter your seed phrase.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      const success = await importWallet(importMnemonic);
+      if (success) {
+        toast({ title: 'Wallet Imported', description: 'Successfully imported your wallet.' });
+        router.push('/');
+      } else {
+        throw new Error('Invalid seed phrase');
+      }
+    } catch (error) {
+      toast({
+        title: 'Import Failed',
+        description: 'The seed phrase you entered is invalid. Please check and try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const copyMnemonic = () => {
+    navigator.clipboard.writeText(newMnemonic);
+    setHasCopied(true);
+    toast({ title: 'Copied!', description: 'Seed phrase copied to clipboard.' });
+  };
+  
+  const proceedToDashboard = () => {
+     router.push('/');
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Apex Crypto Wallet</CardTitle>
-          <CardDescription>Sign in or create an account to continue</CardDescription>
+          <CardDescription>Your gateway to the decentralized web.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
-            <TabsContent value="signin">
-              <form onSubmit={handleAuthAction} className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email-signin">Email</Label>
-                  <Input id="email-signin" type="email" placeholder="m@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          {!newMnemonic ? (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="create">Create New Wallet</TabsTrigger>
+                <TabsTrigger value="import">Import Wallet</TabsTrigger>
+              </TabsList>
+              <TabsContent value="create">
+                <div className="space-y-4 pt-4 text-center">
+                    <p className="text-sm text-muted-foreground">Create a new secure, non-custodial wallet to start your journey.</p>
+                    <Button onClick={handleCreateWallet} className="w-full" disabled={loading}>
+                        {loading ? <Loader2 className="animate-spin" /> : 'Create Wallet'}
+                    </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password-signin">Password</Label>
-                  <Input id="password-signin" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              </TabsContent>
+              <TabsContent value="import">
+                <form onSubmit={handleImportWallet} className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="mnemonic-import">Seed Phrase</Label>
+                    <Input id="mnemonic-import" type="text" placeholder="Enter your 12-word seed phrase" value={importMnemonic} onChange={(e) => setImportMnemonic(e.target.value)} required />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                     {loading ? <Loader2 className="animate-spin" /> : 'Import Wallet'}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="space-y-4 pt-4 text-center">
+                <h3 className="font-semibold text-lg">Your Secure Seed Phrase</h3>
+                <p className="text-sm text-destructive bg-destructive/10 p-2 rounded-md">
+                    Write this down and store it somewhere safe. Do NOT share it with anyone.
+                </p>
+                <div className="relative p-4 border rounded-md bg-muted font-mono text-lg tracking-wider space-x-2">
+                    <span className={!mnemonicVisible ? 'blur-sm select-none' : ''}>
+                        {newMnemonic}
+                    </span>
+                    <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => setMnemonicVisible(!mnemonicVisible)}>
+                        {mnemonicVisible ? <EyeOff /> : <Eye />}
+                    </Button>
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="animate-spin" /> : 'Sign In'}
+                <Button variant="outline" onClick={copyMnemonic} className="w-full">
+                    <Copy className="mr-2"/> Copy to Clipboard
                 </Button>
-              </form>
-            </TabsContent>
-            <TabsContent value="signup">
-              <form onSubmit={handleAuthAction} className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email-signup">Email</Label>
-                  <Input id="email-signup" type="email" placeholder="m@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <div className="pt-4">
+                     <p className="text-sm text-muted-foreground pb-4">Once you have backed up your phrase, proceed to your wallet.</p>
+                     <Button onClick={proceedToDashboard} className="w-full" disabled={!hasCopied}>
+                        {hasCopied ? "Proceed to Dashboard" : "Copy Phrase to Proceed"}
+                    </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password-signup">Password</Label>
-                  <Input id="password-signup" type="password" placeholder="Must be at least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                   {isLoading ? <Loader2 className="animate-spin" /> : 'Create Account'}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
