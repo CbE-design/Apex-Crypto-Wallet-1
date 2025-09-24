@@ -16,16 +16,17 @@ export async function NewsSummary() {
   };
 
   let summary = "Could not generate news summary at this time.";
+  let hasApiKey = false;
+  
   try {
-    // We only call this if the API key is available.
     if (process.env.GEMINI_API_KEY) {
+      hasApiKey = true;
       const result = await cryptoNewsSummary(summaryInput);
       summary = result.summary;
-    } else {
-      summary = "AI News Summary is disabled. Please add your GEMINI_API_KEY to the .env file.";
     }
   } catch (error) {
     console.error("Failed to get news summary:", error instanceof Error ? error.message : String(error));
+    summary = "There was an error generating the news summary. Please check the server logs for more details.";
   }
 
 
@@ -41,9 +42,18 @@ export async function NewsSummary() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {summary}
-        </p>
+        {hasApiKey ? (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {summary}
+            </p>
+        ) : (
+          <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
+            <p className="font-semibold text-foreground">AI Feature Disabled</p>
+            <p>
+              To enable the AI-powered news summary, please get a Gemini API key from Google AI Studio and add it to your `.env` file as `GEMINI_API_KEY`.
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
