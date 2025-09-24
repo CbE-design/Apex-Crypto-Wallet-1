@@ -1,12 +1,9 @@
-import { Suspense } from 'react';
 import { Header } from '@/components/header';
 import { PortfolioOverview } from '@/components/dashboard/portfolio-overview';
 import { MarketOverview } from '@/components/dashboard/market-overview';
 import { BuySellCard } from '@/components/dashboard/buy-sell-card';
 import { TransactionHistory } from '@/components/dashboard/transaction-history';
 import { PriceAlerts } from '@/components/dashboard/price-alerts';
-import { NewsSummary } from '@/components/dashboard/news-summary';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
   return (
@@ -22,9 +19,6 @@ export default function DashboardPage() {
           <div className="lg:col-span-1 space-y-6">
             <MarketOverview />
             <PriceAlerts />
-            <Suspense fallback={<Skeleton className="h-64" />}>
-              <NewsSummary />
-            </Suspense>
           </div>
         </div>
       </main>
