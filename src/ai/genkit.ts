@@ -6,7 +6,7 @@ const ai = genkit({
     googleAI({apiKey: process.env.GEMINI_API_KEY}),
   ],
   logLevel: 'debug',
-  enableTracingAndMetrics: true,
+  enableTracingAndMetrics: false,
 });
 
 export { ai };
