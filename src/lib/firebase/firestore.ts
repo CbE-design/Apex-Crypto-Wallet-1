@@ -6,7 +6,7 @@ import type { User } from 'firebase/auth';
 // --- Admin Configuration ---
 // For this prototype, we'll hardcode the admin email.
 // In a production app, you would manage roles in a secure backend.
-const ADMIN_EMAIL = 'admin@example.com';
+const ADMIN_EMAIL = 'corrie27@yahoo.com';
 
 // Function to generate a random Ethereum-like address
 const generateWalletAddress = (): string => {
