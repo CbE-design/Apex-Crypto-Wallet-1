@@ -7,7 +7,7 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles } from "lucide-react";
+import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles, Bot } from "lucide-react";
 
 export function AppSidebar() {
   return (
@@ -22,6 +22,14 @@ export function AppSidebar() {
               <a href="/">
                 <LayoutDashboard />
                 Dashboard
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+           <SidebarMenuItem>
+            <SidebarMenuButton href="/ai-assistant" asChild>
+              <a href="/ai-assistant">
+                <Bot />
+                AI Assistant
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
