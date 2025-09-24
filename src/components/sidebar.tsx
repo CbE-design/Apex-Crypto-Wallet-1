@@ -1,3 +1,4 @@
+
 import {
   SidebarContent,
   SidebarHeader,
@@ -17,15 +18,19 @@ export function AppSidebar() {
       <SidebarContent className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton href="/" isActive tooltip="Dashboard">
-              <LayoutDashboard />
-              Dashboard
+            <SidebarMenuButton href="/" asChild>
+              <a href="/">
+                <LayoutDashboard />
+                Dashboard
+              </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#" tooltip="Send & Receive">
-              <Send />
-              Send & Receive
+            <SidebarMenuButton href="/send-receive" asChild>
+              <a href="/send-receive">
+                <Send />
+                Send & Receive
+              </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
