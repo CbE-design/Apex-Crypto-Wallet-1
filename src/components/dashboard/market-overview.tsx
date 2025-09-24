@@ -43,15 +43,15 @@ export function MarketOverview() {
                     <div className="flex items-center gap-3">
                       <CryptoIcon name={coin.name} className="h-8 w-8" />
                       <div>
-                        <div className="font-medium">{coin.symbol}</div>
-                        <div className="text-xs text-muted-foreground">{coin.name}</div>
+                        <div className="font-semibold text-base">{coin.symbol}</div>
+                        <div className="text-sm text-muted-foreground">{coin.name}</div>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right font-mono">${coin.priceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right font-mono font-semibold">${coin.priceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                   <TableCell className="text-right">
                     <span className={cn(
-                      "flex items-center justify-end gap-1 text-sm font-mono",
+                      "flex items-center justify-end gap-1 text-sm font-mono font-semibold",
                       coin.change24h >= 0 ? "text-green-400" : "text-red-400"
                     )}>
                       {coin.change24h >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}

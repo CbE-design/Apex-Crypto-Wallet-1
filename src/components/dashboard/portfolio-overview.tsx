@@ -76,11 +76,11 @@ export function PortfolioOverview() {
               <div key={asset.symbol} className="flex items-center p-3 rounded-lg bg-background/50">
                 <CryptoIcon name={asset.name} className="h-8 w-8 mr-4" />
                 <div className="flex-1">
-                  <p className="font-semibold">{asset.symbol}</p>
+                  <p className="font-semibold text-base">{asset.symbol}</p>
                   <p className="text-sm font-mono">${asset.priceUSD.toLocaleString()}</p>
                 </div>
                 <div className={cn(
-                    "flex items-center justify-end text-sm font-mono",
+                    "flex items-center justify-end text-sm font-mono font-semibold",
                     asset.change24h >= 0 ? "text-green-400" : "text-red-400"
                   )}>
                     {asset.change24h >= 0 ? <ArrowUpRight className="h-4 w-4"/> : <ArrowDownRight className="h-4 w-4"/>}
