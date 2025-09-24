@@ -7,9 +7,12 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles, Bot, Repeat } from "lucide-react";
+import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles, Bot, Repeat, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/context/auth-context";
 
 export function AppSidebar() {
+  const { userProfile } = useAuth();
+
   return (
     <>
       <SidebarHeader>
@@ -61,6 +64,16 @@ export function AppSidebar() {
               NFTs
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {userProfile?.isAdmin && (
+             <SidebarMenuItem>
+                <SidebarMenuButton href="/admin" asChild>
+                    <a href="/admin">
+                        <ShieldCheck />
+                        Admin
+                    </a>
+                </SidebarMenuButton>
+             </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>

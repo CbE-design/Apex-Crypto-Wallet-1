@@ -8,30 +8,36 @@ import { getUserProfile } from '@/lib/firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { firebaseApp } from '@/lib/firebase/config';
 
+// Define a type for the user profile, including the optional isAdmin flag
+interface UserProfile {
+  email: string;
+  createdAt: Date;
+  walletAddress: string;
+  isAdmin?: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
-  userProfile: any | null; // Consider defining a type for the user profile
+  userProfile: UserProfile | null;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Check if Firebase config is available
 const isFirebaseConfigured = !!firebaseApp;
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Only subscribe to auth state changes if Firebase is configured
     if (isFirebaseConfigured) {
       const unsubscribe = onAuthStateChange(async (user) => {
         setUser(user);
         if (user) {
           const profile = await getUserProfile(user.uid);
-          setUserProfile(profile);
+          setUserProfile(profile as UserProfile);
         } else {
           setUserProfile(null);
         }
@@ -39,12 +45,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       return () => unsubscribe();
     } else {
-      // If not configured, stop loading and proceed with no user
       setLoading(false);
     }
   }, []);
 
-  // Show a loading spinner only if Firebase is configured and we are waiting for auth state
   if (loading && isFirebaseConfigured) {
     return (
         <div className="flex items-center justify-center h-screen">
