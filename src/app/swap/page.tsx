@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,16 +17,22 @@ export default function SwapPage() {
   const [fromAsset, setFromAsset] = useState(portfolioAssets[0].symbol);
   const [toAsset, setToAsset] = useState(marketCoins[1].symbol);
   const [fromAmount, setFromAmount] = useState('');
+  const [exchangeRate, setExchangeRate] = useState(0);
 
   const fromAssetData = useMemo(() => portfolioAssets.find(a => a.symbol === fromAsset), [fromAsset]);
   const toAssetData = useMemo(() => marketCoins.find(a => a.symbol === toAsset), [toAsset]);
 
-  const exchangeRate = useMemo(() => {
-    if (!fromAssetData || !toAssetData || fromAssetData.priceUSD === 0) return 0;
+  useEffect(() => {
+    if (!fromAssetData || !toAssetData || fromAssetData.priceUSD === 0) {
+      setExchangeRate(0);
+      return;
+    }
     // Add a small random factor to simulate market fluctuations
     const fluctuation = 1 + (Math.random() - 0.5) * 0.01; // +/- 0.5%
-    return (fromAssetData.priceUSD / toAssetData.priceUSD) * fluctuation;
+    const rate = (fromAssetData.priceUSD / toAssetData.priceUSD) * fluctuation;
+    setExchangeRate(rate);
   }, [fromAssetData, toAssetData]);
+
 
   const toAmount = useMemo(() => {
     const amount = parseFloat(fromAmount);
@@ -135,7 +141,7 @@ export default function SwapPage() {
           </div>
           
           <div className="text-sm text-muted-foreground text-center">
-            {fromAssetData && toAssetData && `1 ${fromAssetData.symbol} ≈ ${exchangeRate.toFixed(5)} ${toAssetData.symbol}`}
+            {fromAssetData && toAssetData && exchangeRate > 0 && `1 ${fromAssetData.symbol} ≈ ${exchangeRate.toFixed(5)} ${toAssetData.symbol}`}
           </div>
 
           <Button className="w-full" onClick={handleSwap}>
