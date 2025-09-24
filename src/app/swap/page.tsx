@@ -9,34 +9,58 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { portfolioAssets, marketCoins } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeftRight, Repeat } from 'lucide-react';
+import { ArrowLeftRight, Repeat, Loader2 } from 'lucide-react';
 import { CryptoIcon } from '@/components/crypto-icon';
+import { getExchangeRate } from '@/ai/flows/get-exchange-rate-flow';
+
+const allAssets = [...portfolioAssets, ...marketCoins].reduce((acc, current) => {
+    if (!acc.find(item => item.symbol === current.symbol)) {
+        acc.push(current);
+    }
+    return acc;
+}, [] as { symbol: string; name: string }[]);
+
 
 export default function SwapPage() {
   const { toast } = useToast();
   const [fromAsset, setFromAsset] = useState(portfolioAssets[0].symbol);
   const [toAsset, setToAsset] = useState(marketCoins[1].symbol);
   const [fromAmount, setFromAmount] = useState('');
-  const [exchangeRate, setExchangeRate] = useState(0);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [isLoadingRate, setIsLoadingRate] = useState(false);
 
   const fromAssetData = useMemo(() => portfolioAssets.find(a => a.symbol === fromAsset), [fromAsset]);
   const toAssetData = useMemo(() => marketCoins.find(a => a.symbol === toAsset), [toAsset]);
 
   useEffect(() => {
-    if (!fromAssetData || !toAssetData || fromAssetData.priceUSD === 0) {
-      setExchangeRate(0);
-      return;
+    async function fetchRate() {
+      if (!fromAsset || !toAsset) return;
+
+      setIsLoadingRate(true);
+      setExchangeRate(null);
+      try {
+        const result = await getExchangeRate({ fromAsset, toAsset });
+        setExchangeRate(result.rate);
+      } catch (error) {
+        console.error("Failed to fetch exchange rate:", error);
+        toast({
+          title: 'Error Fetching Rate',
+          description: 'Could not retrieve live exchange rate. Please try again.',
+          variant: 'destructive',
+        });
+        setExchangeRate(0); // Set to 0 to indicate failure
+      } finally {
+        setIsLoadingRate(false);
+      }
     }
-    // Add a small random factor to simulate market fluctuations
-    const fluctuation = 1 + (Math.random() - 0.5) * 0.01; // +/- 0.5%
-    const rate = (fromAssetData.priceUSD / toAssetData.priceUSD) * fluctuation;
-    setExchangeRate(rate);
-  }, [fromAssetData, toAssetData]);
+
+    fetchRate();
+  }, [fromAsset, toAsset, toast]);
 
 
   const toAmount = useMemo(() => {
     const amount = parseFloat(fromAmount);
-    if (isNaN(amount) || amount <= 0 || exchangeRate === 0) return '0.00';
+    if (isNaN(amount) || amount <= 0 || exchangeRate === null || exchangeRate === 0) return '0.00';
     return (amount * exchangeRate).toFixed(5);
   }, [fromAmount, exchangeRate]);
   
@@ -79,7 +103,7 @@ export default function SwapPage() {
                         <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
                     <SelectContent>
-                        {portfolioAssets.map(asset => (
+                        {allAssets.map(asset => (
                         <SelectItem key={asset.symbol} value={asset.symbol}>
                             <div className="flex items-center gap-2">
                                 <CryptoIcon name={asset.name} className="h-5 w-5" />
@@ -119,7 +143,7 @@ export default function SwapPage() {
                         <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
                     <SelectContent>
-                        {marketCoins.map(asset => (
+                        {allAssets.map(asset => (
                         <SelectItem key={asset.symbol} value={asset.symbol}>
                              <div className="flex items-center gap-2">
                                 <CryptoIcon name={asset.name} className="h-5 w-5" />
@@ -140,12 +164,14 @@ export default function SwapPage() {
             </div>
           </div>
           
-          <div className="text-sm text-muted-foreground text-center">
-            {fromAssetData && toAssetData && exchangeRate > 0 && `1 ${fromAssetData.symbol} ≈ ${exchangeRate.toFixed(5)} ${toAssetData.symbol}`}
+          <div className="text-sm text-muted-foreground text-center h-5 flex items-center justify-center">
+            {isLoadingRate && <Loader2 className="h-4 w-4 animate-spin" />}
+            {!isLoadingRate && exchangeRate !== null && exchangeRate > 0 && `1 ${fromAsset} ≈ ${exchangeRate.toFixed(5)} ${toAsset}`}
+             {!isLoadingRate && exchangeRate === 0 && <span className="text-destructive">Could not fetch rate</span>}
           </div>
 
-          <Button className="w-full" onClick={handleSwap}>
-            Swap <Repeat className="ml-2" />
+          <Button className="w-full" onClick={handleSwap} disabled={isLoadingRate || exchangeRate === null}>
+            {isLoadingRate ? 'Getting live rate...' : <>Swap <Repeat className="ml-2" /></>}
           </Button>
         </CardContent>
       </Card>
