@@ -58,7 +58,7 @@ export function PortfolioOverview() {
           </ChartContainer>
            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none space-y-1">
                 <p className="text-sm text-muted-foreground">Total Balance</p>
-                <p className="text-3xl font-bold">
+                <p className="text-2xl font-bold">
                     ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
             </div>
