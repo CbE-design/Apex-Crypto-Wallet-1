@@ -1,13 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
+import { Area, AreaChart } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart"
 import { portfolioAssets } from "@/lib/data"
 import { CryptoIcon } from "../crypto-icon"
 import { cn } from "@/lib/utils"
-import { ArrowDownRight, ArrowUpRight, TrendingUp } from "lucide-react"
+import { ArrowDownRight, ArrowUpRight } from "lucide-react"
 
 const chartData = [
   { month: "January", value: 86250 },
@@ -64,7 +64,7 @@ export function PortfolioOverview() {
                 content={
                   <ChartTooltipContent
                     indicator="dot"
-                    formatter={(value) => `$${value.toLocaleString()}`}
+                    formatter={(value) => `$${Number(value).toLocaleString()}`}
                   />
                 }
               />
@@ -77,7 +77,7 @@ export function PortfolioOverview() {
                 <CryptoIcon name={asset.name} className="h-8 w-8 mr-4" />
                 <div className="flex-1">
                   <p className="font-semibold text-base">{asset.symbol}</p>
-                  <p className="text-sm font-mono">${asset.priceUSD.toLocaleString()}</p>
+                  <p className="text-sm font-mono">${asset.priceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
                 <div className={cn(
                     "flex items-center justify-end text-sm font-mono font-semibold",
