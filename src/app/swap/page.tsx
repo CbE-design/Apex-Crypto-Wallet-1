@@ -8,12 +8,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { portfolioAssets, marketCoins } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeftRight, Repeat, Loader2, Wallet, CheckCircle, XCircle } from 'lucide-react';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { getExchangeRate } from '@/ai/flows/get-exchange-rate-flow';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
+
 
 const allAssets = [...portfolioAssets, ...marketCoins].reduce((acc, current) => {
     if (!acc.find(item => item.symbol === current.symbol)) {
@@ -25,6 +28,12 @@ const allAssets = [...portfolioAssets, ...marketCoins].reduce((acc, current) => 
 
 type TransactionStep = 'connect' | 'approve' | 'swap' | 'processing' | 'success' | 'failed';
 
+const walletOptions = [
+    { name: 'MetaMask', icon: '/wallets/metamask.svg' },
+    { name: 'Coinbase Wallet', icon: '/wallets/coinbase.svg' },
+    { name: 'WalletConnect', icon: '/wallets/walletconnect.svg' }
+]
+
 export default function SwapPage() {
   const { toast } = useToast();
   const [fromAsset, setFromAsset] = useState(portfolioAssets[0].symbol);
@@ -33,7 +42,8 @@ export default function SwapPage() {
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [isLoadingRate, setIsLoadingRate] = useState(false);
   const [step, setStep] = useState<TransactionStep>('connect');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isTxDialogOpen, setIsTxDialogOpen] = useState(false);
+  const [isWalletDialogOpen, setIsWalletDialogOpen] = useState(false);
 
 
   const fromAssetData = useMemo(() => portfolioAssets.find(a => a.symbol === fromAsset), [fromAsset]);
@@ -76,10 +86,15 @@ export default function SwapPage() {
     setToAsset(temp);
   };
   
+  const handleWalletConnect = (walletName: string) => {
+    setIsWalletDialogOpen(false);
+    setStep('approve');
+    toast({ title: "Wallet Connected", description: `You have successfully connected with ${walletName}.` });
+  }
+  
   const handleStep = () => {
     if (step === 'connect') {
-      setStep('approve');
-      toast({ title: "Wallet Connected", description: "You can now proceed with the swap." });
+      setIsWalletDialogOpen(true);
     } else if (step === 'approve') {
        setStep('swap');
        toast({ title: "Approval Successful", description: `You have approved spending ${fromAsset}.` });
@@ -93,7 +108,7 @@ export default function SwapPage() {
             return;
         }
         setStep('processing');
-        setIsDialogOpen(true);
+        setIsTxDialogOpen(true);
 
         // Simulate transaction time
         setTimeout(() => {
@@ -108,7 +123,7 @@ export default function SwapPage() {
   };
 
   const resetFlow = () => {
-    setIsDialogOpen(false);
+    setIsTxDialogOpen(false);
     setFromAmount('');
     setTimeout(() => { // Allow dialog to close before resetting state
       setStep('connect');
@@ -221,7 +236,34 @@ export default function SwapPage() {
           </CardContent>
         </Card>
       </div>
-      <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      
+      {/* Wallet Connection Dialog */}
+       <Dialog open={isWalletDialogOpen} onOpenChange={setIsWalletDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Connect a wallet</DialogTitle>
+              <DialogDescription>
+                Choose your preferred wallet to continue.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 pt-4">
+                {walletOptions.map((wallet) => (
+                    <Button 
+                        key={wallet.name}
+                        variant="outline"
+                        className="w-full justify-start text-base py-6"
+                        onClick={() => handleWalletConnect(wallet.name)}
+                    >
+                        <Image src={wallet.icon} alt={wallet.name} width={24} height={24} className="mr-4" />
+                        {wallet.name}
+                    </Button>
+                ))}
+            </div>
+          </DialogContent>
+      </Dialog>
+      
+      {/* Transaction Status Dialog */}
+      <AlertDialog open={isTxDialogOpen} onOpenChange={setIsTxDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center justify-center text-center">
