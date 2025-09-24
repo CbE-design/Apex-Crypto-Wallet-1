@@ -19,56 +19,50 @@ import { cn } from "@/lib/utils"
 import { ArrowDown, ArrowUp } from "lucide-react"
 
 export function MarketOverview() {
-  const formatMarketCap = (cap: number) => {
-    if (cap >= 1e12) return `$${(cap / 1e12).toFixed(2)}T`
-    if (cap >= 1e9) return `$${(cap / 1e9).toFixed(2)}B`
-    if (cap >= 1e6) return `$${(cap / 1e6).toFixed(2)}M`
-    return `$${cap.toFixed(2)}`
-  }
 
   return (
-    <Card>
+    <Card className="bg-card/50 backdrop-blur-sm">
       <CardHeader>
         <CardTitle>Market Overview</CardTitle>
         <CardDescription>Top cryptocurrencies by market cap.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Asset</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-              <TableHead className="text-right">Change (24h)</TableHead>
-              <TableHead className="text-right hidden sm:table-cell">Market Cap</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {marketCoins.map((coin) => (
-              <TableRow key={coin.symbol}>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <CryptoIcon name={coin.name} className="h-6 w-6" />
-                    <div>
-                      <div className="font-medium">{coin.symbol}</div>
-                      <div className="text-xs text-muted-foreground hidden sm:block">{coin.name}</div>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right font-mono">${coin.priceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right">
-                  <span className={cn(
-                    "flex items-center justify-end gap-1 text-sm",
-                    coin.change24h >= 0 ? "text-green-500" : "text-red-500"
-                  )}>
-                    {coin.change24h >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                    {Math.abs(coin.change24h)}%
-                  </span>
-                </TableCell>
-                <TableCell className="text-right hidden sm:table-cell">{formatMarketCap(coin.marketCap)}</TableCell>
+      <CardContent className="px-0">
+        <div className="max-h-96 overflow-auto">
+          <Table>
+            <TableHeader className="sticky top-0 bg-card/70 backdrop-blur-sm">
+              <TableRow>
+                <TableHead>Asset</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">Change</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {marketCoins.slice(0, 5).map((coin) => (
+                <TableRow key={coin.symbol}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <CryptoIcon name={coin.name} className="h-8 w-8" />
+                      <div>
+                        <div className="font-medium">{coin.symbol}</div>
+                        <div className="text-xs text-muted-foreground">{coin.name}</div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-mono">${coin.priceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right">
+                    <span className={cn(
+                      "flex items-center justify-end gap-1 text-sm font-mono",
+                      coin.change24h >= 0 ? "text-green-400" : "text-red-400"
+                    )}>
+                      {coin.change24h >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                      {Math.abs(coin.change24h)}%
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   )

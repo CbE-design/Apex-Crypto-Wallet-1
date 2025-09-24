@@ -4,7 +4,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 
 export function Header() {
   return (
-    <header className="flex items-center justify-between p-4 border-b bg-card shadow-sm sticky top-0 z-10">
+    <header className="flex items-center justify-between p-4 border-b bg-transparent shadow-sm sticky top-0 z-10">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="md:hidden" />
         <h1 className="text-xl md:text-2xl font-bold text-primary">Apex Crypto Wallet</h1>
