@@ -10,7 +10,6 @@ import {
 } from 'firebase/auth';
 import { firebaseApp } from './config';
 // We no longer call createUserProfile from here
-// import { createUserProfile } from './firestore';
 
 let auth: Auth | null = null;
 if (firebaseApp) {
@@ -21,7 +20,7 @@ if (firebaseApp) {
 export const signUpWithEmail = async (email: string, password: string): Promise<void> => {
   if (!auth) throw new Error("Firebase not initialized");
   // The sign-up function will now ONLY create the auth user.
-  // The profile document will be created by the onAuthStateChanged listener.
+  // The profile document will be created by the onAuthStateChanged listener in AuthProvider.
   await createUserWithEmailAndPassword(auth, email, password);
 };
 
