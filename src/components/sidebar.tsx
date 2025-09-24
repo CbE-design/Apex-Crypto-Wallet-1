@@ -7,7 +7,7 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles, Bot } from "lucide-react";
+import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles, Bot, Repeat } from "lucide-react";
 
 export function AppSidebar() {
   return (
@@ -42,9 +42,11 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#" tooltip="Swaps" disabled>
-              <Coins />
-              Swaps
+            <SidebarMenuButton href="/swap" asChild>
+              <a href="/swap">
+                <Repeat />
+                Swap
+              </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
