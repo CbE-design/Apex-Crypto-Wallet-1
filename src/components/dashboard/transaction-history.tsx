@@ -55,14 +55,14 @@ export function TransactionHistory() {
                 <TableCell>
                   <div className={cn(
                     "font-medium",
-                    tx.type === 'Buy' ? 'text-green-500' : 'text-red-500'
+                    tx.type === 'Buy' ? 'text-green-400' : 'text-red-400'
                   )}>
                     {tx.type}
                   </div>
                 </TableCell>
                 <TableCell>{tx.asset}</TableCell>
-                <TableCell className="text-right">{tx.amount.toFixed(4)}</TableCell>
-                <TableCell className="text-right hidden md:table-cell">${tx.valueUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-mono">{tx.amount.toFixed(4)}</TableCell>
+                <TableCell className="text-right hidden md:table-cell font-mono">${tx.valueUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                 <TableCell className="hidden md:table-cell">{new Date(tx.date).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
                   <Badge variant={getStatusVariant(tx.status) as any}>{tx.status}</Badge>

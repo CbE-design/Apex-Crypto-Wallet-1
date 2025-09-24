@@ -37,7 +37,7 @@ export function MarketOverview() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {marketCoins.slice(0, 5).map((coin) => (
+              {marketCoins.map((coin) => (
                 <TableRow key={coin.symbol}>
                   <TableCell>
                     <div className="flex items-center gap-3">
