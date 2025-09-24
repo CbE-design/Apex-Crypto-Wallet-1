@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -37,7 +38,7 @@ export async function cryptoNewsSummary(
 
 const prompt = ai.definePrompt({
   name: 'cryptoNewsSummaryPrompt',
-  model: googleAI('gemini-1.5-flash-latest'),
+  model: 'googleai/gemini-1.5-flash-latest',
   input: {schema: CryptoNewsSummaryInputSchema},
   output: {schema: CryptoNewsSummaryOutputSchema},
   prompt: `You are a cryptocurrency news summarization expert.
