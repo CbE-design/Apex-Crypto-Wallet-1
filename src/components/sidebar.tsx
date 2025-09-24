@@ -34,19 +34,19 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#" tooltip="Swaps">
+            <SidebarMenuButton href="#" tooltip="Swaps" disabled>
               <Coins />
               Swaps
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#" tooltip="Staking">
+            <SidebarMenuButton href="#" tooltip="Staking" disabled>
               <Sparkles />
               Staking
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#" tooltip="NFTs">
+            <SidebarMenuButton href="#" tooltip="NFTs" disabled>
               <Image />
               NFTs
             </SidebarMenuButton>
