@@ -69,6 +69,12 @@ export default function SwapPage() {
     if (isNaN(amount) || amount <= 0 || exchangeRate === null || exchangeRate === 0) return '0.00';
     return (amount * exchangeRate).toFixed(5);
   }, [fromAmount, exchangeRate]);
+
+  const handleFlipAssets = () => {
+    const temp = fromAsset;
+    setFromAsset(toAsset);
+    setToAsset(temp);
+  };
   
   const handleStep = () => {
     if (step === 'connect') {
