@@ -10,18 +10,12 @@
 
 import { ai } from '@/ai/genkit';
 import { getLivePrices } from '@/services/crypto-service';
-import { z } from 'genkit';
-
-export const GetExchangeRateInputSchema = z.object({
-  fromAsset: z.string().describe('The symbol of the cryptocurrency to convert from.'),
-  toAsset: z.string().describe('The symbol of the cryptocurrency to convert to.'),
-});
-export type GetExchangeRateInput = z.infer<typeof GetExchangeRateInputSchema>;
-
-export const GetExchangeRateOutputSchema = z.object({
-  rate: z.number().describe('The exchange rate from the "from" asset to the "to" asset.'),
-});
-export type GetExchangeRateOutput = z.infer<typeof GetExchangeRateOutputSchema>;
+import {
+  GetExchangeRateInputSchema,
+  type GetExchangeRateInput,
+  GetExchangeRateOutputSchema,
+  type GetExchangeRateOutput,
+} from '@/lib/types';
 
 export async function getExchangeRate(
   input: GetExchangeRateInput
