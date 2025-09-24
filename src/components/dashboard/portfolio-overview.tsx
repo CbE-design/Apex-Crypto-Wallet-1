@@ -1,91 +1,79 @@
 "use client"
 
 import * as React from "react"
-import { Area, AreaChart } from "recharts"
+import { Pie, PieChart, Cell } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart"
 import { portfolioAssets } from "@/lib/data"
 import { CryptoIcon } from "../crypto-icon"
-import { cn } from "@/lib/utils"
-import { ArrowDownRight, ArrowUpRight } from "lucide-react"
-
-const chartData = [
-  { month: "January", value: 86250 },
-  { month: "February", value: 88000 },
-  { month: "March", value: 91500 },
-  { month: "April", value: 90000 },
-  { month: "May", value: 92500 },
-  { month: "June", value: 108500 },
-]
 
 const chartConfig = {
   value: {
     label: "Value",
-    color: "hsl(var(--accent))",
   },
+  ...Object.fromEntries(portfolioAssets.map((asset, index) => [
+    asset.symbol.toLowerCase(),
+    {
+      label: asset.name,
+      color: `hsl(var(--chart-${index + 1}))`,
+    }
+  ]))
 } satisfies ChartConfig
 
 export function PortfolioOverview() {
   const totalBalance = portfolioAssets.reduce((acc, asset) => acc + asset.valueUSD, 0);
+  const chartData = portfolioAssets.map(asset => ({
+    name: asset.symbol,
+    value: asset.valueUSD,
+    fill: `var(--color-${asset.symbol.toLowerCase()})`,
+  }));
 
   return (
     <Card className="bg-card/50 backdrop-blur-sm">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Portfolio Overview</CardTitle>
-            <CardDescription>Your current crypto holdings and their values.</CardDescription>
-          </div>
-          <div className="text-4xl font-bold tracking-tighter">
-            ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
+        <CardTitle>Portfolio Overview</CardTitle>
+        <CardDescription>Your current crypto holdings and their values.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="h-48 w-full -ml-4">
-          <ChartContainer config={chartConfig}>
-            <AreaChart accessibilityLayer data={chartData} margin={{ left: 12, right: 12, top: 12, bottom: 12 }}>
-              <defs>
-                <linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-value)" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="var(--color-value)" stopOpacity={0.1} />
-                </linearGradient>
-              </defs>
-              <Area
-                dataKey="value"
-                type="natural"
-                fill="url(#chart-fill)"
-                fillOpacity={0.4}
-                stroke="var(--color-value)"
-                stackId="a"
-              />
+      <CardContent className="flex flex-col md:flex-row items-center gap-8">
+        <div className="w-full md:w-1/2 h-64">
+          <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+            <PieChart>
               <ChartTooltip
                 cursor={false}
-                content={
-                  <ChartTooltipContent
-                    indicator="dot"
-                    formatter={(value) => `$${Number(value).toLocaleString()}`}
-                  />
-                }
+                content={<ChartTooltipContent hideLabel />}
               />
-            </AreaChart>
+              <Pie
+                data={chartData}
+                dataKey="value"
+                nameKey="name"
+                innerRadius="60%"
+                strokeWidth={5}
+              >
+                 {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+              </Pie>
+            </PieChart>
           </ChartContainer>
+           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+                <p className="text-sm text-muted-foreground">Total Balance</p>
+                <p className="text-2xl font-bold">
+                    ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+            </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+        <div className="w-full md:w-1/2 space-y-4">
             {portfolioAssets.map(asset => (
-              <div key={asset.symbol} className="flex items-center p-3 rounded-lg bg-background/50">
-                <CryptoIcon name={asset.name} className="h-8 w-8 mr-4" />
-                <div className="flex-1">
-                  <p className="font-semibold text-base">{asset.symbol}</p>
-                  <p className="text-sm font-mono">${asset.priceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <div key={asset.symbol} className="flex items-center">
+                <div className="flex items-center gap-2 flex-1">
+                    <div className="w-2 h-2 rounded-full" style={{backgroundColor: `hsl(var(--chart-${Object.keys(chartConfig).indexOf(asset.symbol.toLowerCase())}))`}} />
+                    <CryptoIcon name={asset.name} className="h-6 w-6" />
+                    <span className="font-semibold">{asset.name}</span>
                 </div>
-                <div className={cn(
-                    "flex items-center justify-end text-sm font-mono font-semibold",
-                    asset.change24h >= 0 ? "text-green-400" : "text-red-400"
-                  )}>
-                    {asset.change24h >= 0 ? <ArrowUpRight className="h-4 w-4"/> : <ArrowDownRight className="h-4 w-4"/>}
-                    {Math.abs(asset.change24h)}%
-                  </div>
+                <div className="text-right">
+                    <p className="font-mono font-semibold">${asset.valueUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-sm text-muted-foreground">{((asset.valueUSD / totalBalance) * 100).toFixed(2)}%</p>
+                </div>
               </div>
             ))}
           </div>
