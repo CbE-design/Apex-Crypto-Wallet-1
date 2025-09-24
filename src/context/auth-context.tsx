@@ -30,9 +30,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (isFirebaseConfigured) {
-      const unsubscribe = onAuthStateChange(async (user) => {
+      const unsubscribe = onAuthStateChange((user) => {
         if (user) {
-          await createUserProfile(user); // Create profile if it doesn't exist
           setUser(user);
           setUserProfile({ email: user.email });
         } else {

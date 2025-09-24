@@ -9,7 +9,7 @@ import {
   type Auth
 } from 'firebase/auth';
 import { firebaseApp } from './config';
-// We no longer call createUserProfile from here
+import { createUserProfile } from './firestore';
 
 let auth: Auth | null = null;
 if (firebaseApp) {
@@ -19,7 +19,9 @@ if (firebaseApp) {
 
 export const signUpWithEmail = async (email: string, password: string): Promise<void> => {
   if (!auth) throw new Error("Firebase not initialized");
-  await createUserWithEmailAndPassword(auth, email, password);
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  // This will likely cause a permission error, but it's the state we are reverting to.
+  await createUserProfile(userCredential.user);
 };
 
 export const signInWithEmail = (email: string, password: string): Promise<any> => {
