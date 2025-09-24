@@ -9,6 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import {googleAI} from '@genkit-ai/googleai';
 import {z} from 'genkit';
 
 const CryptoNewsSummaryInputSchema = z.object({
@@ -36,6 +37,7 @@ export async function cryptoNewsSummary(
 
 const prompt = ai.definePrompt({
   name: 'cryptoNewsSummaryPrompt',
+  model: googleAI('gemini-1.5-flash-latest'),
   input: {schema: CryptoNewsSummaryInputSchema},
   output: {schema: CryptoNewsSummaryOutputSchema},
   prompt: `You are a cryptocurrency news summarization expert.
