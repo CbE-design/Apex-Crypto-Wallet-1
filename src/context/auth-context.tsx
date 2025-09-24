@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User } from 'firebase/auth';
 import { onAuthStateChange } from '@/lib/firebase/auth';
+import { createUserProfile } from '@/lib/firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { firebaseApp } from '@/lib/firebase/config';
 
@@ -30,10 +31,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (isFirebaseConfigured) {
       const unsubscribe = onAuthStateChange(async (user) => {
-        setUser(user);
         if (user) {
+          await createUserProfile(user); // Create profile if it doesn't exist
+          setUser(user);
           setUserProfile({ email: user.email });
         } else {
+          setUser(null);
           setUserProfile(null);
         }
         setLoading(false);
