@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User } from 'firebase/auth';
 import { onAuthStateChange } from '@/lib/firebase/auth';
-import { getUserProfile } from '@/lib/firebase/firestore';
+import { getUserProfile, createUserProfile } from '@/lib/firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { firebaseApp } from '@/lib/firebase/config';
 
@@ -36,7 +36,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const unsubscribe = onAuthStateChange(async (user) => {
         setUser(user);
         if (user) {
-          const profile = await getUserProfile(user.uid);
+          // Check if a user profile already exists
+          let profile = await getUserProfile(user.uid);
+          
+          // If no profile exists, this is a new sign-up, so create one.
+          if (!profile) {
+            await createUserProfile(user);
+            profile = await getUserProfile(user.uid);
+          }
+          
           setUserProfile(profile as UserProfile);
         } else {
           setUserProfile(null);
