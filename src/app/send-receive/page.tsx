@@ -7,34 +7,37 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { portfolioAssets } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowRight, QrCode, Copy } from 'lucide-react';
+import { ArrowRight, QrCode, Copy, Loader2 } from 'lucide-react';
+import { CryptoIcon } from '@/components/crypto-icon';
 
 export default function SendReceivePage() {
   const { toast } = useToast();
   const [sendAsset, setSendAsset] = useState(portfolioAssets[0].symbol);
   const [sendAmount, setSendAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
+  const [isSending, setIsSending] = useState(false);
   
   const userAddress = '0x1234...AbCdEfgH5678'; // Example user address
+  const networkFee = 0.001; // Example network fee in ETH
+
+  const selectedAssetData = portfolioAssets.find(a => a.symbol === sendAsset);
 
   const handleSend = () => {
-    if (!sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0) {
-      toast({
-        title: 'Invalid Input',
-        description: 'Please fill out all fields correctly.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    setIsSending(true);
 
-    toast({
-      title: 'Transaction Sent',
-      description: `You have successfully sent ${sendAmount} ${sendAsset} to ${recipientAddress}.`,
-    });
-    setSendAmount('');
-    setRecipientAddress('');
+    // Simulate transaction time
+    setTimeout(() => {
+        setIsSending(false);
+        toast({
+          title: 'Transaction Sent',
+          description: `You have successfully sent ${sendAmount} ${sendAsset} to ${recipientAddress}.`,
+        });
+        setSendAmount('');
+        setRecipientAddress('');
+    }, 2500);
   };
   
   const handleCopyAddress = () => {
@@ -44,6 +47,8 @@ export default function SendReceivePage() {
       description: 'Your wallet address has been copied to the clipboard.',
     });
   };
+  
+  const isSendButtonDisabled = !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || isSending;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -55,14 +60,17 @@ export default function SendReceivePage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="send-asset">Asset</Label>
-            <Select value={sendAsset} onValueChange={setSendAsset}>
+            <Select value={sendAsset} onValueChange={setSendAsset} disabled={isSending}>
               <SelectTrigger id="send-asset">
                 <SelectValue placeholder="Select asset" />
               </SelectTrigger>
               <SelectContent>
                 {portfolioAssets.map(asset => (
                   <SelectItem key={asset.symbol} value={asset.symbol}>
-                    {asset.name} ({asset.symbol})
+                    <div className="flex items-center gap-2">
+                        <CryptoIcon name={asset.name} />
+                        {asset.name} ({asset.symbol})
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -75,6 +83,7 @@ export default function SendReceivePage() {
               placeholder="0x..." 
               value={recipientAddress}
               onChange={(e) => setRecipientAddress(e.target.value)}
+              disabled={isSending}
             />
           </div>
           <div className="space-y-2">
@@ -85,11 +94,63 @@ export default function SendReceivePage() {
               placeholder="0.00" 
               value={sendAmount}
               onChange={(e) => setSendAmount(e.target.value)}
+              disabled={isSending}
             />
+             <p className="text-xs text-muted-foreground mt-1 h-4">
+                  {`Balance: ${selectedAssetData?.amount.toFixed(4) ?? '0.00'}`}
+              </p>
           </div>
-          <Button className="w-full" onClick={handleSend}>
-            Send {sendAsset} <ArrowRight className="ml-2" />
-          </Button>
+          
+           <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button className="w-full" disabled={isSendButtonDisabled}>
+                    {isSending ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Sending...
+                        </>
+                    ) : (
+                        <>
+                           Send {sendAsset} <ArrowRight className="ml-2" />
+                        </>
+                    )}
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Transaction</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Please review the details below before confirming the transaction. This action cannot be undone.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-4 py-4 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Asset</span>
+                        <span className="font-medium flex items-center gap-2">
+                            <CryptoIcon name={selectedAssetData?.name ?? ''} />
+                            {sendAmount} {sendAsset}
+                        </span>
+                    </div>
+                     <div className="flex justify-between">
+                        <span className="text-muted-foreground">Recipient</span>
+                        <span className="font-mono break-all text-right">{recipientAddress}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Network Fee</span>
+                        <span className="font-mono">~{networkFee} ETH</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-base pt-2 border-t">
+                        <span>Total</span>
+                        <span>{sendAmount} {sendAsset}</span>
+                    </div>
+                </div>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleSend}>Confirm & Send</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+           </AlertDialog>
+
         </CardContent>
       </Card>
 
@@ -117,7 +178,7 @@ export default function SendReceivePage() {
                   <path d="M10 70H20V80H10V70Z" fill="currentColor"/>
                   <path d="M30 70H40V80H30V70Z" fill="currentColor"/>
                   <path d="M50 70H60V80H50V70Z" fill="currentColor"/>
-                  <path d="M70 70H80V80H70V70Z" fill="currentColor"/>
+                  <path d="M70 70H80V70V70Z" fill="currentColor"/>
                   <path d="M90 70H100V80H90V70Z" fill="currentColor"/>
                   <path d="M110 70H120V80H110V70Z" fill="currentColor"/>
                   <path d="M130 70H140V80H130V70Z" fill="currentColor"/>
@@ -157,3 +218,5 @@ export default function SendReceivePage() {
     </div>
   );
 }
+
+    
