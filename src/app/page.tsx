@@ -6,7 +6,6 @@ import { BuySellCard } from '@/components/dashboard/buy-sell-card';
 import { TransactionHistory } from '@/components/dashboard/transaction-history';
 import { PriceAlerts } from '@/components/dashboard/price-alerts';
 import { NewsSummary } from '@/components/dashboard/news-summary';
-import { PrivateRoute } from '@/components/private-route';
 
 export default function DashboardPage() {
   return (
