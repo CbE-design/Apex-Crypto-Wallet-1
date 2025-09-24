@@ -25,8 +25,14 @@ export async function NewsSummary() {
       summary = result.summary;
     }
   } catch (error) {
-    console.error("Failed to get news summary:", error instanceof Error ? error.message : String(error));
-    summary = "There was an error generating the news summary. Please check the server logs for more details.";
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Failed to get news summary:", errorMessage);
+    
+    if (errorMessage.includes("503") || errorMessage.toLowerCase().includes("overloaded")) {
+      summary = "The AI news service is currently experiencing high demand. Please try again in a few moments.";
+    } else {
+      summary = "There was an error generating the news summary. Please check the server logs for more details.";
+    }
   }
 
 
