@@ -1,7 +1,9 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
-import { SidebarProvider } from '@/components/ui/sidebar';
+import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/sidebar';
+import { Header } from '@/components/header';
 
 export const metadata: Metadata = {
   title: 'Apex Crypto Wallet',
@@ -22,7 +24,17 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased h-full">
         <SidebarProvider>
-          {children}
+          <div className="flex h-full bg-background">
+            <Sidebar>
+              <AppSidebar />
+            </Sidebar>
+            <SidebarInset>
+              <div className="flex flex-col h-full">
+                <Header />
+                {children}
+              </div>
+            </SidebarInset>
+          </div>
         </SidebarProvider>
         <Toaster />
       </body>

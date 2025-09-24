@@ -17,7 +17,7 @@ export function AppSidebar() {
       <SidebarContent className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#" isActive tooltip="Dashboard">
+            <SidebarMenuButton href="/" isActive tooltip="Dashboard">
               <LayoutDashboard />
               Dashboard
             </SidebarMenuButton>
