@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart"
 import { portfolioAssets } from "@/lib/data"
 import { CryptoIcon } from "../crypto-icon"
+import { cn } from "@/lib/utils"
 
 const chartConfig = {
   value: {
@@ -27,6 +28,9 @@ export function PortfolioOverview() {
     value: asset.valueUSD,
     fill: `var(--color-${asset.symbol.toLowerCase()})`,
   }));
+
+  // Determine the number of digits in the integer part of the balance
+  const balanceDigits = Math.floor(totalBalance).toString().length;
 
   return (
     <Card className="bg-card/50 backdrop-blur-sm">
@@ -58,7 +62,10 @@ export function PortfolioOverview() {
           </ChartContainer>
            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none space-y-1">
                 <p className="text-sm text-muted-foreground">Total Balance</p>
-                <p className="text-2xl font-bold">
+                <p className={cn(
+                  "font-bold",
+                  balanceDigits > 10 ? "text-xl" : "text-2xl"
+                )}>
                     ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
             </div>
