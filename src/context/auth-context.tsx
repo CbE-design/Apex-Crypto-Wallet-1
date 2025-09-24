@@ -4,16 +4,12 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User } from 'firebase/auth';
 import { onAuthStateChange } from '@/lib/firebase/auth';
-import { getUserProfile, createUserProfile } from '@/lib/firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { firebaseApp } from '@/lib/firebase/config';
 
 // Define a type for the user profile, including the optional isAdmin flag
 interface UserProfile {
-  email: string;
-  createdAt: Date;
-  walletAddress: string;
-  isAdmin?: boolean;
+  email: string | null;
 }
 
 interface AuthContextType {
@@ -36,16 +32,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const unsubscribe = onAuthStateChange(async (user) => {
         setUser(user);
         if (user) {
-          // Check if a user profile already exists
-          let profile = await getUserProfile(user.uid);
-          
-          // If no profile exists, this is a new sign-up, so create one.
-          if (!profile) {
-            await createUserProfile(user);
-            profile = await getUserProfile(user.uid);
-          }
-          
-          setUserProfile(profile as UserProfile);
+          setUserProfile({ email: user.email });
         } else {
           setUserProfile(null);
         }

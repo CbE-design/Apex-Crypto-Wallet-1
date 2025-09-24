@@ -12,17 +12,15 @@ import { portfolioAssets } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowRight, QrCode, Copy, Loader2 } from 'lucide-react';
 import { CryptoIcon } from '@/components/crypto-icon';
-import { useAuth } from '@/context/auth-context';
 
 export default function SendReceivePage() {
   const { toast } = useToast();
-  const { userProfile } = useAuth();
   const [sendAsset, setSendAsset] = useState(portfolioAssets[0].symbol);
   const [sendAmount, setSendAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [isSending, setIsSending] = useState(false);
   
-  const userAddress = userProfile?.walletAddress || 'Loading your address...';
+  const userAddress = '0x... (address not available)';
   const networkFee = 0.001; // Example network fee in ETH
 
   const selectedAssetData = portfolioAssets.find(a => a.symbol === sendAsset);
@@ -43,13 +41,11 @@ export default function SendReceivePage() {
   };
   
   const handleCopyAddress = () => {
-    if (userProfile?.walletAddress) {
-      navigator.clipboard.writeText(userProfile.walletAddress);
-      toast({
-        title: 'Address Copied',
-        description: 'Your wallet address has been copied to the clipboard.',
-      });
-    }
+    navigator.clipboard.writeText(userAddress);
+    toast({
+      title: 'Address Copied',
+      description: 'Your wallet address has been copied to the clipboard.',
+    });
   };
   
   const isSendButtonDisabled = !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || isSending;
@@ -212,7 +208,7 @@ export default function SendReceivePage() {
             <p className="text-sm text-center text-muted-foreground">Your primary wallet address:</p>
             <div className="flex items-center gap-2 p-2 rounded-md bg-muted w-full justify-center">
                 <code className="text-sm break-all text-center">{userAddress}</code>
-                <Button variant="ghost" size="icon" onClick={handleCopyAddress} disabled={!userProfile?.walletAddress}>
+                <Button variant="ghost" size="icon" onClick={handleCopyAddress}>
                     <Copy className="h-4 w-4" />
                     <span className="sr-only">Copy address</span>
                 </Button>

@@ -64,16 +64,6 @@ export function AppSidebar() {
               NFTs
             </SidebarMenuButton>
           </SidebarMenuItem>
-          {userProfile?.isAdmin && (
-             <SidebarMenuItem>
-                <SidebarMenuButton href="/admin" asChild>
-                    <a href="/admin">
-                        <ShieldCheck />
-                        Admin
-                    </a>
-                </SidebarMenuButton>
-             </SidebarMenuItem>
-          )}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>

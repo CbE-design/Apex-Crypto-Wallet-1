@@ -19,8 +19,6 @@ if (firebaseApp) {
 
 export const signUpWithEmail = async (email: string, password: string): Promise<void> => {
   if (!auth) throw new Error("Firebase not initialized");
-  // The sign-up function will now ONLY create the auth user.
-  // The profile document will be created by the onAuthStateChanged listener in AuthProvider.
   await createUserWithEmailAndPassword(auth, email, password);
 };
 
