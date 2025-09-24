@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Newspaper } from "lucide-react";
+import { Newspaper, Shell } from "lucide-react";
 
 interface NewsSummaryCardProps {
   summary: string;
@@ -37,4 +37,24 @@ export function NewsSummaryCard({ summary, hasApiKey }: NewsSummaryCardProps) {
       </CardContent>
     </Card>
   );
+}
+
+export function NewsSummarySkeleton() {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Newspaper />
+                    AI News Summary
+                </CardTitle>
+                <CardDescription>
+                    The latest neutral news summary related to your portfolio.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+                <Shell className="h-5 w-5 animate-spin" />
+                <p className="text-sm text-muted-foreground">Generating summary...</p>
+            </CardContent>
+        </Card>
+    )
 }

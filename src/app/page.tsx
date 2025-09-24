@@ -1,11 +1,13 @@
 
 'use client';
+import { Suspense } from 'react';
 import { PortfolioOverview } from '@/components/dashboard/portfolio-overview';
 import { MarketOverview } from '@/components/dashboard/market-overview';
 import { BuySellCard } from '@/components/dashboard/buy-sell-card';
 import { TransactionHistory } from '@/components/dashboard/transaction-history';
 import { PriceAlerts } from '@/components/dashboard/price-alerts';
 import { NewsSummary } from '@/components/dashboard/news-summary';
+import { NewsSummarySkeleton } from '@/components/dashboard/news-summary-card';
 
 export default function DashboardPage() {
   return (
@@ -17,7 +19,9 @@ export default function DashboardPage() {
       <div className="col-span-12 xl:col-span-4 space-y-6">
         <BuySellCard />
         <MarketOverview />
-        <NewsSummary />
+        <Suspense fallback={<NewsSummarySkeleton />}>
+          <NewsSummary />
+        </Suspense>
         <PriceAlerts />
       </div>
     </div>
