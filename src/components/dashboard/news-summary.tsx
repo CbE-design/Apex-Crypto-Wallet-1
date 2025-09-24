@@ -17,10 +17,15 @@ export async function NewsSummary() {
 
   let summary = "Could not generate news summary at this time.";
   try {
-    const result = await cryptoNewsSummary(summaryInput);
-    summary = result.summary;
+    // We only call this if the API key is available.
+    if (process.env.GEMINI_API_KEY) {
+      const result = await cryptoNewsSummary(summaryInput);
+      summary = result.summary;
+    } else {
+      summary = "AI News Summary is disabled. Please add your GEMINI_API_KEY to the .env file.";
+    }
   } catch (error) {
-    console.error("Failed to get news summary:", error);
+    console.error("Failed to get news summary:", error instanceof Error ? error.message : String(error));
   }
 
 
