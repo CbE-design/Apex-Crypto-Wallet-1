@@ -16,6 +16,7 @@ import { CryptoIcon } from '@/components/crypto-icon';
 import { getExchangeRate } from '@/ai/flows/get-exchange-rate-flow';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { PrivateRoute } from '@/components/private-route';
 
 
 const allAssets = [...portfolioAssets, ...marketCoins].reduce((acc, current) => {
@@ -287,3 +288,4 @@ export default function SwapPage() {
     </>
   );
 }
+

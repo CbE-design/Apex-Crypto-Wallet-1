@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -10,6 +11,7 @@ import { cryptoAssistant } from '@/ai/flows/crypto-assistant-flow';
 import { Bot, Send, Loader2, User } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PrivateRoute } from '@/components/private-route';
 
 export default function AIAssistantPage() {
   const { toast } = useToast();
@@ -115,3 +117,4 @@ export default function AIAssistantPage() {
     </div>
   );
 }
+
