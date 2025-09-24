@@ -35,8 +35,8 @@ export function PortfolioOverview() {
         <CardDescription>Your current crypto holdings and their values.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col md:flex-row items-center gap-8">
-        <div className="w-full md:w-1/2 h-64">
-          <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+        <div className="relative w-full md:w-1/2 h-64">
+          <ChartContainer config={chartConfig} className="min-h-[200px] w-full h-full">
             <PieChart>
               <ChartTooltip
                 cursor={false}
@@ -48,6 +48,7 @@ export function PortfolioOverview() {
                 nameKey="name"
                 innerRadius="60%"
                 strokeWidth={5}
+                paddingAngle={5}
               >
                  {chartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -55,9 +56,9 @@ export function PortfolioOverview() {
               </Pie>
             </PieChart>
           </ChartContainer>
-           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none space-y-1">
                 <p className="text-sm text-muted-foreground">Total Balance</p>
-                <p className="text-2xl font-bold">
+                <p className="text-3xl font-bold">
                     ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
             </div>
