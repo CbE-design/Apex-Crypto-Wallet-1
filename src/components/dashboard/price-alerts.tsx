@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -31,23 +32,34 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { priceAlerts as initialPriceAlerts, portfolioAssets } from "@/lib/data"
+import { portfolioAssets } from "@/lib/data"
 import { CryptoIcon } from "../crypto-icon"
 import { BellPlus, Trash2 } from "lucide-react"
 import type { PriceAlert } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
+import { useUser, useFirestore, useCollection, addDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase } from "@/firebase"
+import { collection, query, doc } from "firebase/firestore"
 
 export function PriceAlerts() {
   const { toast } = useToast();
-  const [alerts, setAlerts] = useState<PriceAlert[]>(initialPriceAlerts);
   const [open, setOpen] = useState(false);
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const alertsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, 'users', user.uid, 'price_alerts'));
+  }, [user, firestore]);
+
+  const { data: alerts, isLoading } = useCollection<PriceAlert>(alertsQuery);
+
 
   const [newAlertAsset, setNewAlertAsset] = useState<string>("");
   const [newAlertPrice, setNewAlertPrice] = useState<string>("");
   const [newAlertType, setNewAlertType] = useState<"Above" | "Below">("Above");
 
   const handleCreateAlert = () => {
-    if (!newAlertAsset || !newAlertPrice || parseFloat(newAlertPrice) <= 0) {
+    if (!newAlertAsset || !newAlertPrice || parseFloat(newAlertPrice) <= 0 || !user || !firestore) {
       toast({
         title: "Invalid Input",
         description: "Please select an asset and enter a valid target price.",
@@ -59,18 +71,22 @@ export function PriceAlerts() {
     const assetDetails = portfolioAssets.find(a => a.symbol === newAlertAsset);
     if (!assetDetails) return;
 
-    const newAlert: PriceAlert = {
-      id: (alerts.length + 1).toString(),
+    const newAlert = {
+      userId: user.uid,
+      currency: newAlertAsset,
+      thresholdPrice: parseFloat(newAlertPrice),
+      alertType: newAlertType,
+      triggered: false,
+      // non-schema fields for display, Firestore will ignore
       asset: newAlertAsset,
       targetPrice: parseFloat(newAlertPrice),
       type: newAlertType,
       status: 'Active',
       icon: assetDetails.name,
     };
-
-    setAlerts(prevAlerts => [...prevAlerts, newAlert]);
     
-    // Reset form and close dialog
+    addDocumentNonBlocking(collection(firestore, 'users', user.uid, 'price_alerts'), newAlert);
+    
     setNewAlertAsset("");
     setNewAlertPrice("");
     setNewAlertType("Above");
@@ -83,7 +99,8 @@ export function PriceAlerts() {
   };
 
   const handleDeleteAlert = (id: string) => {
-    setAlerts(prevAlerts => prevAlerts.filter(alert => alert.id !== id));
+    if (!user || !firestore) return;
+    deleteDocumentNonBlocking(doc(firestore, 'users', user.uid, 'price_alerts', id));
     toast({
       title: "Alert Removed",
       description: "The price alert has been successfully deleted.",
@@ -100,7 +117,7 @@ export function PriceAlerts() {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm">
+            <Button size="sm" disabled={!user}>
               <BellPlus className="mr-2 h-4 w-4" />
               New Alert
             </Button>
@@ -166,19 +183,25 @@ export function PriceAlerts() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {alerts.length > 0 ? alerts.map((alert) => (
+              {isLoading ? (
+                 <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                        Loading alerts...
+                    </TableCell>
+                </TableRow>
+              ) : alerts && alerts.length > 0 ? alerts.map((alert) => (
                 <TableRow key={alert.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <CryptoIcon name={alert.icon} className="h-6 w-6" />
-                      <span className="font-medium">{alert.asset}</span>
+                      <CryptoIcon name={portfolioAssets.find(a => a.symbol === alert.currency)?.name ?? ''} className="h-6 w-6" />
+                      <span className="font-medium">{alert.currency}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    {alert.type} ${alert.targetPrice.toLocaleString()}
+                    {alert.alertType} ${alert.thresholdPrice.toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Badge variant={alert.status === "Active" ? "default" : "secondary"}>{alert.status}</Badge>
+                    <Badge variant={!alert.triggered ? "default" : "secondary"}>{!alert.triggered ? "Active" : "Triggered"}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => handleDeleteAlert(alert.id)}>
