@@ -22,11 +22,23 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const WALLET_STORAGE_KEY = 'apex-wallet';
+const ADMIN_WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS;
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  const setWalletAndAdmin = useCallback((walletData: Wallet | null) => {
+    setWallet(walletData);
+    if (walletData) {
+      localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(walletData));
+      setIsAdmin(walletData.address === ADMIN_WALLET_ADDRESS);
+    } else {
+      localStorage.removeItem(WALLET_STORAGE_KEY);
+      setIsAdmin(false);
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -34,10 +46,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       if (storedWallet) {
         const walletData = JSON.parse(storedWallet);
         if (walletData.address && walletData.privateKey) {
-            setWallet(walletData);
-            if (walletData.address === process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS) {
-              setIsAdmin(true);
-            }
+            setWalletAndAdmin(walletData);
         }
       }
     } catch (error) {
@@ -45,19 +54,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem(WALLET_STORAGE_KEY);
     }
     setLoading(false);
-  }, []);
-
-  const setWalletAndAdmin = (walletData: Wallet | null) => {
-    if (walletData) {
-      localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(walletData));
-      setWallet(walletData);
-      setIsAdmin(walletData.address === process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS);
-    } else {
-      localStorage.removeItem(WALLET_STORAGE_KEY);
-      setWallet(null);
-      setIsAdmin(false);
-    }
-  }
+  }, [setWalletAndAdmin]);
 
 
   const createWallet = useCallback(async () => {
@@ -70,7 +67,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setWalletAndAdmin(walletData);
     setLoading(false);
     return newWallet.mnemonic?.phrase ?? '';
-  }, []);
+  }, [setWalletAndAdmin]);
 
   const importWallet = useCallback(async (mnemonic: string) => {
     setLoading(true);
@@ -91,13 +88,13 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
       return false;
     }
-  }, []);
+  }, [setWalletAndAdmin]);
 
   const disconnectWallet = useCallback(() => {
     setWalletAndAdmin(null);
-  }, []);
+  }, [setWalletAndAdmin]);
 
-  if (loading) {
+  if (loading && !wallet) {
     return (
         <div className="flex items-center justify-center h-screen">
             <Loader2 className="h-16 w-16 animate-spin text-primary" />
