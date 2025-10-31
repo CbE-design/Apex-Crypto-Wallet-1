@@ -11,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { portfolioAssets as staticAssets } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowRight, Loader2 } from "lucide-react"
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
-import { collection, query } from 'firebase/firestore'
+import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase'
+import { collection, query, doc } from 'firebase/firestore'
 
 export function BuySellCard() {
   const { toast } = useToast();
@@ -54,10 +54,11 @@ export function BuySellCard() {
 
   const handleTransaction = () => {
     const isBuying = activeTab === "buy";
-    const amount = isBuying ? buyAmount : sellAmount;
+    const amountStr = isBuying ? buyAmount : sellAmount;
+    const amount = parseFloat(amountStr);
     const value = isBuying ? estimatedBuyValue : estimatedSellValue;
 
-    if (!amount || parseFloat(amount) <= 0) {
+    if (!amountStr || amount <= 0) {
       toast({
         title: "Invalid Amount",
         description: "Please enter a valid amount to transact.",
@@ -68,8 +69,18 @@ export function BuySellCard() {
     
     if (isBuying) {
         // TODO: Implement actual buy logic (e.g., call updateDocumentNonBlocking)
+        toast({
+          title: "Transaction Submitted",
+          description: `Your buy order for ${amount} ${selectedAsset} (approx. $${value}) has been submitted.`,
+        });
+        setBuyAmount("");
     } else {
-        if (asset && parseFloat(sellAmount) > asset.amount) {
+        if (!user || !firestore || !asset) {
+            toast({ title: "Error", description: "Could not process transaction.", variant: "destructive" });
+            return;
+        }
+
+        if (amount > asset.amount) {
             toast({
                 title: "Insufficient Funds",
                 description: `You do not have enough ${asset.name} to sell.`,
@@ -77,17 +88,18 @@ export function BuySellCard() {
             });
             return;
         }
-        // TODO: Implement actual sell logic
+        
+        const walletRef = doc(firestore, 'users', user.uid, 'wallets', selectedAsset);
+        const newBalance = asset.amount - amount;
+
+        updateDocumentNonBlocking(walletRef, { balance: newBalance });
+
+        toast({
+          title: "Transaction Submitted",
+          description: `Your sell order for ${amount} ${selectedAsset} (approx. $${value}) has been submitted.`,
+        });
+        setSellAmount("");
     }
-
-
-    toast({
-      title: "Transaction Submitted",
-      description: `Your ${activeTab} order for ${amount} ${selectedAsset} (approx. $${value}) has been submitted.`,
-    });
-
-    if (isBuying) setBuyAmount("");
-    else setSellAmount("");
   };
 
   return (
