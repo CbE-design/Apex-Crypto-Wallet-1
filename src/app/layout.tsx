@@ -27,9 +27,9 @@ export default function RootLayout({
       <body className={cn("font-body antialiased h-full", "dark")}>
         <FirebaseClientProvider>
           <WalletProvider>
-              <AppContent>
-                {children}
-              </AppContent>
+            <AppContent>
+              {children}
+            </AppContent>
           </WalletProvider>
         </FirebaseClientProvider>
         <Toaster />
