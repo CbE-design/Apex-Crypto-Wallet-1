@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  env: {
+  publicRuntimeConfig: {
     NEXT_PUBLIC_ADMIN_WALLET_ADDRESS: process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS,
   }
 };
