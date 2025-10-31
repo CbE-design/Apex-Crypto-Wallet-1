@@ -7,8 +7,9 @@ import { Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, User } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, serverTimestamp } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { portfolioAssets } from '@/lib/data';
 
 interface Wallet {
   address: string;
@@ -53,23 +54,34 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const setupWalletForUser = useCallback((firebaseUser: User, walletInstance: ethers.Wallet) => {
+  const setupUserAndWalletDocuments = useCallback((firebaseUser: User, walletInstance: ethers.Wallet) => {
       const walletData = {
         address: walletInstance.address,
         privateKey: walletInstance.privateKey,
       };
       setWalletAndAdmin(walletData, firebaseUser);
 
-      // Create user profile in Firestore if it doesn't exist
       if (firestore) {
         const userRef = doc(firestore, 'users', firebaseUser.uid);
         const newUserDocument = {
           id: firebaseUser.uid,
-          email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.crypto`, // Placeholder
+          email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.crypto`,
           createdAt: serverTimestamp(),
           walletAddress: walletInstance.address,
         };
         setDocumentNonBlocking(userRef, newUserDocument, { merge: true });
+
+        // Create initial empty wallets in a subcollection
+        portfolioAssets.forEach(asset => {
+            const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', asset.symbol);
+            const newWalletDocument = {
+                id: asset.symbol,
+                userId: firebaseUser.uid,
+                currency: asset.symbol,
+                balance: 0,
+            };
+            setDocumentNonBlocking(walletRef, newWalletDocument, { merge: true });
+        });
       }
   }, [firestore, setWalletAndAdmin]);
 
@@ -90,13 +102,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           }
         } catch (e) {
           console.error("Failed to parse stored wallet.", e);
-          // If stored wallet is corrupt, sign out to force a fresh start
           if(auth) signOut(auth);
         }
       }
-      // If no stored wallet, user is in a weird state.
-      // Let them stay logged in to Firebase, but they will need to import/create.
-    } else if (!user) { // No Firebase user
+    } else if (!user) {
         setWalletAndAdmin(null, null);
     }
     setIsInitializing(false);
@@ -114,14 +123,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       initiateAnonymousSignIn(auth)
         .then(userCredential => {
             if (userCredential?.user) {
-                setupWalletForUser(userCredential.user, newWallet);
+                setupUserAndWalletDocuments(userCredential.user, newWallet);
             }
         });
 
       return mnemonic;
     }
     throw new Error("Auth service not available");
-  }, [auth, setupWalletForUser]);
+  }, [auth, setupUserAndWalletDocuments]);
 
   const importWallet = useCallback((mnemonic: string) => {
      if (auth) {
@@ -130,7 +139,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
             initiateAnonymousSignIn(auth)
                 .then(userCredential => {
                     if (userCredential?.user) {
-                        setupWalletForUser(userCredential.user, newWallet);
+                        setupUserAndWalletDocuments(userCredential.user, newWallet);
                     }
                 });
         } catch (e) {
@@ -140,7 +149,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     } else {
          throw new Error("Auth service not available");
     }
-  }, [auth, setupWalletForUser]);
+  }, [auth, setupUserAndWalletDocuments]);
 
   const disconnectWallet = useCallback(() => {
     if (auth) {
