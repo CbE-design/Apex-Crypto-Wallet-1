@@ -1,9 +1,12 @@
 
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { Loader2 } from 'lucide-react';
+import { useUser, useAuth } from '@/firebase';
+import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
+import { signOut, User } from 'firebase/auth';
 
 interface Wallet {
   address: string;
@@ -12,94 +15,91 @@ interface Wallet {
 
 interface WalletContextType {
   wallet: Wallet | null;
+  user: User | null;
   loading: boolean;
   isAdmin: boolean;
-  createWallet: () => Promise<string>;
-  importWallet: (mnemonic: string) => Promise<boolean>;
+  connectWallet: () => void;
   disconnectWallet: () => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-const WALLET_STORAGE_KEY = 'apex-wallet';
+const WALLET_STORAGE_KEY_PREFIX = 'apex-wallet-';
 const ADMIN_WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0x0000000000000000000000000000000000000000';
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
+  const { user, isUserLoading, userError } = useUser();
+  const auth = useAuth();
   const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  const loading = isUserLoading || (user != null && wallet == null);
 
   const setWalletAndAdmin = useCallback((walletData: Wallet | null) => {
     setWallet(walletData);
     if (walletData) {
-      localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(walletData));
-      // Securely compare addresses in a case-insensitive manner
-      if (ADMIN_WALLET_ADDRESS && typeof walletData.address === 'string') {
-        setIsAdmin(walletData.address.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase());
-      } else {
-        setIsAdmin(false);
-      }
+        if (user?.uid) {
+            localStorage.setItem(`${WALLET_STORAGE_KEY_PREFIX}${user.uid}`, JSON.stringify(walletData));
+        }
+      
+        if (ADMIN_WALLET_ADDRESS && typeof walletData.address === 'string') {
+            setIsAdmin(walletData.address.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase());
+        } else {
+            setIsAdmin(false);
+        }
+
     } else {
-      localStorage.removeItem(WALLET_STORAGE_KEY);
+      if(user?.uid) {
+        localStorage.removeItem(`${WALLET_STORAGE_KEY_PREFIX}${user.uid}`);
+      }
       setIsAdmin(false);
     }
-  }, []);
+  }, [user]);
 
-  useEffect(() => {
-    try {
-      const storedWallet = localStorage.getItem(WALLET_STORAGE_KEY);
+  React.useEffect(() => {
+    if (user && !wallet) {
+      const storedWallet = localStorage.getItem(`${WALLET_STORAGE_KEY_PREFIX}${user.uid}`);
       if (storedWallet) {
-        const walletData = JSON.parse(storedWallet);
-        if (walletData.address && walletData.privateKey) {
+        try {
+          const walletData = JSON.parse(storedWallet);
+          if (walletData.address && walletData.privateKey) {
+            setWalletAndAdmin(walletData);
+          }
+        } catch (e) {
+            console.error("Failed to parse wallet, creating new one.", e);
+            const newWallet = ethers.Wallet.createRandom();
+            const walletData = {
+                address: newWallet.address,
+                privateKey: newWallet.privateKey,
+            };
             setWalletAndAdmin(walletData);
         }
+      } else {
+        const newWallet = ethers.Wallet.createRandom();
+        const walletData = {
+            address: newWallet.address,
+            privateKey: newWallet.privateKey,
+        };
+        setWalletAndAdmin(walletData);
       }
-    } catch (error) {
-        console.error("Failed to parse wallet from localStorage", error);
-        localStorage.removeItem(WALLET_STORAGE_KEY);
+    } else if (!user) {
+      setWallet(null);
+      setIsAdmin(false);
     }
-    setLoading(false);
-  }, [setWalletAndAdmin]);
+  }, [user, wallet, setWalletAndAdmin]);
 
 
-  const createWallet = useCallback(async () => {
-    setLoading(true);
-    const newWallet = ethers.Wallet.createRandom();
-    const walletData = {
-      address: newWallet.address,
-      privateKey: newWallet.privateKey,
-    };
-    setWalletAndAdmin(walletData);
-    setLoading(false);
-    return newWallet.mnemonic?.phrase ?? '';
-  }, [setWalletAndAdmin]);
+  const connectWallet = useCallback(() => {
+    initiateAnonymousSignIn(auth);
+  }, [auth]);
 
-  const importWallet = useCallback(async (mnemonic: string) => {
-    setLoading(true);
-    try {
-      if (!ethers.Mnemonic.isValidMnemonic(mnemonic)) {
-        throw new Error('Invalid mnemonic phrase');
-      }
-      const importedWallet = ethers.Wallet.fromPhrase(mnemonic);
-      const walletData = {
-        address: importedWallet.address,
-        privateKey: importedWallet.privateKey,
-      };
-      setWalletAndAdmin(walletData);
-      setLoading(false);
-      return true;
-    } catch (error) {
-      console.error("Failed to import wallet:", error);
-      setLoading(false);
-      return false;
-    }
-  }, [setWalletAndAdmin]);
 
   const disconnectWallet = useCallback(() => {
+    signOut(auth);
     setWalletAndAdmin(null);
-  }, [setWalletAndAdmin]);
+  }, [auth, setWalletAndAdmin]);
 
-  if (loading && !wallet) {
+  if (loading && !user) {
     return (
         <div className="flex items-center justify-center h-screen">
             <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -108,7 +108,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <WalletContext.Provider value={{ wallet, loading, isAdmin, createWallet, importWallet, disconnectWallet }}>
+    <WalletContext.Provider value={{ wallet, user, loading, isAdmin, connectWallet, disconnectWallet }}>
       {children}
     </WalletContext.Provider>
   );

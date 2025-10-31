@@ -8,6 +8,7 @@ import { Header } from '@/components/header';
 import { cn } from '@/lib/utils';
 import { useWallet } from '@/context/wallet-context';
 import { PrivateRoute } from '@/components/private-route';
+import { useUser } from '@/firebase';
 
 export default function AppContent({
   children,
@@ -15,7 +16,7 @@ export default function AppContent({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { wallet } = useWallet();
+  const { user } = useUser();
 
   const isPublicPage = pathname === '/login';
   const isAdminPage = pathname.startsWith('/admin');

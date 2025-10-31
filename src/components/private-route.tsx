@@ -6,16 +6,16 @@ import { useRouter } from 'next/navigation';
 import { useEffect, ReactNode } from 'react';
 
 export const PrivateRoute = ({ children }: { children: ReactNode }) => {
-  const { wallet, loading } = useWallet();
+  const { user, loading } = useWallet();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !wallet) {
+    if (!loading && !user) {
       router.push('/login');
     }
-  }, [wallet, loading, router]);
+  }, [user, loading, router]);
 
-  if (loading || !wallet) {
+  if (loading || !user) {
     // You can return a loading spinner here
     return null;
   }

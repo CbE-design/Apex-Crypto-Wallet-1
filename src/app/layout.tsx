@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { WalletProvider } from '@/context/wallet-context';
 import AppContent from './app-content';
 import { cn } from '@/lib/utils';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
   title: 'Apex Crypto Wallet',
@@ -24,11 +25,13 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
       <body className={cn("font-body antialiased h-full", "dark")}>
-        <WalletProvider>
-            <AppContent>
-              {children}
-            </AppContent>
-        </WalletProvider>
+        <FirebaseClientProvider>
+          <WalletProvider>
+              <AppContent>
+                {children}
+              </AppContent>
+          </WalletProvider>
+        </FirebaseClientProvider>
         <Toaster />
       </body>
     </html>

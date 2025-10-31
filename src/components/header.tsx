@@ -35,7 +35,7 @@ export function Header() {
         </Button>
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
+                <Button variant="ghost" size="icon" className="rounded-full" disabled={!wallet}>
                     <UserCircle className="h-6 w-6" />
                     <span className="sr-only">Profile</span>
                 </Button>
