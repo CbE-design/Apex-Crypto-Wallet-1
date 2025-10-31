@@ -23,13 +23,15 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'https',
-        hostname: 'picsum.photos',
+        protocol: 'https',"hostname": "picsum.photos",
         port: '',
         pathname: '/**',
       },
     ],
   },
+  env: {
+    NEXT_PUBLIC_ADMIN_WALLET_ADDRESS: process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS,
+  }
 };
 
 export default nextConfig;

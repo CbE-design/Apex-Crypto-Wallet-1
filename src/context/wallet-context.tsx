@@ -33,7 +33,13 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setWallet(walletData);
     if (walletData) {
       localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(walletData));
-      setIsAdmin(walletData.address === ADMIN_WALLET_ADDRESS);
+      // Securely compare addresses in a case-insensitive manner
+      const adminAddress = ADMIN_WALLET_ADDRESS;
+      if (adminAddress && typeof adminAddress === 'string' && typeof walletData.address === 'string') {
+        setIsAdmin(walletData.address.toLowerCase() === adminAddress.toLowerCase());
+      } else {
+        setIsAdmin(false);
+      }
     } else {
       localStorage.removeItem(WALLET_STORAGE_KEY);
       setIsAdmin(false);
