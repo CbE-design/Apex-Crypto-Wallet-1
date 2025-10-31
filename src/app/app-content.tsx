@@ -18,9 +18,14 @@ export default function AppContent({
   const { wallet } = useWallet();
 
   const isPublicPage = pathname === '/login';
+  const isAdminPage = pathname.startsWith('/admin');
 
   if (isPublicPage) {
     return <>{children}</>;
+  }
+  
+  if (isAdminPage) {
+      return <>{children}</>;
   }
 
   return (

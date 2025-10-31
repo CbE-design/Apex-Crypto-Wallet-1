@@ -13,6 +13,7 @@ interface Wallet {
 interface WalletContextType {
   wallet: Wallet | null;
   loading: boolean;
+  isAdmin: boolean;
   createWallet: () => Promise<string>;
   importWallet: (mnemonic: string) => Promise<boolean>;
   disconnectWallet: () => void;
@@ -25,15 +26,18 @@ const WALLET_STORAGE_KEY = 'apex-wallet';
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     try {
       const storedWallet = localStorage.getItem(WALLET_STORAGE_KEY);
       if (storedWallet) {
         const walletData = JSON.parse(storedWallet);
-        // Quick validation
         if (walletData.address && walletData.privateKey) {
             setWallet(walletData);
+            if (walletData.address === process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS) {
+              setIsAdmin(true);
+            }
         }
       }
     } catch (error) {
@@ -43,6 +47,19 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, []);
 
+  const setWalletAndAdmin = (walletData: Wallet | null) => {
+    if (walletData) {
+      localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(walletData));
+      setWallet(walletData);
+      setIsAdmin(walletData.address === process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS);
+    } else {
+      localStorage.removeItem(WALLET_STORAGE_KEY);
+      setWallet(null);
+      setIsAdmin(false);
+    }
+  }
+
+
   const createWallet = useCallback(async () => {
     setLoading(true);
     const newWallet = ethers.Wallet.createRandom();
@@ -50,8 +67,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       address: newWallet.address,
       privateKey: newWallet.privateKey,
     };
-    localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(walletData));
-    setWallet(walletData);
+    setWalletAndAdmin(walletData);
     setLoading(false);
     return newWallet.mnemonic?.phrase ?? '';
   }, []);
@@ -67,8 +83,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         address: importedWallet.address,
         privateKey: importedWallet.privateKey,
       };
-      localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(walletData));
-      setWallet(walletData);
+      setWalletAndAdmin(walletData);
       setLoading(false);
       return true;
     } catch (error) {
@@ -79,8 +94,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const disconnectWallet = useCallback(() => {
-    setWallet(null);
-    localStorage.removeItem(WALLET_STORAGE_KEY);
+    setWalletAndAdmin(null);
   }, []);
 
   if (loading) {
@@ -92,7 +106,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <WalletContext.Provider value={{ wallet, loading, createWallet, importWallet, disconnectWallet }}>
+    <WalletContext.Provider value={{ wallet, loading, isAdmin, createWallet, importWallet, disconnectWallet }}>
       {children}
     </WalletContext.Provider>
   );
