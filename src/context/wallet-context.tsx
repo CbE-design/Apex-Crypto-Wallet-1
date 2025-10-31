@@ -22,7 +22,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const WALLET_STORAGE_KEY = 'apex-wallet';
-const ADMIN_WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS;
+const ADMIN_WALLET_ADDRESS = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0x0000000000000000000000000000000000000000';
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -34,9 +34,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (walletData) {
       localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(walletData));
       // Securely compare addresses in a case-insensitive manner
-      const adminAddress = ADMIN_WALLET_ADDRESS;
-      if (adminAddress && typeof adminAddress === 'string' && typeof walletData.address === 'string') {
-        setIsAdmin(walletData.address.toLowerCase() === adminAddress.toLowerCase());
+      if (ADMIN_WALLET_ADDRESS && typeof walletData.address === 'string') {
+        setIsAdmin(walletData.address.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase());
       } else {
         setIsAdmin(false);
       }
