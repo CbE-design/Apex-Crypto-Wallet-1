@@ -1,0 +1,233 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Apex Crypto Wallet application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address.",
+          "format": "email"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user account was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "createdAt"
+      ]
+    },
+    "Wallet": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Wallet",
+      "type": "object",
+      "description": "Represents a user's cryptocurrency wallet.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the wallet."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Wallet)"
+        },
+        "currency": {
+          "type": "string",
+          "description": "The cryptocurrency held in this wallet (e.g., BTC, ETH). This field contains the symbol of the currency."
+        },
+        "balance": {
+          "type": "number",
+          "description": "The current balance of the cryptocurrency in the wallet."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "currency",
+        "balance"
+      ]
+    },
+    "Transaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Transaction",
+      "type": "object",
+      "description": "Represents a cryptocurrency transaction.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the transaction."
+        },
+        "walletId": {
+          "type": "string",
+          "description": "Reference to Wallet. (Relationship: Wallet 1:N Transaction)"
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of transaction (e.g., buy, sell, deposit, withdraw)."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of cryptocurrency involved in the transaction."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp indicating when the transaction occurred.",
+          "format": "date-time"
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the cryptocurrency at the time of the transaction."
+        }
+      },
+      "required": [
+        "id",
+        "walletId",
+        "type",
+        "amount",
+        "timestamp",
+        "price"
+      ]
+    },
+    "PriceAlert": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PriceAlert",
+      "type": "object",
+      "description": "Represents a price alert for a specific cryptocurrency.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the price alert."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N PriceAlert)"
+        },
+        "currency": {
+          "type": "string",
+          "description": "The cryptocurrency for which the alert is set (e.g., BTC, ETH). This field contains the symbol of the currency."
+        },
+        "thresholdPrice": {
+          "type": "number",
+          "description": "The price threshold that triggers the alert."
+        },
+        "alertType": {
+          "type": "string",
+          "description": "The type of alert (e.g., above, below)."
+        },
+        "triggered": {
+          "type": "boolean",
+          "description": "Indicates whether the alert has been triggered."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "currency",
+        "thresholdPrice",
+        "alertType",
+        "triggered"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles.  The 'userId' is also the Firebase Authentication UID, enabling path-based access control.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "users/{userId}/wallets/{walletId}",
+        "definition": {
+          "entityName": "Wallet",
+          "schema": {
+            "$ref": "#/backend/entities/Wallet"
+          },
+          "description": "Stores cryptocurrency wallets owned by a user. 'userId' links the wallet to the user, and 'walletId' is the unique ID of the wallet.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user."
+            },
+            {
+              "name": "walletId",
+              "description": "The unique ID of the wallet."
+            }
+          ]
+        }
+      },
+      {
+        "path": "users/{userId}/wallets/{walletId}/transactions/{transactionId}",
+        "definition": {
+          "entityName": "Transaction",
+          "schema": {
+            "$ref": "#/backend/entities/Transaction"
+          },
+          "description": "Stores transaction history for a specific wallet.  'userId' and 'walletId' ensure the transaction belongs to the correct user and wallet; 'transactionId' uniquely identifies the transaction.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user."
+            },
+            {
+              "name": "walletId",
+              "description": "The unique ID of the wallet."
+            },
+            {
+              "name": "transactionId",
+              "description": "The unique ID of the transaction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "users/{userId}/price_alerts/{priceAlertId}",
+        "definition": {
+          "entityName": "PriceAlert",
+          "schema": {
+            "$ref": "#/backend/entities/PriceAlert"
+          },
+          "description": "Stores price alerts set by a user. 'userId' associates the alert with the user, and 'priceAlertId' is the unique ID of the alert.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user."
+            },
+            {
+              "name": "priceAlertId",
+              "description": "The unique ID of the price alert."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to support the Apex Crypto Wallet application, prioritizing security, scalability, and debuggability as per the core design principles. Authorization Independence is achieved by leveraging path-based ownership for private user data and avoiding `get()` calls in security rules. The structure facilitates secure `list` operations (QAPs) through structural segregation. \n\nThe `users/{userId}` collection stores user profiles. Each user owns their wallets, stored in the `users/{userId}/wallets/{walletId}` subcollection.  Transactions are nested under wallets in `users/{userId}/wallets/{walletId}/transactions/{transactionId}`. Price alerts are stored under the user's path in `users/{userId}/price_alerts/{priceAlertId}`.  This hierarchical structure simplifies ownership-based security rules and eliminates the need for complex authorization logic. This design ensures that all documents within a collection share the same security requirements, simplifying rule creation and maintenance."
+  }
+}

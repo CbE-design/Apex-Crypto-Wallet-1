@@ -1,8 +1,184 @@
+/**
+ * @fileoverview Firestore Security Rules for Apex Crypto Wallet.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for all data. Each user can only
+ * access their own data, preventing unauthorized access to other users' information.
+ *
+ * Data Structure:
+ * The data is organized hierarchically under the `users/{userId}` collection. Each user
+ * has their own wallets stored in `users/{userId}/wallets/{walletId}`, and each wallet
+ * has its transactions stored in `users/{userId}/wallets/{walletId}/transactions/{transactionId}`.
+ * Price alerts are stored under the user's path in `users/{userId}/price_alerts/{priceAlertId}`.
+ *
+ * Key Security Decisions:
+ * - All data is private and accessible only to the owning user.
+ * - User listing is not permitted to protect user privacy.
+ * - Data consistency between the path and document fields is enforced using relational integrity checks.
+ *
+ * Denormalization for Authorization:
+ * The data model is structured to avoid `get()` calls in the security rules. The `userId` is
+ * present in the path for wallets, transactions, and price alerts, enabling fast, simple
+ * ownership checks.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    /**
+     * @description Enforces user-ownership for user profiles.
+     * @path /users/{userId}
+     * @allow (create) Authenticated user with UID 'user_abc' can create their profile at /users/user_abc.
+     * @deny (create) Authenticated user with UID 'user_abc' cannot create a profile for 'user_xyz' at /users/user_xyz.
+     * @allow (get) Authenticated user with UID 'user_abc' can get their profile at /users/user_abc.
+     * @deny (get) Authenticated user with UID 'user_abc' cannot get the profile of 'user_xyz' at /users/user_xyz.
+     * @allow (update) Authenticated user with UID 'user_abc' can update their profile at /users/user_abc.
+     * @deny (update) Authenticated user with UID 'user_abc' cannot update the profile of 'user_xyz' at /users/user_xyz.
+     * @allow (delete) Authenticated user with UID 'user_abc' can delete their profile at /users/user_abc.
+     * @deny (delete) Authenticated user with UID 'user_abc' cannot delete the profile of 'user_xyz' at /users/user_xyz.
+     * @allow (list) Authenticated user with UID 'user_abc' cannot list all users.
+     * @principle Enforces document ownership and restricts access to a user's own data.
+     */
     match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
+      // Verified authentication
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Verifies the request is made by the owner
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      //Check if the resource owner matches the authenticated user and that the document exists
+      function isExistingOwner(userId) {
+        return (isOwner(userId) && resource != null);
+      }
+
+      allow create: if isSignedIn()
+                   && isOwner(userId)
+                   && request.resource.data.id == userId;
+      allow get: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn()
+                    && isExistingOwner(userId)
+                    && request.resource.data.id == resource.data.id; //Force id immutability
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow list: if false;
+    }
+
+    /**
+     * @description Enforces user-ownership for cryptocurrency wallets.
+     * @path /users/{userId}/wallets/{walletId}
+     * @allow (create) Authenticated user with UID 'user_abc' can create a wallet under /users/user_abc/wallets/{walletId}.
+     * @deny (create) Authenticated user with UID 'user_abc' cannot create a wallet under /users/user_xyz/wallets/{walletId}.
+     * @allow (get) Authenticated user with UID 'user_abc' can get their wallet at /users/user_abc/wallets/{walletId}.
+     * @deny (get) Authenticated user with UID 'user_abc' cannot get the wallet of 'user_xyz' at /users/user_xyz/wallets/{walletId}.
+     * @allow (update) Authenticated user with UID 'user_abc' can update their wallet at /users/user_abc/wallets/{walletId}.
+     * @deny (update) Authenticated user with UID 'user_abc' cannot update the wallet of 'user_xyz' at /users/user_xyz/wallets/{walletId}.
+     * @allow (delete) Authenticated user with UID 'user_abc' can delete their wallet at /users/user_abc/wallets/{walletId}.
+     * @deny (delete) Authenticated user with UID 'user_abc' cannot delete the wallet of 'user_xyz' at /users/user_xyz/wallets/{walletId}.
+     * @allow (list) Authenticated user with UID 'user_abc' can list their wallets under /users/user_abc/wallets.
+     * @principle Enforces document ownership and restricts access to a user's own data tree.
+     */
+    match /users/{userId}/wallets/{walletId} {
+      // Verified authentication
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Verifies the request is made by the owner
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      //Check if the resource owner matches the authenticated user and that the document exists
+      function isExistingOwner(userId) {
+        return (isOwner(userId) && resource != null);
+      }
+
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow get: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn()
+                    && isExistingOwner(userId)
+                    && request.resource.data.userId == resource.data.userId; //Force id immutability
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+    }
+
+    /**
+     * @description Enforces user-ownership for transaction history within a wallet.
+     * @path /users/{userId}/wallets/{walletId}/transactions/{transactionId}
+     * @allow (create) Authenticated user with UID 'user_abc' can create a transaction under their wallet at /users/user_abc/wallets/{walletId}/transactions/{transactionId}.
+     * @deny (create) Authenticated user with UID 'user_abc' cannot create a transaction under someone else's wallet at /users/user_xyz/wallets/{walletId}/transactions/{transactionId}.
+     * @allow (get) Authenticated user with UID 'user_abc' can get their transaction at /users/user_abc/wallets/{walletId}/transactions/{transactionId}.
+     * @deny (get) Authenticated user with UID 'user_abc' cannot get a transaction from someone else's wallet at /users/user_xyz/wallets/{walletId}/transactions/{transactionId}.
+     * @allow (update) Authenticated user with UID 'user_abc' can update their transaction at /users/user_abc/wallets/{walletId}/transactions/{transactionId}.
+     * @deny (update) Authenticated user with UID 'user_abc' cannot update a transaction from someone else's wallet at /users/user_xyz/wallets/{walletId}/transactions/{transactionId}.
+     * @allow (delete) Authenticated user with UID 'user_abc' can delete their transaction at /users/user_abc/wallets/{walletId}/transactions/{transactionId}.
+     * @deny (delete) Authenticated user with UID 'user_abc' cannot delete a transaction from someone else's wallet at /users/user_xyz/wallets/{walletId}/transactions/{transactionId}.
+     * @allow (list) Authenticated user with UID 'user_abc' can list transactions for their wallet at /users/user_abc/wallets/{walletId}/transactions.
+     * @principle Enforces document ownership and restricts access to a user's own data tree.
+     */
+    match /users/{userId}/wallets/{walletId}/transactions/{transactionId} {
+      // Verified authentication
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Verifies the request is made by the owner
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      //Check if the resource owner matches the authenticated user and that the document exists
+      function isExistingOwner(userId) {
+        return (isOwner(userId) && resource != null);
+      }
+
+      allow create: if isSignedIn() && isOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+    }
+
+     /**
+      * @description Enforces user-ownership for price alerts.
+      * @path /users/{userId}/price_alerts/{priceAlertId}
+      * @allow (create) Authenticated user with UID 'user_abc' can create a price alert under /users/user_abc/price_alerts/{priceAlertId}.
+      * @deny (create) Authenticated user with UID 'user_abc' cannot create a price alert under /users/user_xyz/price_alerts/{priceAlertId}.
+      * @allow (get) Authenticated user with UID 'user_abc' can get their price alert at /users/user_abc/price_alerts/{priceAlertId}.
+      * @deny (get) Authenticated user with UID 'user_abc' cannot get the price alert of 'user_xyz' at /users/user_xyz/price_alerts/{priceAlertId}.
+      * @allow (update) Authenticated user with UID 'user_abc' can update their price alert at /users/user_abc/price_alerts/{priceAlertId}.
+      * @deny (update) Authenticated user with UID 'user_abc' cannot update the price alert of 'user_xyz' at /users/user_xyz/price_alerts/{priceAlertId}.
+      * @allow (delete) Authenticated user with UID 'user_abc' can delete their price alert at /users/user_abc/price_alerts/{priceAlertId}.
+      * @deny (delete) Authenticated user with UID 'user_abc' cannot delete the price alert of 'user_xyz' at /users/user_xyz/price_alerts/{priceAlertId}.
+      * @allow (list) Authenticated user with UID 'user_abc' can list their price alerts under /users/user_abc/price_alerts.
+      * @principle Enforces document ownership and restricts access to a user's own data tree.
+      */
+    match /users/{userId}/price_alerts/{priceAlertId} {
+      // Verified authentication
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Verifies the request is made by the owner
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      //Check if the resource owner matches the authenticated user and that the document exists
+      function isExistingOwner(userId) {
+        return (isOwner(userId) && resource != null);
+      }
+
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow get: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn()
+                    && isExistingOwner(userId)
+                    && request.resource.data.userId == resource.data.userId; //Force id immutability
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
     }
   }
 }
