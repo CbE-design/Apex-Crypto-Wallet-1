@@ -32,7 +32,7 @@ export function BuySellCard() {
   const { data: walletData, isLoading } = useCollection<{balance: number, currency: string}>(walletsQuery);
   
   const portfolioAssets = useMemo(() => {
-    if (!walletData) return staticAssets; // Fallback to static if no wallet data
+    if (!walletData) return [];
     
     return walletData.map(walletDoc => {
       const staticAssetData = staticAssets.find(sa => sa.symbol === walletDoc.currency);
@@ -48,9 +48,9 @@ export function BuySellCard() {
   }, [walletData]);
 
 
-  const asset = portfolioAssets.find(a => a.symbol === selectedAsset);
-  const estimatedBuyValue = buyAmount && asset ? (parseFloat(buyAmount) * asset.priceUSD).toFixed(2) : "0.00";
-  const estimatedSellValue = sellAmount && asset ? (parseFloat(sellAmount) * asset.priceUSD).toFixed(2) : "0.00";
+  const assetForDisplay = portfolioAssets.find(a => a.symbol === selectedAsset) || staticAssets.find(a => a.symbol === selectedAsset);
+  const estimatedBuyValue = buyAmount && assetForDisplay ? (parseFloat(buyAmount) * assetForDisplay.priceUSD).toFixed(2) : "0.00";
+  const estimatedSellValue = sellAmount && assetForDisplay ? (parseFloat(sellAmount) * assetForDisplay.priceUSD).toFixed(2) : "0.00";
 
   const handleTransaction = () => {
     const isBuying = activeTab === "buy";
@@ -74,23 +74,34 @@ export function BuySellCard() {
           description: `Your buy order for ${amount} ${selectedAsset} (approx. $${value}) has been submitted.`,
         });
         setBuyAmount("");
-    } else {
-        if (!user || !firestore || !asset) {
-            toast({ title: "Error", description: "Could not process transaction.", variant: "destructive" });
+    } else { // Selling logic
+        if (!user || !firestore) {
+            toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
             return;
         }
 
-        if (amount > asset.amount) {
+        const assetToSell = portfolioAssets.find(a => a.symbol === selectedAsset);
+
+        if (!assetToSell) {
+             toast({
+                title: "Asset Not Found",
+                description: `You do not have any ${selectedAsset} in your portfolio.`,
+                variant: "destructive",
+            });
+            return;
+        }
+
+        if (amount > assetToSell.amount) {
             toast({
                 title: "Insufficient Funds",
-                description: `You do not have enough ${asset.name} to sell.`,
+                description: `Your balance of ${assetToSell.amount.toFixed(4)} ${assetToSell.name} is not enough to sell ${amount}.`,
                 variant: "destructive",
             });
             return;
         }
         
         const walletRef = doc(firestore, 'users', user.uid, 'wallets', selectedAsset);
-        const newBalance = asset.amount - amount;
+        const newBalance = assetToSell.amount - amount;
 
         updateDocumentNonBlocking(walletRef, { balance: newBalance });
 
@@ -165,7 +176,7 @@ export function BuySellCard() {
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="sell-amount">Amount ({`Balance: ${asset?.amount.toFixed(4) ?? '0.00'}`})</Label>
+                    <Label htmlFor="sell-amount">Amount ({`Balance: ${assetForDisplay?.amount.toFixed(4) ?? '0.00'}`})</Label>
                     <Input id="sell-amount" type="number" placeholder="0.00" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} />
                 </div>
                 <div className="text-sm text-muted-foreground">
