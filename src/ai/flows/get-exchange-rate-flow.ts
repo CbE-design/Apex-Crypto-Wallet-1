@@ -34,17 +34,27 @@ const getExchangeRateFlow = ai.defineFlow(
         return { rate: 1 };
     }
 
+    // We need prices relative to a common currency (USD/USDT) to calculate the cross-rate.
     const prices = await getLivePrices([fromAsset, toAsset]);
     
     const fromPrice = prices[fromAsset];
     const toPrice = prices[toAsset];
 
-    if (!fromPrice || !toPrice || toPrice === 0) {
-        console.error(`Could not retrieve prices for ${fromAsset} or ${toAsset}`);
+    // Handle cases where one or both prices could not be fetched.
+    if (!fromPrice || !toPrice) {
+        console.error(`Could not retrieve price for ${!fromPrice ? fromAsset : ''} ${!toPrice ? toAsset : ''}.`);
+        return { rate: 0 };
+    }
+    
+    // Avoid division by zero.
+    if (toPrice === 0) {
+        console.error(`Price of 'to' asset (${toAsset}) is zero, cannot calculate exchange rate.`);
         return { rate: 0 };
     }
 
+    // The exchange rate is the ratio of the 'from' asset's price to the 'to' asset's price.
     const rate = fromPrice / toPrice;
+    
     return { rate };
   }
 );
