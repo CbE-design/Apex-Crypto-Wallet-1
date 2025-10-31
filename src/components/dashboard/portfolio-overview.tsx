@@ -7,6 +7,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "
 import { portfolioAssets } from "@/lib/data"
 import { CryptoIcon } from "../crypto-icon"
 import { cn } from "@/lib/utils"
+import { useWallet } from "@/context/wallet-context"
 
 const chartConfig = {
   value: {
@@ -22,6 +23,7 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function PortfolioOverview() {
+  const { wallet } = useWallet();
   const totalBalance = portfolioAssets.reduce((acc, asset) => acc + asset.valueUSD, 0);
   const chartData = portfolioAssets.map(asset => ({
     name: asset.symbol,
