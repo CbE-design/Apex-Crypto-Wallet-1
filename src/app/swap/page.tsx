@@ -148,7 +148,7 @@ export default function SwapPage() {
   const isInputDisabled = step === 'connect';
 
   return (
-    <>
+    <PrivateRoute>
       <div className="flex justify-center items-start pt-8">
         <Card className="w-full max-w-md">
           <CardHeader>
@@ -285,7 +285,6 @@ export default function SwapPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
-    </>
+    </PrivateRoute>
   );
 }
-

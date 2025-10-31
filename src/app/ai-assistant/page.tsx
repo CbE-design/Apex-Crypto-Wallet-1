@@ -49,72 +49,73 @@ export default function AIAssistantPage() {
   };
 
   return (
-    <div className="flex flex-col h-full">
-       <div className="mb-6">
-          <h1 className="text-3xl font-bold">AI Crypto Assistant</h1>
-          <p className="text-muted-foreground">Ask me anything about crypto!</p>
-       </div>
-      <div className="flex-1 overflow-y-auto pr-4">
-        {response && (
-            <div className="flex items-start gap-4 p-4 bg-muted/50 rounded-lg">
-              <Avatar>
-                <AvatarFallback>
-                  <Bot />
-                </AvatarFallback>
-              </Avatar>
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <p className="text-sm text-foreground leading-relaxed">{response}</p>
+    <PrivateRoute>
+      <div className="flex flex-col h-full">
+        <div className="mb-6">
+            <h1 className="text-3xl font-bold">AI Crypto Assistant</h1>
+            <p className="text-muted-foreground">Ask me anything about crypto!</p>
+        </div>
+        <div className="flex-1 overflow-y-auto pr-4">
+          {response && (
+              <div className="flex items-start gap-4 p-4 bg-muted/50 rounded-lg">
+                <Avatar>
+                  <AvatarFallback>
+                    <Bot />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <p className="text-sm text-foreground leading-relaxed">{response}</p>
+                </div>
               </div>
-            </div>
-        )}
-         {isLoading && (
-            <div className="flex items-start gap-4 p-4">
-               <Avatar>
-                <AvatarFallback>
-                  <Bot />
-                </AvatarFallback>
-              </Avatar>
-              <div className="space-y-2 flex-1">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-1/2" />
+          )}
+          {isLoading && (
+              <div className="flex items-start gap-4 p-4">
+                <Avatar>
+                  <AvatarFallback>
+                    <Bot />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
               </div>
-            </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      <div className="mt-auto pt-6">
-        <Card>
-          <CardContent className="pt-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid w-full gap-2">
-                <Label htmlFor="message">Your Question</Label>
-                <Textarea
-                  id="message"
-                  placeholder="e.g., Explain what a Bitcoin halving is..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  disabled={isLoading}
-                  rows={3}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Getting Answer...
-                  </>
-                ) : (
-                  <>
-                    Ask Assistant <Send className="ml-2" />
-                  </>
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        <div className="mt-auto pt-6">
+          <Card>
+            <CardContent className="pt-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid w-full gap-2">
+                  <Label htmlFor="message">Your Question</Label>
+                  <Textarea
+                    id="message"
+                    placeholder="e.g., Explain what a Bitcoin halving is..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    disabled={isLoading}
+                    rows={3}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Getting Answer...
+                    </>
+                  ) : (
+                    <>
+                      Ask Assistant <Send className="ml-2" />
+                    </>
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+    </PrivateRoute>
   );
 }
-
