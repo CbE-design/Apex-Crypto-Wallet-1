@@ -11,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { portfolioAssets as staticAssets } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowRight, Loader2 } from "lucide-react"
-import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase'
-import { collection, query, doc } from 'firebase/firestore'
+import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase'
+import { collection, query, doc, writeBatch, serverTimestamp } from 'firebase/firestore'
 
 export function BuySellCard() {
   const { toast } = useToast();
@@ -29,7 +29,7 @@ export function BuySellCard() {
     return query(collection(firestore, 'users', user.uid, 'wallets'));
   }, [user, firestore]);
   
-  const { data: walletData, isLoading } = useCollection<{balance: number, currency: string}>(walletsQuery);
+  const { data: walletData, isLoading } = useCollection<{balance: number, currency: string, id: string}>(walletsQuery);
   
   const portfolioAssets = useMemo(() => {
     if (!walletData) return [];
@@ -40,10 +40,11 @@ export function BuySellCard() {
 
       return {
         ...staticAssetData,
+        id: walletDoc.id, // Keep the document ID
         amount: walletDoc.balance,
         valueUSD: walletDoc.balance * staticAssetData.priceUSD,
       };
-    }).filter(Boolean) as (typeof staticAssets);
+    }).filter(Boolean) as (typeof staticAssets & {id: string})[];
 
   }, [walletData]);
 
@@ -52,11 +53,11 @@ export function BuySellCard() {
   const estimatedBuyValue = buyAmount && assetForDisplay ? (parseFloat(buyAmount) * assetForDisplay.priceUSD).toFixed(2) : "0.00";
   const estimatedSellValue = sellAmount && assetForDisplay ? (parseFloat(sellAmount) * assetForDisplay.priceUSD).toFixed(2) : "0.00";
 
-  const handleTransaction = () => {
+  const handleTransaction = async () => {
     const isBuying = activeTab === "buy";
     const amountStr = isBuying ? buyAmount : sellAmount;
     const amount = parseFloat(amountStr);
-    const value = isBuying ? estimatedBuyValue : estimatedSellValue;
+    const value = parseFloat(isBuying ? estimatedBuyValue : estimatedSellValue);
 
     if (!amountStr || amount <= 0) {
       toast({
@@ -67,22 +68,40 @@ export function BuySellCard() {
       return;
     }
     
+    if (!user || !firestore) {
+        toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+        return;
+    }
+
+    const assetToTransact = portfolioAssets.find(a => a.symbol === selectedAsset);
+
     if (isBuying) {
-        // TODO: Implement actual buy logic (e.g., call updateDocumentNonBlocking)
+        const walletRef = doc(firestore, 'users', user.uid, 'wallets', selectedAsset);
+        const newBalance = (assetToTransact?.amount || 0) + amount;
+
+        const batch = writeBatch(firestore);
+        batch.set(walletRef, { balance: newBalance }, { merge: true });
+
+        const txLogRef = doc(collection(firestore, 'users', user.uid, 'wallets', selectedAsset, 'transactions'));
+        batch.set(txLogRef, {
+          type: 'Buy',
+          amount: amount,
+          price: assetForDisplay?.priceUSD,
+          timestamp: serverTimestamp(),
+          valueUSD: value,
+          status: 'Completed'
+        });
+        
+        await batch.commit();
+
         toast({
           title: "Transaction Submitted",
           description: `Your buy order for ${amount} ${selectedAsset} (approx. $${value}) has been submitted.`,
         });
         setBuyAmount("");
+
     } else { // Selling logic
-        if (!user || !firestore) {
-            toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
-            return;
-        }
-
-        const assetToSell = portfolioAssets.find(a => a.symbol === selectedAsset);
-
-        if (!assetToSell) {
+        if (!assetToTransact) {
              toast({
                 title: "Asset Not Found",
                 description: `You do not have any ${selectedAsset} in your portfolio.`,
@@ -91,19 +110,32 @@ export function BuySellCard() {
             return;
         }
 
-        if (amount > assetToSell.amount) {
+        if (amount > assetToTransact.amount) {
             toast({
                 title: "Insufficient Funds",
-                description: `Your balance of ${assetToSell.amount.toFixed(4)} ${assetToSell.name} is not enough to sell ${amount}.`,
+                description: `Your balance of ${assetToTransact.amount.toFixed(4)} ${assetToTransact.name} is not enough to sell ${amount}.`,
                 variant: "destructive",
             });
             return;
         }
         
-        const walletRef = doc(firestore, 'users', user.uid, 'wallets', selectedAsset);
-        const newBalance = assetToSell.amount - amount;
+        const walletRef = doc(firestore, 'users', user.uid, 'wallets', assetToTransact.id);
+        const newBalance = assetToTransact.amount - amount;
 
-        updateDocumentNonBlocking(walletRef, { balance: newBalance });
+        const batch = writeBatch(firestore);
+        batch.update(walletRef, { balance: newBalance });
+
+        const txLogRef = doc(collection(firestore, 'users', user.uid, 'wallets', selectedAsset, 'transactions'));
+        batch.set(txLogRef, {
+            type: 'Sell',
+            amount: amount,
+            price: assetForDisplay?.priceUSD,
+            timestamp: serverTimestamp(),
+            valueUSD: value,
+            status: 'Completed'
+        });
+
+        await batch.commit();
 
         toast({
           title: "Transaction Submitted",
@@ -176,7 +208,7 @@ export function BuySellCard() {
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="sell-amount">Amount ({`Balance: ${assetForDisplay?.amount.toFixed(4) ?? '0.00'}`})</Label>
+                    <Label htmlFor="sell-amount">Amount ({`Balance: ${assetForDisplay?.amount?.toFixed(4) ?? '0.00'}`})</Label>
                     <Input id="sell-amount" type="number" placeholder="0.00" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} />
                 </div>
                 <div className="text-sm text-muted-foreground">

@@ -10,31 +10,51 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { portfolioAssets } from '@/lib/data';
+import { portfolioAssets as staticAssets } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowRight, Copy, Loader2, ExternalLink, CheckCircle, XCircle } from 'lucide-react';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
+import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { collection, query, doc } from 'firebase/firestore';
 
 
-type SendStatus = 'idle' | 'signing' | 'sending' | 'confirming' | 'success' | 'error';
+type SendStatus = 'idle' | 'sending' | 'success' | 'error';
 
 export default function SendReceivePage() {
   const { toast } = useToast();
-  const { wallet } = useWallet();
+  const { wallet, user } = useWallet();
+  const firestore = useFirestore();
   const [sendAsset, setSendAsset] = useState('ETH');
-  const [sendAmount, setSendAmount = useState('');
-  const [recipientAddress, setRecipientAddress = useState('');
+  const [sendAmount, setSendAmount] = useState('');
+  const [recipientAddress, setRecipientAddress] = useState('');
   
   const [status, setStatus] = useState<SendStatus>('idle');
-  const [txHash, setTxHash = useState('');
-  const [errorMessage, setErrorMessage = useState('');
-  const [qrCodeDataUrl, setQrCodeDataUrl = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   
   const userAddress = wallet?.address || '0x... (address not available)';
-  const networkFee = 0.001; // Example network fee in ETH
+  
+  const walletsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, 'users', user.uid, 'wallets'));
+  }, [user, firestore]);
+  
+  const { data: walletData, isLoading: isWalletLoading } = useCollection<{balance: number, currency: string}>(walletsQuery);
+
+  const portfolioAssets = useMemo(() => {
+    if (!walletData) return [];
+    return walletData.map(walletDoc => {
+      const staticAssetData = staticAssets.find(sa => sa.symbol === walletDoc.currency);
+      return {
+        ...(staticAssetData || { name: walletDoc.currency, symbol: walletDoc.currency, priceUSD: 0, change24h: 0, icon: '' }),
+        amount: walletDoc.balance,
+        valueUSD: walletDoc.balance * (staticAssetData?.priceUSD || 0),
+      };
+    });
+  }, [walletData]);
 
   useEffect(() => {
     if (wallet?.address) {
@@ -52,8 +72,8 @@ export default function SendReceivePage() {
   const selectedAssetData = portfolioAssets.find(a => a.symbol === sendAsset);
 
   const handleSend = async () => {
-    if (!wallet || !selectedAssetData || sendAsset !== 'ETH') {
-        toast({ title: "Transfer not supported", description: "Currently, only ETH transfers are supported.", variant: "destructive"});
+    if (!user || !firestore || !wallet || !selectedAssetData) {
+        toast({ title: "Cannot process transaction", description: "User or wallet not available.", variant: "destructive"});
         return;
     }
 
@@ -61,38 +81,47 @@ export default function SendReceivePage() {
       toast({ title: "Invalid Address", description: "The recipient address is not a valid Ethereum address.", variant: "destructive"});
       return;
     }
-
-    setStatus('signing');
     
+    if (recipientAddress.toLowerCase() === wallet.address.toLowerCase()) {
+        toast({ title: "Invalid Recipient", description: "You cannot send assets to your own wallet.", variant: "destructive"});
+        return;
+    }
+
+    setStatus('sending');
+    
+    const amount = parseFloat(sendAmount);
+    if (isNaN(amount) || amount <= 0) {
+        setStatus('error');
+        setErrorMessage("Invalid amount entered.");
+        return;
+    }
+    
+    if (amount > (selectedAssetData.amount || 0)) {
+        setStatus('error');
+        setErrorMessage("Insufficient funds for this transaction.");
+        return;
+    }
+
     try {
-        const provider = new ethers.JsonRpcProvider(`https://mainnet.infura.io/v3/${process.env.NEXT_PUBLIC_INFURA_PROJECT_ID}`);
-        const signer = new ethers.Wallet(wallet.privateKey, provider);
-
-        const transaction = {
-            to: recipientAddress,
-            value: ethers.parseEther(sendAmount) 
-        };
-
-        setStatus('sending');
-        const txResponse = await signer.sendTransaction(transaction);
-        setTxHash(txResponse.hash);
-
-        setStatus('confirming');
-        await txResponse.wait();
+        // This is a VIRTUAL transfer. We just update the sender's balance.
+        const senderWalletRef = doc(firestore, 'users', user.uid, 'wallets', sendAsset);
+        const newBalance = selectedAssetData.amount - amount;
+        
+        await updateDocumentNonBlocking(senderWalletRef, { balance: newBalance });
 
         setStatus('success');
         toast({
-          title: 'Transaction Successful',
-          description: `Successfully sent ${sendAmount} ${sendAsset}.`,
+          title: 'Virtual Transaction Successful',
+          description: `Successfully sent ${sendAmount} ${sendAsset}. This was a simulated transaction.`,
         });
 
     } catch (error: any) {
-        console.error("Transaction failed:", error);
+        console.error("Virtual transaction failed:", error);
         setStatus('error');
-        setErrorMessage(error.message || 'An unknown error occurred.');
+        setErrorMessage(error.message || 'An unknown error occurred during the virtual transaction.');
         toast({
           title: 'Transaction Failed',
-          description: 'Could not complete the transaction. Please check the details and try again.',
+          description: 'Could not complete the virtual transaction.',
           variant: 'destructive',
         });
     }
@@ -102,7 +131,6 @@ export default function SendReceivePage() {
     setStatus('idle');
     setSendAmount('');
     setRecipientAddress('');
-    setTxHash('');
     setErrorMessage('');
   }
 
@@ -116,35 +144,25 @@ export default function SendReceivePage() {
     }
   };
   
-  const isSendButtonDisabled = status !== 'idle' || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0;
+  const isSendButtonDisabled = status !== 'idle' || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || isWalletLoading;
   const isInputDisabled = status !== 'idle' && status !== 'error';
 
   const getStatusContent = () => {
     switch(status) {
-        case 'signing':
         case 'sending':
-        case 'confirming':
             return (
                 <div className="flex flex-col items-center justify-center text-center space-y-4">
                     <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <h3 className="text-lg font-semibold">{status === 'confirming' ? "Confirming Transaction" : "Sending Transaction"}</h3>
-                    <p className="text-muted-foreground">{status === 'confirming' ? "Waiting for blockchain confirmation..." : "Please wait while we broadcast your transaction."}</p>
-                    {txHash && (
-                        <a href={`https://etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
-                            View on Etherscan <ExternalLink className="h-3 w-3" />
-                        </a>
-                    )}
+                    <h3 className="text-lg font-semibold">Processing Virtual Transaction</h3>
+                    <p className="text-muted-foreground">Please wait...</p>
                 </div>
             );
         case 'success':
             return (
                  <div className="flex flex-col items-center justify-center text-center space-y-4">
                     <CheckCircle className="h-12 w-12 text-green-500" />
-                    <h3 className="text-lg font-semibold">Transaction Successful!</h3>
+                    <h3 className="text-lg font-semibold">Virtual Transfer Sent!</h3>
                     <p className="text-muted-foreground">You have successfully sent {sendAmount} {sendAsset}.</p>
-                    <a href={`https://etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
-                        View on Etherscan <ExternalLink className="h-3 w-3" />
-                    </a>
                      <Button onClick={resetSendState} className="w-full">Send Another</Button>
                 </div>
             );
@@ -167,8 +185,8 @@ export default function SendReceivePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <Card>
           <CardHeader>
-            <CardTitle>Send Crypto</CardTitle>
-            <CardDescription>Transfer assets to another wallet.</CardDescription>
+            <CardTitle>Send Crypto (Virtual)</CardTitle>
+            <CardDescription>Simulate transfers to another wallet.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {status === 'idle' || status === 'error' ? (
@@ -180,7 +198,7 @@ export default function SendReceivePage() {
                       <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
                     <SelectContent>
-                      {portfolioAssets.filter(a => a.symbol === 'ETH').map(asset => (
+                      {staticAssets.filter(a => a.symbol === 'ETH').map(asset => (
                         <SelectItem key={asset.symbol} value={asset.symbol}>
                           <div className="flex items-center gap-2">
                               <CryptoIcon name={asset.name} />
@@ -212,7 +230,7 @@ export default function SendReceivePage() {
                     disabled={isInputDisabled}
                   />
                   <p className="text-xs text-muted-foreground mt-1 h-4">
-                        {`Balance: ${selectedAssetData?.amount.toFixed(4) ?? '0.00'}`}
+                        {`Balance: ${selectedAssetData?.amount?.toFixed(4) ?? '0.00'}`}
                     </p>
                 </div>
                 
@@ -224,11 +242,9 @@ export default function SendReceivePage() {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                       <AlertDialogHeader>
-                      <AlertDialogTitle>Confirm Transaction</AlertDialogTitle>
+                      <AlertDialogTitle>Confirm Virtual Transaction</AlertDialogTitle>
                       <AlertDialogDescription>
-                          You are about to send {sendAmount} {sendAsset}. This action is irreversible. 
-                          Please double-check the recipient's address below. 
-                          <strong className="text-destructive">Apex Wallet is not responsible for funds sent to the wrong address.</strong>
+                          You are about to send {sendAmount} {sendAsset} virtually. This will only update your own balance for testing purposes.
                       </AlertDialogDescription>
                       </AlertDialogHeader>
                       <div className="space-y-4 py-4 text-sm">
@@ -243,11 +259,7 @@ export default function SendReceivePage() {
                               <span className="text-muted-foreground">Recipient</span>
                               <span className="font-mono break-all text-right ml-4">{recipientAddress}</span>
                           </div>
-                          <div className="flex justify-between">
-                              <span className="text-muted-foreground">Est. Network Fee</span>
-                              <span className="font-mono">~{networkFee} ETH</span>
-                          </div>
-                          <div className="flex justify-between font-bold text-base pt-2 border-t">
+                           <div className="flex justify-between font-bold text-base pt-2 border-t">
                               <span>Total</span>
                               <span>{sendAmount} {sendAsset}</span>
                           </div>
@@ -292,5 +304,3 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
-
-    
