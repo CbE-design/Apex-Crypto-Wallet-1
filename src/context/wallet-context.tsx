@@ -34,7 +34,6 @@ interface WalletContextType {
   importWallet: (mnemonic: string) => void;
   disconnectWallet: () => void;
   requestVerification: () => void;
-  fetchOnChainBalance: () => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -57,27 +56,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
   const loading = isUserLoading || isInitializing || isProfileLoading;
-
-  const fetchOnChainBalance = useCallback(async () => {
-    if (!wallet || !firestore || !user || !process.env.NEXT_PUBLIC_INFURA_PROJECT_ID) return;
-
-    try {
-        const provider = new ethers.InfuraProvider("sepolia", process.env.NEXT_PUBLIC_INFURA_PROJECT_ID);
-        const balance = await provider.getBalance(wallet.address);
-        const balanceInEth = ethers.formatEther(balance);
-
-        const ethWalletRef = doc(firestore, 'users', user.uid, 'wallets', 'ETH');
-        
-        // Use a transaction to safely update the balance
-        await runTransaction(firestore, async (transaction) => {
-            transaction.update(ethWalletRef, { balance: parseFloat(balanceInEth) });
-        });
-
-    } catch (error) {
-        console.error("Failed to fetch on-chain balance:", error);
-    }
-  }, [wallet, firestore, user]);
-
 
   const setWalletAndAdmin = useCallback((walletData: Wallet | null, firebaseUser: FirebaseUser | null) => {
     setWallet(walletData);
@@ -156,15 +134,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setIsInitializing(false);
   }, [user, auth, wallet, setWalletAndAdmin]);
 
-   useEffect(() => {
-    if (wallet?.address && firestore && user) {
-        fetchOnChainBalance();
-        // Also set up an interval to periodically check the balance
-        const interval = setInterval(fetchOnChainBalance, 30000); // every 30 seconds
-        return () => clearInterval(interval);
-    }
-   }, [wallet, firestore, user, fetchOnChainBalance]);
-
 
   const createWallet = useCallback((): string => {
     if (auth) {
@@ -233,7 +202,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <WalletContext.Provider value={{ wallet, user, userProfile: userProfile as UserProfile | null, loading, isAdmin, createWallet, importWallet, disconnectWallet, requestVerification, fetchOnChainBalance }}>
+    <WalletContext.Provider value={{ wallet, user, userProfile: userProfile as UserProfile | null, loading, isAdmin, createWallet, importWallet, disconnectWallet, requestVerification }}>
       {children}
     </WalletContext.Provider>
   );
@@ -246,5 +215,3 @@ export const useWallet = () => {
   }
   return context;
 };
-
-    
