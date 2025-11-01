@@ -18,7 +18,7 @@ import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, runTransaction, doc, serverTimestamp, getDocs, where } from 'firebase/firestore';
+import { collection, query, runTransaction, doc, serverTimestamp, getDocs, where, limit } from 'firebase/firestore';
 
 
 type SendStatus = 'idle' | 'sending' | 'success' | 'error';
@@ -29,7 +29,7 @@ export default function SendReceivePage() {
   const { user } = useUser();
   const firestore = useFirestore();
 
-  const [sendAsset] = useState('ETH');
+  const [sendAsset, setSendAsset] = useState('ETH');
   const [sendAmount, setSendAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   
@@ -39,18 +39,18 @@ export default function SendReceivePage() {
   
   const userAddress = wallet?.address || '0x... (address not available)';
   
-  const ethWalletQuery = useMemoFirebase(() => {
+  const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return query(collection(firestore, 'users', user.uid, 'wallets'));
   }, [user, firestore]);
   
-  const { data: walletData } = useCollection(ethWalletQuery);
+  const { data: userWallets } = useCollection(walletsQuery);
 
-  const ethBalance = useMemo(() => {
-    if (!walletData) return 0;
-    const ethWallet = walletData.find(w => w.currency === 'ETH');
-    return ethWallet ? ethWallet.balance : 0;
-  }, [walletData]);
+  const selectedAssetBalance = useMemo(() => {
+    if (!userWallets) return 0;
+    const assetWallet = userWallets.find(w => w.currency === sendAsset);
+    return assetWallet ? assetWallet.balance : 0;
+  }, [userWallets, sendAsset]);
 
   useEffect(() => {
     if (wallet?.address) {
@@ -66,7 +66,7 @@ export default function SendReceivePage() {
 
 
   const handleSend = async () => {
-    if (!wallet || !user || !firestore) {
+    if (!wallet || !user || !firestore || !sendAsset) {
         toast({ title: "Cannot process transaction", description: "User wallet is not properly configured.", variant: "destructive"});
         return;
     }
@@ -91,13 +91,13 @@ export default function SendReceivePage() {
     try {
         const amount = parseFloat(sendAmount);
         if (isNaN(amount) || amount <= 0) {
-            throw new Error("Invalid amount");
+            throw new Error("Invalid amount specified.");
         }
 
         await runTransaction(firestore, async (transaction) => {
             // 1. Get recipient user by wallet address
             const usersRef = collection(firestore, 'users');
-            const recipientQuery = query(usersRef, where("walletAddress", "==", recipientAddress));
+            const recipientQuery = query(usersRef, where("walletAddress", "==", recipientAddress), limit(1));
             const recipientSnapshot = await getDocs(recipientQuery);
 
             if (recipientSnapshot.empty) {
@@ -107,23 +107,24 @@ export default function SendReceivePage() {
             const recipientDoc = recipientSnapshot.docs[0];
             const recipientId = recipientDoc.id;
 
-            // 2. Debit sender's wallet
-            const senderWalletRef = doc(firestore, 'users', user.uid, 'wallets', 'ETH');
+            // 2. Debit sender's wallet for the specific asset
+            const senderWalletRef = doc(firestore, 'users', user.uid, 'wallets', sendAsset);
             const senderWalletDoc = await transaction.get(senderWalletRef);
 
-            if (!senderWalletDoc.exists() || senderWalletDoc.data().balance < amount) {
-                throw new Error("Insufficient balance.");
+            const senderBalance = senderWalletDoc.exists() ? senderWalletDoc.data().balance : 0;
+            if (senderBalance < amount) {
+                throw new Error(`Insufficient balance. You only have ${senderBalance.toFixed(6)} ${sendAsset}.`);
             }
 
-            const newSenderBalance = senderWalletDoc.data().balance - amount;
+            const newSenderBalance = senderBalance - amount;
             transaction.update(senderWalletRef, { balance: newSenderBalance });
 
             // 3. Log sender's transaction
             const senderTxLogRef = doc(collection(senderWalletRef, 'transactions'));
             transaction.set(senderTxLogRef, {
-              type: 'Sell', // 'Sell' or 'Send'
+              type: 'Sell',
               amount: amount,
-              price: 0,
+              price: 0, 
               timestamp: serverTimestamp(),
               valueUSD: 0,
               status: 'Completed',
@@ -131,18 +132,24 @@ export default function SendReceivePage() {
               sender: userAddress,
             });
 
-            // 4. Credit recipient's wallet
-            const recipientWalletRef = doc(firestore, 'users', recipientId, 'wallets', 'ETH');
+            // 4. Credit recipient's wallet for the specific asset
+            const recipientWalletRef = doc(firestore, 'users', recipientId, 'wallets', sendAsset);
             const recipientWalletDoc = await transaction.get(recipientWalletRef);
             const recipientBalance = recipientWalletDoc.exists() ? recipientWalletDoc.data().balance : 0;
             const newRecipientBalance = recipientBalance + amount;
             
-            transaction.set(recipientWalletRef, { balance: newRecipientBalance }, { merge: true });
+            // Use set with merge to create the wallet if it doesn't exist for the recipient
+            transaction.set(recipientWalletRef, { 
+                balance: newRecipientBalance,
+                currency: sendAsset,
+                id: sendAsset,
+                userId: recipientId
+             }, { merge: true });
 
              // 5. Log recipient's transaction
             const recipientTxLogRef = doc(collection(recipientWalletRef, 'transactions'));
             transaction.set(recipientTxLogRef, {
-              type: 'Buy', // 'Buy' or 'Receive'
+              type: 'Buy',
               amount: amount,
               price: 0,
               timestamp: serverTimestamp(),
@@ -191,13 +198,12 @@ export default function SendReceivePage() {
   const handleVerificationRequest = () => {
     requestVerification();
     toast({
-        title: 'Verification Request Submitted',
-        description: 'Your verification is pending and may take up to 72 business hours to complete.',
+        title: 'Account Verified!',
+        description: 'Your account has been instantly verified and you can now send funds.',
     });
   }
   
   const isVerified = userProfile?.verificationStatus === 'Verified';
-  const isPending = userProfile?.verificationStatus === 'Pending';
   const isSendButtonDisabled = status !== 'idle' || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || !isVerified;
   const isInputDisabled = status !== 'idle' && status !== 'error' || !isVerified;
 
@@ -246,17 +252,7 @@ export default function SendReceivePage() {
             </Alert>
         )
     }
-    if (isPending) {
-        return (
-             <Alert variant="default" className="bg-amber-500/10 border-amber-500/50 text-amber-700 dark:text-amber-500">
-                <Clock className="h-4 w-4 text-amber-500" />
-                <AlertTitle>Verification Pending</AlertTitle>
-                <AlertDescription>
-                    Your verification is in review. This may take up to 72 business hours.
-                </AlertDescription>
-            </Alert>
-        )
-    }
+    
     return (
         <Alert variant="destructive">
             <XCircle className="h-4 w-4" />
@@ -285,7 +281,7 @@ export default function SendReceivePage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="send-asset">Asset</Label>
-                  <Select value={sendAsset} disabled>
+                  <Select value={sendAsset} onValueChange={setSendAsset} disabled>
                     <SelectTrigger id="send-asset">
                       <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
@@ -320,7 +316,7 @@ export default function SendReceivePage() {
                     disabled={isInputDisabled}
                   />
                   <p className="text-xs text-muted-foreground mt-1 h-4">
-                        {`Balance: ${ethBalance.toFixed(6)} ETH`}
+                        {`Balance: ${selectedAssetBalance.toFixed(6)} ${sendAsset}`}
                   </p>
                 </div>
                 
@@ -394,5 +390,7 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
 
     
