@@ -4,11 +4,11 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { Loader2 } from 'lucide-react';
-import { useUser, useAuth, useFirestore } from '@/firebase';
+import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
-import { signOut, User } from 'firebase/auth';
-import { doc, serverTimestamp } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { signOut, User as FirebaseUser } from 'firebase/auth';
+import { doc, serverTimestamp, DocumentData } from 'firebase/firestore';
+import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { portfolioAssets } from '@/lib/data';
 
 interface Wallet {
@@ -16,14 +16,25 @@ interface Wallet {
   privateKey: string;
 }
 
+interface UserProfile {
+    id: string;
+    email: string;
+    createdAt: any;
+    walletAddress: string;
+    verificationStatus: 'Unverified' | 'Pending' | 'Verified';
+}
+
 interface WalletContextType {
   wallet: Wallet | null;
-  user: User | null;
+  user: FirebaseUser | null;
+  userProfile: UserProfile | null;
+  ethBalance: number;
   loading: boolean;
   isAdmin: boolean;
   createWallet: () => string;
   importWallet: (mnemonic: string) => void;
   disconnectWallet: () => void;
+  requestVerification: () => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -35,12 +46,20 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const auth = useAuth();
   const firestore = useFirestore();
   const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [ethBalance, setEthBalance] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  const loading = isUserLoading || isInitializing;
+  const userDocRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
 
-  const setWalletAndAdmin = useCallback((walletData: Wallet | null, firebaseUser: User | null) => {
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
+
+  const loading = isUserLoading || isInitializing || isProfileLoading;
+
+  const setWalletAndAdmin = useCallback((walletData: Wallet | null, firebaseUser: FirebaseUser | null) => {
     setWallet(walletData);
     if (walletData && firebaseUser?.uid) {
       localStorage.setItem(`${WALLET_STORAGE_KEY_PREFIX}${firebaseUser.uid}`, JSON.stringify(walletData));
@@ -54,7 +73,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const setupUserAndWalletDocuments = useCallback((firebaseUser: User, walletInstance: ethers.Wallet) => {
+  const setupUserAndWalletDocuments = useCallback((firebaseUser: FirebaseUser, walletInstance: ethers.Wallet) => {
       const walletData = {
         address: walletInstance.address,
         privateKey: walletInstance.privateKey,
@@ -63,15 +82,15 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
       if (firestore) {
         const userRef = doc(firestore, 'users', firebaseUser.uid);
-        const newUserDocument = {
+        const newUserDocument: UserProfile = {
           id: firebaseUser.uid,
           email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.crypto`,
           createdAt: serverTimestamp(),
           walletAddress: walletInstance.address,
+          verificationStatus: 'Unverified',
         };
         setDocumentNonBlocking(userRef, newUserDocument, { merge: true });
 
-        // Create initial empty wallets in a subcollection
         portfolioAssets.forEach(asset => {
             const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', asset.symbol);
             const newWalletDocument = {
@@ -111,6 +130,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setIsInitializing(false);
   }, [user, auth, wallet, setWalletAndAdmin]);
 
+  useEffect(() => {
+    if (wallet?.address && process.env.NEXT_PUBLIC_INFURA_PROJECT_ID) {
+      const provider = new ethers.InfuraProvider("mainnet", process.env.NEXT_PUBLIC_INFURA_PROJECT_ID);
+      provider.getBalance(wallet.address).then(balance => {
+        setEthBalance(parseFloat(ethers.formatEther(balance)));
+      });
+    }
+  }, [wallet?.address]);
 
   const createWallet = useCallback((): string => {
     if (auth) {
@@ -160,9 +187,16 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
          }
          setWallet(null);
          setIsAdmin(false);
+         setEthBalance(0);
       });
     }
   }, [auth]);
+
+  const requestVerification = useCallback(() => {
+    if (userDocRef) {
+      updateDocumentNonBlocking(userDocRef, { verificationStatus: 'Pending' });
+    }
+  }, [userDocRef]);
 
   if (isUserLoading || isInitializing) {
     return (
@@ -173,7 +207,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <WalletContext.Provider value={{ wallet, user, loading, isAdmin, createWallet, importWallet, disconnectWallet }}>
+    <WalletContext.Provider value={{ wallet, user, userProfile: userProfile as UserProfile | null, ethBalance, loading, isAdmin, createWallet, importWallet, disconnectWallet, requestVerification }}>
       {children}
     </WalletContext.Provider>
   );

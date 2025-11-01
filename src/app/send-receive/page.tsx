@@ -10,23 +10,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { portfolioAssets as staticAssets } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowRight, Copy, Loader2, ExternalLink, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowRight, Copy, Loader2, ExternalLink, CheckCircle, XCircle, ShieldCheck, Clock } from 'lucide-react';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 type SendStatus = 'idle' | 'signing' | 'sending' | 'confirming' | 'success' | 'error';
 
 export default function SendReceivePage() {
   const { toast } = useToast();
-  const { wallet } = useWallet();
-  const [sendAsset, setSendAsset] = useState('ETH');
+  const { wallet, userProfile, ethBalance, requestVerification } = useWallet();
+  const [sendAsset] = useState('ETH');
   const [sendAmount, setSendAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   
@@ -37,28 +35,6 @@ export default function SendReceivePage() {
   
   const userAddress = wallet?.address || '0x... (address not available)';
   
-  const { user } = useUser();
-  const firestore = useFirestore();
-
-  const walletsQuery = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return query(collection(firestore, 'users', user.uid, 'wallets'));
-  }, [user, firestore]);
-  
-  const { data: walletData, isLoading: isWalletLoading } = useCollection<{balance: number, currency: string}>(walletsQuery);
-
-  const portfolioAssets = useMemo(() => {
-    if (!walletData) return [];
-    return walletData.map(walletDoc => {
-      const staticAssetData = staticAssets.find(sa => sa.symbol === walletDoc.currency);
-      return {
-        ...(staticAssetData || { name: walletDoc.currency, symbol: walletDoc.currency, priceUSD: 0, change24h: 0, icon: '' }),
-        amount: walletDoc.balance,
-        valueUSD: walletDoc.balance * (staticAssetData?.priceUSD || 0),
-      };
-    });
-  }, [walletData]);
-
   useEffect(() => {
     if (wallet?.address) {
       QRCode.toDataURL(wallet.address, { errorCorrectionLevel: 'H', width: 160 })
@@ -71,8 +47,6 @@ export default function SendReceivePage() {
     }
   }, [wallet?.address]);
 
-
-  const selectedAssetData = portfolioAssets.find(a => a.symbol === sendAsset);
 
   const handleSend = async () => {
     if (!wallet || !wallet.privateKey) {
@@ -92,6 +66,11 @@ export default function SendReceivePage() {
     
     if (!process.env.NEXT_PUBLIC_INFURA_PROJECT_ID) {
         toast({ title: "Configuration Error", description: "Infura Project ID is not set. Cannot connect to Ethereum network.", variant: "destructive"});
+        return;
+    }
+
+    if (userProfile?.verificationStatus !== 'Verified') {
+        toast({ title: "Verification Required", description: "Your account must be verified to send funds.", variant: "destructive"});
         return;
     }
 
@@ -150,8 +129,18 @@ export default function SendReceivePage() {
     }
   };
   
-  const isSendButtonDisabled = status !== 'idle' || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || isWalletLoading;
-  const isInputDisabled = status !== 'idle' && status !== 'error';
+  const handleVerificationRequest = () => {
+    requestVerification();
+    toast({
+        title: 'Verification Request Submitted',
+        description: 'Your verification is pending and may take up to 72 business hours to complete.',
+    });
+  }
+  
+  const isVerified = userProfile?.verificationStatus === 'Verified';
+  const isPending = userProfile?.verificationStatus === 'Pending';
+  const isSendButtonDisabled = status !== 'idle' || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || !isVerified;
+  const isInputDisabled = status !== 'idle' && status !== 'error' || !isVerified;
 
   const getStatusContent = () => {
     switch(status) {
@@ -202,6 +191,41 @@ export default function SendReceivePage() {
     }
   }
 
+  const renderVerificationStatus = () => {
+    if (isVerified) {
+        return (
+             <Alert variant="default" className="bg-green-500/10 border-green-500/50 text-green-700 dark:text-green-400">
+                <ShieldCheck className="h-4 w-4 text-green-500" />
+                <AlertTitle>Account Verified</AlertTitle>
+                <AlertDescription>
+                    You are fully verified and can now send funds.
+                </AlertDescription>
+            </Alert>
+        )
+    }
+    if (isPending) {
+        return (
+             <Alert variant="default" className="bg-amber-500/10 border-amber-500/50 text-amber-700 dark:text-amber-500">
+                <Clock className="h-4 w-4 text-amber-500" />
+                <AlertTitle>Verification Pending</AlertTitle>
+                <AlertDescription>
+                    Your verification is in review. This may take up to 72 business hours.
+                </AlertDescription>
+            </Alert>
+        )
+    }
+    return (
+        <Alert variant="destructive">
+            <ShieldCheck className="h-4 w-4" />
+            <AlertTitle>Verification Required</AlertTitle>
+            <AlertDescription>
+                <p className="mb-4">To send funds, you must verify your account. This is a one-time security process.</p>
+                <Button onClick={handleVerificationRequest} size="sm">Start Verification</Button>
+            </AlertDescription>
+        </Alert>
+    )
+  }
+
   return (
     <PrivateRoute>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -213,21 +237,22 @@ export default function SendReceivePage() {
           <CardContent className="space-y-4">
             {status === 'idle' || status === 'error' ? (
               <>
+                <div className="space-y-4">
+                    {renderVerificationStatus()}
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="send-asset">Asset</Label>
-                  <Select value={sendAsset} onValueChange={setSendAsset} disabled={isInputDisabled}>
+                  <Select value={sendAsset} disabled>
                     <SelectTrigger id="send-asset">
                       <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
                     <SelectContent>
-                      {staticAssets.filter(a => a.symbol === 'ETH').map(asset => (
-                        <SelectItem key={asset.symbol} value={asset.symbol}>
+                        <SelectItem value="ETH">
                           <div className="flex items-center gap-2">
-                              <CryptoIcon name={asset.name} />
-                              {asset.name} ({asset.symbol})
+                              <CryptoIcon name="Ethereum" />
+                              Ethereum (ETH)
                           </div>
                         </SelectItem>
-                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -252,8 +277,8 @@ export default function SendReceivePage() {
                     disabled={isInputDisabled}
                   />
                   <p className="text-xs text-muted-foreground mt-1 h-4">
-                        {`Balance: ${selectedAssetData?.amount?.toFixed(4) ?? '0.00'}`}
-                    </p>
+                        {`Balance: ${ethBalance.toFixed(6)} ETH`}
+                  </p>
                 </div>
                 
                 <AlertDialog>
@@ -273,7 +298,7 @@ export default function SendReceivePage() {
                           <div className="flex justify-between">
                               <span className="text-muted-foreground">Asset</span>
                               <span className="font-medium flex items-center gap-2">
-                                  <CryptoIcon name={selectedAssetData?.name ?? ''} />
+                                  <CryptoIcon name="Ethereum" />
                                   {sendAmount} {sendAsset}
                               </span>
                           </div>

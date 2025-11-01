@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useWallet } from '@/context/wallet-context';
 
 const chartConfig = {
   value: {
@@ -40,6 +41,7 @@ const chartConfig = {
 export function PortfolioOverview() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const { ethBalance } = useWallet();
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -55,14 +57,16 @@ export function PortfolioOverview() {
       const staticAssetData = staticAssets.find(sa => sa.symbol === walletDoc.currency);
       if (!staticAssetData) return null;
 
+      const balance = walletDoc.currency === 'ETH' ? ethBalance : walletDoc.balance;
+      
       return {
         ...staticAssetData,
-        amount: walletDoc.balance,
-        valueUSD: walletDoc.balance * staticAssetData.priceUSD,
+        amount: balance,
+        valueUSD: balance * staticAssetData.priceUSD,
       };
-    }).filter(Boolean) as (typeof staticAssets);
+    }).filter(Boolean) as (typeof staticAssets[0] & {amount: number, valueUSD: number})[];
 
-  }, [walletData]);
+  }, [walletData, ethBalance]);
 
 
   const totalBalance = portfolioAssets.reduce(

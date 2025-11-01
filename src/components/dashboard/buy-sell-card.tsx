@@ -11,8 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { portfolioAssets as staticAssets } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowRight, Loader2 } from "lucide-react"
-import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase'
-import { collection, query, doc, writeBatch, serverTimestamp } from 'firebase/firestore'
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
+import { collection, query, doc, writeBatch, serverTimestamp, runTransaction } from 'firebase/firestore'
+import { useWallet } from "@/context/wallet-context"
 
 export function BuySellCard() {
   const { toast } = useToast();
@@ -23,6 +24,7 @@ export function BuySellCard() {
   
   const { user } = useUser();
   const firestore = useFirestore();
+  const { ethBalance, userProfile } = useWallet();
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -38,15 +40,17 @@ export function BuySellCard() {
       const staticAssetData = staticAssets.find(sa => sa.symbol === walletDoc.currency);
       if (!staticAssetData) return null;
 
+      const balance = walletDoc.currency === 'ETH' ? ethBalance : walletDoc.balance;
+
       return {
         ...staticAssetData,
         id: walletDoc.id, // Keep the document ID
-        amount: walletDoc.balance,
-        valueUSD: walletDoc.balance * staticAssetData.priceUSD,
+        amount: balance,
+        valueUSD: balance * staticAssetData.priceUSD,
       };
-    }).filter(Boolean) as (typeof staticAssets & {id: string})[];
+    }).filter(Boolean) as (typeof staticAssets[0] & {id: string; amount: number; valueUSD: number})[];
 
-  }, [walletData]);
+  }, [walletData, ethBalance]);
 
 
   const assetForDisplay = portfolioAssets.find(a => a.symbol === selectedAsset) || staticAssets.find(a => a.symbol === selectedAsset);
@@ -73,75 +77,77 @@ export function BuySellCard() {
         return;
     }
 
+    if (userProfile?.verificationStatus !== 'Verified') {
+        toast({
+            title: "Verification Required",
+            description: `You must verify your account to ${isBuying ? 'buy' : 'sell'} assets.`,
+            variant: "destructive"
+        });
+        return;
+    }
+
     const assetToTransact = portfolioAssets.find(a => a.symbol === selectedAsset);
 
-    if (isBuying) {
-        const walletRef = doc(firestore, 'users', user.uid, 'wallets', selectedAsset);
-        const newBalance = (assetToTransact?.amount || 0) + amount;
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const walletRef = doc(firestore, 'users', user.uid, 'wallets', selectedAsset);
+            const txLogRef = doc(collection(walletRef, 'transactions'));
+            
+            if (isBuying) {
+                const currentWalletDoc = await transaction.get(walletRef);
+                const currentBalance = currentWalletDoc.exists() ? currentWalletDoc.data().balance : 0;
+                const newBalance = currentBalance + amount;
+                
+                transaction.set(walletRef, { 
+                    balance: newBalance,
+                    currency: selectedAsset,
+                    userId: user.uid,
+                    id: selectedAsset,
+                }, { merge: true });
 
-        const batch = writeBatch(firestore);
-        batch.set(walletRef, { balance: newBalance }, { merge: true });
+                transaction.set(txLogRef, {
+                  type: 'Buy',
+                  amount: amount,
+                  price: assetForDisplay?.priceUSD,
+                  timestamp: serverTimestamp(),
+                  valueUSD: value,
+                  status: 'Completed'
+                });
 
-        const txLogRef = doc(collection(firestore, 'users', user.uid, 'wallets', selectedAsset, 'transactions'));
-        batch.set(txLogRef, {
-          type: 'Buy',
-          amount: amount,
-          price: assetForDisplay?.priceUSD,
-          timestamp: serverTimestamp(),
-          valueUSD: value,
-          status: 'Completed'
+            } else { // Selling logic
+                if (!assetToTransact) {
+                    throw new Error(`You do not have any ${selectedAsset} in your portfolio.`);
+                }
+                if (amount > assetToTransact.amount) {
+                    throw new Error(`Your balance of ${assetToTransact.amount.toFixed(4)} ${assetToTransact.name} is not enough to sell ${amount}.`);
+                }
+                
+                const newBalance = assetToTransact.amount - amount;
+                transaction.update(walletRef, { balance: newBalance });
+
+                transaction.set(txLogRef, {
+                    type: 'Sell',
+                    amount: amount,
+                    price: assetForDisplay?.priceUSD,
+                    timestamp: serverTimestamp(),
+                    valueUSD: value,
+                    status: 'Completed'
+                });
+            }
         });
-        
-        await batch.commit();
 
         toast({
-          title: "Transaction Submitted",
-          description: `Your buy order for ${amount} ${selectedAsset} (approx. $${value}) has been submitted.`,
+          title: "Transaction Successful",
+          description: `Your ${isBuying ? 'buy' : 'sell'} order for ${amount} ${selectedAsset} was successful.`,
         });
-        setBuyAmount("");
+        isBuying ? setBuyAmount("") : setSellAmount("");
 
-    } else { // Selling logic
-        if (!assetToTransact) {
-             toast({
-                title: "Asset Not Found",
-                description: `You do not have any ${selectedAsset} in your portfolio.`,
-                variant: "destructive",
-            });
-            return;
-        }
-
-        if (amount > assetToTransact.amount) {
-            toast({
-                title: "Insufficient Funds",
-                description: `Your balance of ${assetToTransact.amount.toFixed(4)} ${assetToTransact.name} is not enough to sell ${amount}.`,
-                variant: "destructive",
-            });
-            return;
-        }
-        
-        const walletRef = doc(firestore, 'users', user.uid, 'wallets', assetToTransact.id);
-        const newBalance = assetToTransact.amount - amount;
-
-        const batch = writeBatch(firestore);
-        batch.update(walletRef, { balance: newBalance });
-
-        const txLogRef = doc(collection(firestore, 'users', user.uid, 'wallets', selectedAsset, 'transactions'));
-        batch.set(txLogRef, {
-            type: 'Sell',
-            amount: amount,
-            price: assetForDisplay?.priceUSD,
-            timestamp: serverTimestamp(),
-            valueUSD: value,
-            status: 'Completed'
-        });
-
-        await batch.commit();
-
+    } catch (error: any) {
         toast({
-          title: "Transaction Submitted",
-          description: `Your sell order for ${amount} ${selectedAsset} (approx. $${value}) has been submitted.`,
+            title: "Transaction Failed",
+            description: error.message || "An unexpected error occurred.",
+            variant: "destructive",
         });
-        setSellAmount("");
     }
   };
 
@@ -199,7 +205,7 @@ export function BuySellCard() {
                         <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
                     <SelectContent>
-                        {portfolioAssets.map(asset => (
+                        {portfolioAssets.filter(a => a.amount > 0).map(asset => (
                         <SelectItem key={asset.symbol} value={asset.symbol}>
                             {asset.name} ({asset.symbol})
                         </SelectItem>
@@ -208,7 +214,7 @@ export function BuySellCard() {
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="sell-amount">Amount ({`Balance: ${assetForDisplay?.amount?.toFixed(4) ?? '0.00'}`})</Label>
+                    <Label htmlFor="sell-amount">Amount ({`Balance: ${assetForDisplay?.amount?.toFixed(6) ?? '0.00'}`})</Label>
                     <Input id="sell-amount" type="number" placeholder="0.00" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} />
                 </div>
                 <div className="text-sm text-muted-foreground">
