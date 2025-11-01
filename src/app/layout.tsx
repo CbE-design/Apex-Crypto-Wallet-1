@@ -11,6 +11,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 export const metadata: Metadata = {
   title: 'Apex Crypto Wallet',
   description: 'A modern cryptocurrency exchange and wallet app.',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
