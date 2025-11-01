@@ -17,8 +17,8 @@ import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, runTransaction, doc, serverTimestamp, getDoc, where, getDocs, writeBatch } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, runTransaction, doc, serverTimestamp, getDocs, where } from 'firebase/firestore';
 
 
 type SendStatus = 'idle' | 'sending' | 'success' | 'error';
@@ -95,6 +95,19 @@ export default function SendReceivePage() {
         }
 
         await runTransaction(firestore, async (transaction) => {
+            // 1. Get recipient user by wallet address
+            const usersRef = collection(firestore, 'users');
+            const recipientQuery = query(usersRef, where("walletAddress", "==", recipientAddress));
+            const recipientSnapshot = await getDocs(recipientQuery);
+
+            if (recipientSnapshot.empty) {
+                throw new Error("Recipient address not found in the system.");
+            }
+
+            const recipientDoc = recipientSnapshot.docs[0];
+            const recipientId = recipientDoc.id;
+
+            // 2. Debit sender's wallet
             const senderWalletRef = doc(firestore, 'users', user.uid, 'wallets', 'ETH');
             const senderWalletDoc = await transaction.get(senderWalletRef);
 
@@ -105,15 +118,37 @@ export default function SendReceivePage() {
             const newSenderBalance = senderWalletDoc.data().balance - amount;
             transaction.update(senderWalletRef, { balance: newSenderBalance });
 
-            // Log sender's transaction
+            // 3. Log sender's transaction
             const senderTxLogRef = doc(collection(senderWalletRef, 'transactions'));
             transaction.set(senderTxLogRef, {
-              type: 'Sell', // From sender's perspective it is a 'Sell' or 'Send'
+              type: 'Sell', // 'Sell' or 'Send'
               amount: amount,
-              price: 0, // Not applicable for virtual transfer
+              price: 0,
               timestamp: serverTimestamp(),
               valueUSD: 0,
               status: 'Completed',
+              recipient: recipientAddress,
+              sender: userAddress,
+            });
+
+            // 4. Credit recipient's wallet
+            const recipientWalletRef = doc(firestore, 'users', recipientId, 'wallets', 'ETH');
+            const recipientWalletDoc = await transaction.get(recipientWalletRef);
+            const recipientBalance = recipientWalletDoc.exists() ? recipientWalletDoc.data().balance : 0;
+            const newRecipientBalance = recipientBalance + amount;
+            
+            transaction.set(recipientWalletRef, { balance: newRecipientBalance }, { merge: true });
+
+             // 5. Log recipient's transaction
+            const recipientTxLogRef = doc(collection(recipientWalletRef, 'transactions'));
+            transaction.set(recipientTxLogRef, {
+              type: 'Buy', // 'Buy' or 'Receive'
+              amount: amount,
+              price: 0,
+              timestamp: serverTimestamp(),
+              valueUSD: 0,
+              status: 'Completed',
+              sender: userAddress,
               recipient: recipientAddress,
             });
         });
@@ -130,7 +165,7 @@ export default function SendReceivePage() {
         setErrorMessage(error.message || 'An unknown error occurred.');
         toast({
           title: 'Transaction Failed',
-          description: error.reason || error.message || 'Could not complete the transaction.',
+          description: error.message || 'Could not complete the transaction.',
           variant: 'destructive',
         });
     }
@@ -359,3 +394,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
