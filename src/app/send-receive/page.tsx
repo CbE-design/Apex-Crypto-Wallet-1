@@ -24,14 +24,14 @@ type SendStatus = 'idle' | 'signing' | 'sending' | 'confirming' | 'success' | 'e
 export default function SendReceivePage() {
   const { toast } = useToast();
   const { wallet } = useWallet();
-  const [sendAsset, setSendAsset] = useState(portfolioAssets[0].symbol);
-  const [sendAmount, setSendAmount] = useState('');
-  const [recipientAddress, setRecipientAddress] = useState('');
+  const [sendAsset, setSendAsset] = useState('ETH');
+  const [sendAmount, setSendAmount = useState('');
+  const [recipientAddress, setRecipientAddress = useState('');
   
   const [status, setStatus] = useState<SendStatus>('idle');
-  const [txHash, setTxHash] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
+  const [txHash, setTxHash = useState('');
+  const [errorMessage, setErrorMessage = useState('');
+  const [qrCodeDataUrl, setQrCodeDataUrl = useState('');
   
   const userAddress = wallet?.address || '0x... (address not available)';
   const networkFee = 0.001; // Example network fee in ETH
@@ -52,8 +52,8 @@ export default function SendReceivePage() {
   const selectedAssetData = portfolioAssets.find(a => a.symbol === sendAsset);
 
   const handleSend = async () => {
-    if (!wallet || !selectedAssetData) {
-        toast({ title: "Wallet not connected", variant: "destructive"});
+    if (!wallet || !selectedAssetData || sendAsset !== 'ETH') {
+        toast({ title: "Transfer not supported", description: "Currently, only ETH transfers are supported.", variant: "destructive"});
         return;
     }
 
@@ -65,7 +65,7 @@ export default function SendReceivePage() {
     setStatus('signing');
     
     try {
-        const provider = new ethers.JsonRpcProvider('https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID'); // Replace with your provider
+        const provider = new ethers.JsonRpcProvider(`https://mainnet.infura.io/v3/${process.env.NEXT_PUBLIC_INFURA_PROJECT_ID}`);
         const signer = new ethers.Wallet(wallet.privateKey, provider);
 
         const transaction = {
@@ -180,7 +180,7 @@ export default function SendReceivePage() {
                       <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
                     <SelectContent>
-                      {portfolioAssets.map(asset => (
+                      {portfolioAssets.filter(a => a.symbol === 'ETH').map(asset => (
                         <SelectItem key={asset.symbol} value={asset.symbol}>
                           <div className="flex items-center gap-2">
                               <CryptoIcon name={asset.name} />
@@ -292,3 +292,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
