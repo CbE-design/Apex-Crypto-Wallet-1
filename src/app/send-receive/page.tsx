@@ -204,8 +204,8 @@ export default function SendReceivePage() {
   }
   
   const isVerified = userProfile?.verificationStatus === 'Verified';
-  const isSendButtonDisabled = status !== 'idle' || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || !isVerified;
-  const isInputDisabled = status !== 'idle' && status !== 'error' || !isVerified;
+  const isSendButtonDisabled = status !== 'idle' || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0;
+  const isInputDisabled = status !== 'idle' && status !== 'error';
 
   const getStatusContent = () => {
     switch(status) {
@@ -240,30 +240,106 @@ export default function SendReceivePage() {
     }
   }
 
-  const renderVerificationStatus = () => {
-    if (isVerified) {
+  const renderSendContent = () => {
+      if (!isVerified) {
         return (
-             <Alert variant="default" className="bg-green-500/10 border-green-500/50 text-green-700 dark:text-green-400">
-                <ShieldCheck className="h-4 w-4 text-green-500" />
-                <AlertTitle>Account Verified</AlertTitle>
+            <Alert variant="destructive">
+                <XCircle className="h-4 w-4" />
+                <AlertTitle>Verification Required</AlertTitle>
                 <AlertDescription>
-                    You are fully verified and can now send funds.
+                    <p className="mb-4">To send funds, you must verify your account. This is a one-time security process.</p>
+                    <Button onClick={handleVerificationRequest} size="sm">Start Verification</Button>
                 </AlertDescription>
             </Alert>
         )
-    }
-    
-    return (
-        <Alert variant="destructive">
-            <XCircle className="h-4 w-4" />
-            <AlertTitle>Verification Required</AlertTitle>
-            <AlertDescription>
-                <p className="mb-4">To send funds, you must verify your account. This is a one-time security process.</p>
-                <Button onClick={handleVerificationRequest} size="sm">Start Verification</Button>
-            </AlertDescription>
-        </Alert>
-    )
+      }
+
+      if (status === 'idle' || status === 'error') {
+          return (
+            <>
+                <div className="space-y-2">
+                <Label htmlFor="send-asset">Asset</Label>
+                <Select value={sendAsset} onValueChange={setSendAsset} disabled>
+                    <SelectTrigger id="send-asset">
+                    <SelectValue placeholder="Select asset" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="ETH">
+                        <div className="flex items-center gap-2">
+                            <CryptoIcon name="Ethereum" />
+                            Ethereum (ETH)
+                        </div>
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                </div>
+                <div className="space-y-2">
+                <Label htmlFor="recipient-address">Recipient Address</Label>
+                <Input 
+                    id="recipient-address" 
+                    placeholder="0x..." 
+                    value={recipientAddress}
+                    onChange={(e) => setRecipientAddress(e.target.value)}
+                    disabled={isInputDisabled}
+                />
+                </div>
+                <div className="space-y-2">
+                <Label htmlFor="send-amount">Amount</Label>
+                <Input 
+                    id="send-amount" 
+                    type="number" 
+                    placeholder="0.00" 
+                    value={sendAmount}
+                    onChange={(e) => setSendAmount(e.target.value)}
+                    disabled={isInputDisabled}
+                />
+                <p className="text-xs text-muted-foreground mt-1 h-4">
+                        {`Balance: ${selectedAssetBalance.toFixed(6)} ${sendAsset}`}
+                </p>
+                </div>
+                
+                <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button className="w-full" disabled={isSendButtonDisabled}>
+                        Send {sendAsset} <ArrowRight className="ml-2" />
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Transaction</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        You are about to send {sendAmount} {sendAsset}. This action is for simulation purposes.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="space-y-4 py-4 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Asset</span>
+                            <span className="font-medium flex items-center gap-2">
+                                <CryptoIcon name="Ethereum" />
+                                {sendAmount} {sendAsset}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">Recipient</span>
+                            <span className="font-mono break-all text-right ml-4">{recipientAddress}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-base pt-2 border-t">
+                            <span>Total</span>
+                            <span>{sendAmount} {sendAsset}</span>
+                        </div>
+                    </div>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSend}>Confirm & Send</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+                </AlertDialog>
+            </>
+          );
+      }
+      return getStatusContent();
   }
+
 
   return (
     <PrivateRoute>
@@ -274,92 +350,7 @@ export default function SendReceivePage() {
             <CardDescription>Send funds to another wallet on the network.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {status === 'idle' || status === 'error' ? (
-              <>
-                <div className="space-y-4">
-                    {renderVerificationStatus()}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="send-asset">Asset</Label>
-                  <Select value={sendAsset} onValueChange={setSendAsset} disabled>
-                    <SelectTrigger id="send-asset">
-                      <SelectValue placeholder="Select asset" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ETH">
-                          <div className="flex items-center gap-2">
-                              <CryptoIcon name="Ethereum" />
-                              Ethereum (ETH)
-                          </div>
-                        </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="recipient-address">Recipient Address</Label>
-                  <Input 
-                    id="recipient-address" 
-                    placeholder="0x..." 
-                    value={recipientAddress}
-                    onChange={(e) => setRecipientAddress(e.target.value)}
-                    disabled={isInputDisabled}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="send-amount">Amount</Label>
-                  <Input 
-                    id="send-amount" 
-                    type="number" 
-                    placeholder="0.00" 
-                    value={sendAmount}
-                    onChange={(e) => setSendAmount(e.target.value)}
-                    disabled={isInputDisabled}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1 h-4">
-                        {`Balance: ${selectedAssetBalance.toFixed(6)} ${sendAsset}`}
-                  </p>
-                </div>
-                
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                      <Button className="w-full" disabled={isSendButtonDisabled}>
-                          Send {sendAsset} <ArrowRight className="ml-2" />
-                      </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                      <AlertDialogHeader>
-                      <AlertDialogTitle>Confirm Transaction</AlertDialogTitle>
-                      <AlertDialogDescription>
-                          You are about to send {sendAmount} {sendAsset}. This action is for simulation purposes.
-                      </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <div className="space-y-4 py-4 text-sm">
-                          <div className="flex justify-between">
-                              <span className="text-muted-foreground">Asset</span>
-                              <span className="font-medium flex items-center gap-2">
-                                  <CryptoIcon name="Ethereum" />
-                                  {sendAmount} {sendAsset}
-                              </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                              <span className="text-muted-foreground">Recipient</span>
-                              <span className="font-mono break-all text-right ml-4">{recipientAddress}</span>
-                          </div>
-                           <div className="flex justify-between font-bold text-base pt-2 border-t">
-                              <span>Total</span>
-                              <span>{sendAmount} {sendAsset}</span>
-                          </div>
-                      </div>
-                      <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleSend}>Confirm & Send</AlertDialogAction>
-                      </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </>
-            ) : (
-              getStatusContent()
-            )}
+            {renderSendContent()}
           </CardContent>
         </Card>
 
@@ -390,7 +381,3 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
-
-    
-
-    
