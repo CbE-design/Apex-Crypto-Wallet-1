@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export interface PortfolioAsset {
@@ -31,11 +32,16 @@ export interface Transaction {
 
 export interface PriceAlert {
   id: string;
-  asset: string;
-  targetPrice: number;
-  type: 'Above' | 'Below';
-  status: 'Active' | 'Triggered';
-  icon: string;
+  userId: string;
+  currency: string;
+  thresholdPrice: number;
+  alertType: 'Above' | 'Below';
+  triggered: boolean;
+  asset?: string; // These are for display only
+  targetPrice?: number;
+  type?: 'Above' | 'Below';
+  status?: 'Active' | 'Triggered';
+  icon?: string;
 }
 
 // Schema for GetExchangeRate flow

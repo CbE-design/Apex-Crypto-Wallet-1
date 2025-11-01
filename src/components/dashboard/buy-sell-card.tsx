@@ -12,7 +12,7 @@ import { portfolioAssets as staticAssets } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowRight, Loader2 } from "lucide-react"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
-import { collection, query, doc, writeBatch, serverTimestamp, runTransaction } from 'firebase/firestore'
+import { collection, query, doc, runTransaction, serverTimestamp } from 'firebase/firestore'
 import { useWallet } from "@/context/wallet-context"
 
 export function BuySellCard() {
@@ -24,7 +24,7 @@ export function BuySellCard() {
   
   const { user } = useUser();
   const firestore = useFirestore();
-  const { ethBalance, userProfile } = useWallet();
+  const { userProfile } = useWallet();
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -40,17 +40,15 @@ export function BuySellCard() {
       const staticAssetData = staticAssets.find(sa => sa.symbol === walletDoc.currency);
       if (!staticAssetData) return null;
 
-      const balance = walletDoc.currency === 'ETH' ? ethBalance : walletDoc.balance;
-
       return {
         ...staticAssetData,
         id: walletDoc.id, // Keep the document ID
-        amount: balance,
-        valueUSD: balance * staticAssetData.priceUSD,
+        amount: walletDoc.balance,
+        valueUSD: walletDoc.balance * staticAssetData.priceUSD,
       };
     }).filter(Boolean) as (typeof staticAssets[0] & {id: string; amount: number; valueUSD: number})[];
 
-  }, [walletData, ethBalance]);
+  }, [walletData]);
 
 
   const assetForDisplay = portfolioAssets.find(a => a.symbol === selectedAsset) || staticAssets.find(a => a.symbol === selectedAsset);
@@ -77,10 +75,10 @@ export function BuySellCard() {
         return;
     }
 
-    if (userProfile?.verificationStatus !== 'Verified') {
+    if (userProfile?.verificationStatus !== 'Verified' && !isBuying) { // Verification only needed for selling (cashing out)
         toast({
             title: "Verification Required",
-            description: `You must verify your account to ${isBuying ? 'buy' : 'sell'} assets.`,
+            description: `You must verify your account to sell assets.`,
             variant: "destructive"
         });
         return;

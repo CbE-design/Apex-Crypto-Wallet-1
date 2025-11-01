@@ -17,13 +17,18 @@ import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
 
 
 type SendStatus = 'idle' | 'signing' | 'sending' | 'confirming' | 'success' | 'error';
 
 export default function SendReceivePage() {
   const { toast } = useToast();
-  const { wallet, userProfile, ethBalance, requestVerification } = useWallet();
+  const { wallet, userProfile, requestVerification } = useWallet();
+  const { user } = useUser();
+  const firestore = useFirestore();
+
   const [sendAsset] = useState('ETH');
   const [sendAmount, setSendAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
@@ -35,6 +40,18 @@ export default function SendReceivePage() {
   
   const userAddress = wallet?.address || '0x... (address not available)';
   
+  const ethWalletQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, 'users', user.uid, 'wallets'));
+  }, [user, firestore]);
+  
+  const { data: walletData } = useCollection(ethWalletQuery);
+  const ethBalance = useMemo(() => {
+    if (!walletData) return 0;
+    const ethWallet = walletData.find(w => w.currency === 'ETH');
+    return ethWallet ? ethWallet.balance : 0;
+  }, [walletData]);
+
   useEffect(() => {
     if (wallet?.address) {
       QRCode.toDataURL(wallet.address, { errorCorrectionLevel: 'H', width: 160 })
@@ -216,7 +233,7 @@ export default function SendReceivePage() {
     }
     return (
         <Alert variant="destructive">
-            <ShieldCheck className="h-4 w-4" />
+            <XCircle className="h-4 w-4" />
             <AlertTitle>Verification Required</AlertTitle>
             <AlertDescription>
                 <p className="mb-4">To send funds, you must verify your account. This is a one-time security process.</p>
