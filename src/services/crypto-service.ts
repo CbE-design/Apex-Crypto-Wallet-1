@@ -15,15 +15,15 @@ import { marketCoins } from '@/lib/data';
 function getExchangeInstance() {
     const exchangeId = process.env.EXCHANGE_ID as keyof typeof ccxt.exchanges;
     if (!exchangeId || !ccxt.exchanges.includes(exchangeId)) {
-        throw new Error(`Exchange ID "${process.env.EXCHANGE_ID}" is not valid or supported by ccxt.`);
+        // Return null instead of throwing an error to allow fallback to static data
+        console.warn(`Exchange ID "${process.env.EXCHANGE_ID}" is not valid or not set. Falling back to static data.`);
+        return null;
     }
 
     const exchangeClass = ccxt[exchangeId];
     const exchange = new exchangeClass({
         apiKey: process.env.EXCHANGE_API_KEY,
         secret: process.env.EXCHANGE_API_SECRET,
-        // Some exchanges require a password, uncomment if needed
-        // password: process.env.EXCHANGE_PASSWORD,
     });
 
     // Enable sandbox mode if the exchange supports it and if it's configured in .env
@@ -34,15 +34,24 @@ function getExchangeInstance() {
     return exchange;
 }
 
-
 /**
  * Fetches the current USD price for a list of given cryptocurrency symbols.
  * @param symbols - An array of cryptocurrency symbols (e.g., ['BTC', 'ETH']).
  * @returns A promise that resolves to a record mapping symbols to their USD prices.
  */
 export async function getLivePrices(symbols: string[]): Promise<Record<string, number>> {
+    const exchange = getExchangeInstance();
+
+    // If the exchange isn't configured, fall back to static data immediately.
+    if (!exchange) {
+        return symbols.reduce((acc, symbol) => {
+            const coin = marketCoins.find(c => c.symbol === symbol);
+            acc[symbol] = coin ? coin.priceUSD : 0;
+            return acc;
+        }, {} as Record<string, number>);
+    }
+    
     try {
-        const exchange = getExchangeInstance();
         const tickers = await exchange.fetchTickers(symbols.map(s => `${s}/USDT`));
         
         const prices: Record<string, number> = {};
