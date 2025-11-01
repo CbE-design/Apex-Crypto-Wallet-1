@@ -25,7 +25,7 @@ type SendStatus = 'idle' | 'signing' | 'sending' | 'confirming' | 'success' | 'e
 
 export default function SendReceivePage() {
   const { toast } = useToast();
-  const { wallet, userProfile, requestVerification } = useWallet();
+  const { wallet, userProfile, requestVerification, fetchOnChainBalance } = useWallet();
   const { user } = useUser();
   const firestore = useFirestore();
 
@@ -94,7 +94,7 @@ export default function SendReceivePage() {
     setStatus('signing');
     
     try {
-        const provider = new ethers.InfuraProvider("mainnet", process.env.NEXT_PUBLIC_INFURA_PROJECT_ID);
+        const provider = new ethers.InfuraProvider("sepolia", process.env.NEXT_PUBLIC_INFURA_PROJECT_ID);
         const signer = new ethers.Wallet(wallet.privateKey, provider);
         
         const amount = ethers.parseEther(sendAmount);
@@ -171,7 +171,7 @@ export default function SendReceivePage() {
                     <p className="text-muted-foreground">Please wait while the transaction is processed.</p>
                     {txHash && (
                         <Button variant="link" asChild>
-                             <a href={`https://etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+                             <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
                                 View on Etherscan <ExternalLink className="ml-2" />
                             </a>
                         </Button>
@@ -186,7 +186,7 @@ export default function SendReceivePage() {
                     <p className="text-muted-foreground">You have successfully sent {sendAmount} {sendAsset}.</p>
                     {txHash && (
                          <Button variant="link" asChild>
-                             <a href={`https://etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+                             <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
                                 View on Etherscan <ExternalLink className="ml-2" />
                             </a>
                         </Button>
@@ -308,7 +308,7 @@ export default function SendReceivePage() {
                       <AlertDialogHeader>
                       <AlertDialogTitle>Confirm Transaction</AlertDialogTitle>
                       <AlertDialogDescription>
-                          You are about to send {sendAmount} {sendAsset} on the Ethereum network. This action is irreversible and will incur gas fees.
+                          You are about to send {sendAmount} {sendAsset} on the Sepolia test network. This action is irreversible and will incur gas fees.
                       </AlertDialogDescription>
                       </AlertDialogHeader>
                       <div className="space-y-4 py-4 text-sm">
@@ -371,3 +371,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
