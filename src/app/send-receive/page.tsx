@@ -89,7 +89,6 @@ export default function SendReceivePage() {
         }
 
         await runTransaction(firestore, async (transaction) => {
-            // 1. Get recipient user by wallet address
             const usersRef = collection(firestore, 'users');
             const recipientQuery = query(usersRef, where("walletAddress", "==", recipientAddress), limit(1));
             const recipientSnapshot = await getDocs(recipientQuery);
@@ -101,7 +100,6 @@ export default function SendReceivePage() {
             const recipientDoc = recipientSnapshot.docs[0];
             const recipientId = recipientDoc.id;
 
-            // 2. Debit sender's wallet for the specific asset
             const senderWalletRef = doc(firestore, 'users', user.uid, 'wallets', sendAsset);
             const senderWalletDoc = await transaction.get(senderWalletRef);
 
@@ -113,7 +111,6 @@ export default function SendReceivePage() {
             const newSenderBalance = senderBalance - amount;
             transaction.update(senderWalletRef, { balance: newSenderBalance });
 
-            // 3. Log sender's transaction
             const senderTxLogRef = doc(collection(senderWalletRef, 'transactions'));
             transaction.set(senderTxLogRef, {
               type: 'Sell',
@@ -126,13 +123,11 @@ export default function SendReceivePage() {
               sender: userAddress,
             });
 
-            // 4. Credit recipient's wallet for the specific asset
             const recipientWalletRef = doc(firestore, 'users', recipientId, 'wallets', sendAsset);
             const recipientWalletDoc = await transaction.get(recipientWalletRef);
             const recipientBalance = recipientWalletDoc.exists() ? recipientWalletDoc.data().balance : 0;
             const newRecipientBalance = recipientBalance + amount;
             
-            // Use set with merge to create the wallet if it doesn't exist for the recipient
             transaction.set(recipientWalletRef, { 
                 balance: newRecipientBalance,
                 currency: sendAsset,
@@ -140,7 +135,6 @@ export default function SendReceivePage() {
                 userId: recipientId
              }, { merge: true });
 
-             // 5. Log recipient's transaction
             const recipientTxLogRef = doc(collection(recipientWalletRef, 'transactions'));
             transaction.set(recipientTxLogRef, {
               type: 'Buy',
@@ -190,7 +184,7 @@ export default function SendReceivePage() {
   };
   
   const isSendButtonDisabled = status !== 'idle' || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0;
-  const isInputDisabled = status !== 'idle' && status !== 'error';
+  const isInputDisabled = status === 'sending' || status === 'success';
 
   const getStatusContent = () => {
     switch(status) {
