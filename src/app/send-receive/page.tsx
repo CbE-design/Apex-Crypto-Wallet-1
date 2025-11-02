@@ -330,7 +330,7 @@ export default function SendReceivePage() {
           <CardHeader>
             <CardTitle>Receive Crypto</CardTitle>
             <CardDescription>Share your address to get paid.</CardDescription>
-          </Header>
+          </CardHeader>
           <CardContent className="flex flex-col items-center justify-center space-y-4 pt-8">
               <div className="p-4 bg-white rounded-lg">
                   {qrCodeDataUrl ? (
