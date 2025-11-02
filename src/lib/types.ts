@@ -72,3 +72,16 @@ export const SupportAgentOutputSchema = z.object({
     .describe('A helpful and friendly response to the user\'s query.'),
 });
 export type SupportAgentOutput = z.infer<typeof SupportAgentOutputSchema>;
+
+// Schema for CryptoAssistant flow
+export const CryptoAssistantInputSchema = z.object({
+  query: z.string().describe("The user's question about cryptocurrency."),
+});
+export type CryptoAssistantInput = z.infer<typeof CryptoAssistantInputSchema>;
+
+export const CryptoAssistantOutputSchema = z.object({
+  response: z
+    .string()
+    .describe('A helpful and informative response to the user\'s query.'),
+});
+export type CryptoAssistantOutput = z.infer<typeof CryptoAssistantOutputSchema>;

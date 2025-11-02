@@ -1,28 +1,22 @@
+
 'use server';
 
 /**
  * @fileOverview An AI agent that acts as a cryptocurrency assistant.
  *
  * - cryptoAssistant - A function that generates a response to a user's crypto-related query.
- * - CryptoAssistantInput - The input type for the cryptoAssistant function.
- * - CryptoAssistantOutput - The return type for the cryptoAssistant function.
  */
 
 import {ai} from '@/ai/genkit';
 import {getLivePrices} from '@/services/crypto-service';
 import {z} from 'genkit';
+import {
+  CryptoAssistantInputSchema,
+  type CryptoAssistantInput,
+  CryptoAssistantOutputSchema,
+  type CryptoAssistantOutput,
+} from '@/lib/types';
 
-const CryptoAssistantInputSchema = z.object({
-  query: z.string().describe("The user's question about cryptocurrency."),
-});
-export type CryptoAssistantInput = z.infer<typeof CryptoAssistantInputSchema>;
-
-const CryptoAssistantOutputSchema = z.object({
-  response: z
-    .string()
-    .describe('A helpful and informative response to the user\'s query.'),
-});
-export type CryptoAssistantOutput = z.infer<typeof CryptoAssistantOutputSchema>;
 
 export async function cryptoAssistant(
   input: CryptoAssistantInput
