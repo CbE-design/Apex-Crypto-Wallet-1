@@ -11,7 +11,7 @@ import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles, Bot, Repeat, S
 import { useWallet } from "@/context/wallet-context";
 
 export function AppSidebar() {
-  const { wallet } = useWallet();
+  const { isAdmin } = useWallet();
 
   return (
     <>
@@ -52,6 +52,16 @@ export function AppSidebar() {
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {isAdmin && (
+            <SidebarMenuItem>
+                <SidebarMenuButton href="/admin" asChild>
+                    <a href="/admin">
+                        <ShieldCheck />
+                        Admin Panel
+                    </a>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton href="/coming-soon" asChild>
               <a href="/coming-soon">
