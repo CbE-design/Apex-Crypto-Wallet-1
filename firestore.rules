@@ -28,12 +28,11 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      // Admin status is determined by matching the connected wallet address
+      // Admin status is determined by matching the user's UID
       // with the one defined in the environment variables.
-      // We read the user's own document to get their wallet address.
-      let adminWalletAddress = firestore.get_param("NEXT_PUBLIC_ADMIN_WALLET_ADDRESS", "");
-      let userWalletAddress = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.walletAddress;
-      return isSignedIn() && userWalletAddress == adminWalletAddress;
+      // In a production app, this would ideally be a custom claim.
+      let adminUID = firestore.get_param("ADMIN_UID", "");
+      return isSignedIn() && request.auth.uid == adminUID;
     }
     
     /**
