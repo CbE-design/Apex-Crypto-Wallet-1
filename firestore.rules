@@ -28,10 +28,13 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      // In a production app, this would check for a custom claim: return request.auth.token.isAdmin == true;
-      // For this environment, we'll assume the first created user is the admin for demonstration.
-      // This is NOT secure for a real application.
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.createdAt < timestamp.value(10000);
+      // Admin status is determined by matching the connected wallet address
+      // with the one defined in the environment variables.
+      // We read the user's own document to get their wallet address.
+      let adminWalletAddress = firestore.get_param("NEXT_PUBLIC_ADMIN_WALLET_ADDRESS", "");
+      return isSignedIn() 
+             && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.walletAddress == adminWalletAddress;
     }
     
     /**
