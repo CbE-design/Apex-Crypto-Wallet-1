@@ -1,14 +1,13 @@
-
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { portfolioAssets as staticAssets } from "@/lib/data"
+import { portfolioAssets as staticAssets, marketCoins } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowRight, Loader2 } from "lucide-react"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
@@ -16,17 +15,24 @@ import { collection, query, doc, runTransaction, serverTimestamp } from 'firebas
 import { useWallet } from "@/context/wallet-context"
 import { useCurrency } from "@/context/currency-context"
 
+const allTradableAssets = [...staticAssets, ...marketCoins].reduce((acc, current) => {
+    if (!acc.find(item => item.symbol === current.symbol)) {
+        acc.push(current);
+    }
+    return acc;
+}, [] as { symbol: string; name: string, priceUSD: number }[]);
+
+
 export function BuySellCard() {
   const { toast } = useToast();
   const { currency, formatCurrency } = useCurrency();
   const [activeTab, setActiveTab] = useState("buy");
-  const [buyAmount, setBuyAmount] = useState("");
-  const [sellAmount, setSellAmount] = useState("");
-  const [selectedAsset, setSelectedAsset] = useState(staticAssets[0].symbol);
+  const [amount, setAmount] = useState("");
+  const [selectedAsset, setSelectedAsset] = useState(allTradableAssets[0].symbol);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const { user } = useUser();
   const firestore = useFirestore();
-  const { userProfile } = useWallet();
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -39,107 +45,89 @@ export function BuySellCard() {
     if (!walletData) return [];
     
     return walletData.map(walletDoc => {
-      const staticAssetData = staticAssets.find(sa => sa.symbol === walletDoc.currency);
+      const staticAssetData = allTradableAssets.find(sa => sa.symbol === walletDoc.currency);
       if (!staticAssetData) return null;
 
       return {
         ...staticAssetData,
-        id: walletDoc.id, // Keep the document ID
+        id: walletDoc.id,
         amount: walletDoc.balance,
         valueUSD: walletDoc.balance * staticAssetData.priceUSD,
       };
-    }).filter(Boolean) as (typeof staticAssets[0] & {id: string; amount: number; valueUSD: number})[];
+    }).filter(asset => asset !== null && asset.amount > 0) as (typeof allTradableAssets[0] & {id: string; amount: number; valueUSD: number})[];
 
   }, [walletData]);
 
+  const ownedAssetSymbols = useMemo(() => portfolioAssets.map(a => a.symbol), [portfolioAssets]);
 
-  const assetForDisplay = portfolioAssets.find(a => a.symbol === selectedAsset) || staticAssets.find(a => a.symbol === selectedAsset);
-  const assetPriceInSelectedCurrency = assetForDisplay ? assetForDisplay.priceUSD * currency.rate : 0;
+  useEffect(() => {
+    setAmount("");
+    if (activeTab === 'buy' && !allTradableAssets.some(a => a.symbol === selectedAsset)) {
+        setSelectedAsset(allTradableAssets[0].symbol);
+    } else if (activeTab === 'sell' && !ownedAssetSymbols.includes(selectedAsset)) {
+        setSelectedAsset(ownedAssetSymbols[0] || allTradableAssets[0].symbol);
+    }
+  }, [activeTab, selectedAsset, ownedAssetSymbols]);
+
+  const currentAssetDetails = allTradableAssets.find(a => a.symbol === selectedAsset);
+  const assetPriceInSelectedCurrency = currentAssetDetails ? currentAssetDetails.priceUSD * currency.rate : 0;
   
-  const estimatedBuyValue = buyAmount ? (parseFloat(buyAmount) * assetPriceInSelectedCurrency) : 0;
-  const estimatedSellValue = sellAmount ? (parseFloat(sellAmount) * assetPriceInSelectedCurrency) : 0;
+  const estimatedValue = amount ? (parseFloat(amount) * assetPriceInSelectedCurrency) : 0;
+  const currentBalance = portfolioAssets.find(a => a.symbol === selectedAsset)?.amount ?? 0;
 
   const handleTransaction = async () => {
     const isBuying = activeTab === "buy";
-    const amountStr = isBuying ? buyAmount : sellAmount;
-    const amount = parseFloat(amountStr);
-    const value = parseFloat(isBuying ? estimatedBuyValue.toFixed(2) : estimatedSellValue.toFixed(2));
+    const numericAmount = parseFloat(amount);
 
-    if (!amountStr || isNaN(amount) || amount <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid amount to transact.",
-        variant: "destructive",
-      });
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      toast({ title: "Invalid Amount", description: "Please enter a valid amount.", variant: "destructive" });
       return;
     }
     
-    if (!user || !firestore) {
-        toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+    if (!user || !firestore || !currentAssetDetails) {
+        toast({ title: "Error", description: "Cannot process transaction.", variant: "destructive" });
         return;
     }
+
+    if (!isBuying && numericAmount > currentBalance) {
+        toast({ title: "Insufficient Funds", description: `You cannot sell more ${selectedAsset} than you own.`, variant: "destructive"});
+        return;
+    }
+
+    setIsProcessing(true);
 
     try {
         await runTransaction(firestore, async (transaction) => {
             const walletRef = doc(firestore, 'users', user.uid, 'wallets', selectedAsset);
-            const txLogCollectionRef = collection(walletRef, 'transactions');
-            const txLogRef = doc(txLogCollectionRef);
+            const txLogRef = doc(collection(walletRef, 'transactions'));
+            
+            const currentWalletDoc = await transaction.get(walletRef);
+            const currentBalance = currentWalletDoc.exists() ? currentWalletDoc.data().balance : 0;
 
-            const assetPriceUSD = assetForDisplay?.priceUSD || 0;
+            const newBalance = isBuying ? currentBalance + numericAmount : currentBalance - numericAmount;
+            
+            transaction.set(walletRef, { 
+                balance: newBalance,
+                currency: selectedAsset,
+                id: selectedAsset,
+                userId: user.uid,
+            }, { merge: true });
 
-            if (isBuying) {
-                const currentWalletDoc = await transaction.get(walletRef);
-                const currentBalance = currentWalletDoc.exists() ? currentWalletDoc.data().balance : 0;
-                const newBalance = currentBalance + amount;
-                
-                transaction.set(walletRef, { 
-                    balance: newBalance,
-                    currency: selectedAsset,
-                    id: selectedAsset,
-                    userId: user.uid,
-                }, { merge: true });
-
-                transaction.set(txLogRef, {
-                  type: 'Buy',
-                  amount: amount,
-                  price: assetPriceUSD,
-                  timestamp: serverTimestamp(),
-                  valueUSD: amount * assetPriceUSD,
-                  status: 'Completed'
-                });
-
-            } else { // Selling logic
-                const walletDoc = await transaction.get(walletRef);
-
-                if (!walletDoc.exists()) {
-                    throw new Error(`You do not have any ${selectedAsset} to sell.`);
-                }
-                
-                const currentBalance = walletDoc.data().balance;
-
-                if (amount > currentBalance) {
-                    throw new Error(`Your balance of ${currentBalance.toFixed(6)} ${selectedAsset} is not enough to sell ${amount}.`);
-                }
-                
-                const newBalance = currentBalance - amount;
-                transaction.update(walletRef, { balance: newBalance });
-
-                transaction.set(txLogRef, {
-                    type: 'Sell',
-                    amount: amount,
-                    price: assetPriceUSD,
-                    timestamp: serverTimestamp(),
-                    valueUSD: amount * assetPriceUSD,
-                    status: 'Completed'
-                });
-            }
+            transaction.set(txLogRef, {
+              type: isBuying ? 'Buy' : 'Sell',
+              amount: numericAmount,
+              price: currentAssetDetails.priceUSD,
+              timestamp: serverTimestamp(),
+              valueUSD: numericAmount * currentAssetDetails.priceUSD,
+              status: 'Completed'
+            });
         });
 
         toast({
           title: "Transaction Successful",
-          description: `Your ${isBuying ? 'buy' : 'sell'} order for ${amount} ${selectedAsset} was successful.`,
+          description: `Your ${isBuying ? 'buy' : 'sell'} order for ${numericAmount} ${selectedAsset} was successful.`,
         });
-        isBuying ? setBuyAmount("") : setSellAmount("");
+        setAmount("");
 
     } catch (error: any) {
         console.error("Transaction failed:", error);
@@ -148,8 +136,58 @@ export function BuySellCard() {
             description: error.message || "An unexpected error occurred.",
             variant: "destructive",
         });
+    } finally {
+        setIsProcessing(false);
     }
   };
+
+  const numericAmount = parseFloat(amount);
+  const isButtonDisabled = isProcessing || isLoading || !amount || numericAmount <= 0 || (activeTab === 'sell' && numericAmount > currentBalance);
+  
+  const renderForm = (isBuy: boolean) => {
+    const assetList = isBuy ? allTradableAssets : portfolioAssets;
+    
+    return (
+        <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+                <Label htmlFor={`${activeTab}-asset`}>Asset</Label>
+                <Select value={selectedAsset} onValueChange={setSelectedAsset} disabled={isProcessing}>
+                    <SelectTrigger id={`${activeTab}-asset`}>
+                        <SelectValue placeholder="Select asset" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {assetList.length > 0 ? assetList.map(asset => (
+                            <SelectItem key={asset.symbol} value={asset.symbol}>
+                                {asset.name} ({asset.symbol})
+                            </SelectItem>
+                        )) : (
+                           <SelectItem value="none" disabled>No assets to sell</SelectItem>
+                        )}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor={`${activeTab}-amount`}>{`Amount ${!isBuy ? `(Balance: ${currentBalance.toFixed(6)})` : ''}`}</Label>
+                <Input 
+                    id={`${activeTab}-amount`} 
+                    type="number" 
+                    placeholder="0.00" 
+                    value={amount} 
+                    onChange={(e) => setAmount(e.target.value)} 
+                    disabled={isProcessing}
+                />
+            </div>
+            <div className="text-sm text-muted-foreground h-5">
+                {amount && `Estimated value: ${formatCurrency(estimatedValue)}`}
+            </div>
+            <Button className="w-full" onClick={handleTransaction} disabled={isButtonDisabled}>
+                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isBuy ? `Buy ${selectedAsset}` : `Sell ${selectedAsset}`}
+                {!isProcessing && <ArrowRight className="ml-2" />}
+            </Button>
+        </div>
+    );
+  }
 
   return (
     <Card>
@@ -162,69 +200,17 @@ export function BuySellCard() {
                 <Loader2 className="h-8 w-8 animate-spin" />
             </div>
         ) : (
-            <Tabs defaultValue="buy" onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="buy">Buy</TabsTrigger>
-                <TabsTrigger value="sell">Sell</TabsTrigger>
-            </TabsList>
-            <TabsContent value="buy">
-                <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                    <Label htmlFor="buy-asset">Asset</Label>
-                    <Select value={selectedAsset} onValueChange={setSelectedAsset}>
-                    <SelectTrigger id="buy-asset">
-                        <SelectValue placeholder="Select asset" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {staticAssets.map(asset => ( // Allow buying any asset
-                        <SelectItem key={asset.symbol} value={asset.symbol}>
-                            {asset.name} ({asset.symbol})
-                        </SelectItem>
-                        ))}
-                    </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="buy-amount">Amount</Label>
-                    <Input id="buy-amount" type="number" placeholder="0.00" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} />
-                </div>
-                <div className="text-sm text-muted-foreground">
-                    Estimated value: {formatCurrency(estimatedBuyValue)}
-                </div>
-                <Button className="w-full" onClick={handleTransaction}>
-                    Buy {selectedAsset} <ArrowRight className="ml-2" />
-                </Button>
-                </div>
-            </TabsContent>
-            <TabsContent value="sell">
-                <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                    <Label htmlFor="sell-asset">Asset</Label>
-                    <Select value={selectedAsset} onValueChange={setSelectedAsset}>
-                    <SelectTrigger id="sell-asset">
-                        <SelectValue placeholder="Select asset" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {portfolioAssets.filter(a => a.amount > 0).map(asset => (
-                        <SelectItem key={asset.symbol} value={asset.symbol}>
-                            {asset.name} ({asset.symbol})
-                        </SelectItem>
-                        ))}
-                    </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="sell-amount">{`Amount (Balance: ${portfolioAssets.find(a => a.symbol === selectedAsset)?.amount.toFixed(6) ?? '0.00'})`}</Label>
-                    <Input id="sell-amount" type="number" placeholder="0.00" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} />
-                </div>
-                <div className="text-sm text-muted-foreground">
-                    Estimated value: {formatCurrency(estimatedSellValue)}
-                </div>
-                <Button variant="destructive" className="w-full" onClick={handleTransaction}>
-                    Sell {selectedAsset} <ArrowRight className="ml-2" />
-                </Button>
-                </div>
-            </TabsContent>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="buy">Buy</TabsTrigger>
+                    <TabsTrigger value="sell">Sell</TabsTrigger>
+                </TabsList>
+                <TabsContent value="buy">
+                    {renderForm(true)}
+                </TabsContent>
+                <TabsContent value="sell">
+                    {renderForm(false)}
+                </TabsContent>
             </Tabs>
         )}
       </CardContent>
