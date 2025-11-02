@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -19,33 +19,45 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/context/wallet-context';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
+import type { Timestamp } from 'firebase/firestore';
+import { PortfolioValue } from '@/components/admin/user-management/portfolio-value';
 
-
-const mockUsers = [
-    { id: '1', address: '0x1234...5678', joinDate: '2024-05-20', totalValue: 12500.50 },
-    { id: '2', address: '0xABCD...EFGH', joinDate: '2024-05-18', totalValue: 8200.00 },
-    { id: '3', address: '0x9876...5432', joinDate: '2024-05-15', totalValue: 35000.75 },
-    { id: '4', address: '0xWXYZ...IJKL', joinDate: '2024-05-12', totalValue: 500.00 },
-];
-
+interface UserProfile {
+    id: string;
+    walletAddress: string;
+    createdAt: Timestamp;
+}
 
 export default function UserManagementPage() {
     const { toast } = useToast();
     const { createWallet, confirmAndCreateWallet } = useWallet();
+    const firestore = useFirestore();
+
     const [searchTerm, setSearchTerm] = useState('');
     const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
     const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
     const [isNewUserMnemonicDialogOpen, setIsNewUserMnemonicDialogOpen] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<(typeof mockUsers)[0] | null>(null);
+    const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
     const [newMnemonic, setNewMnemonic] = useState('');
     const [isCreatingUser, setIsCreatingUser] = useState(false);
 
+    const usersQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'users'));
+    }, [firestore]);
 
-    const filteredUsers = mockUsers.filter(user => 
-        user.address.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const { data: users, isLoading: isLoadingUsers } = useCollection<UserProfile>(usersQuery);
 
-    const handleSendClick = (user: (typeof mockUsers)[0]) => {
+    const filteredUsers = useMemo(() => {
+        if (!users) return [];
+        return users.filter(user => 
+            user.walletAddress.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [users, searchTerm]);
+
+    const handleSendClick = (user: UserProfile) => {
         setSelectedUser(user);
         setIsSendDialogOpen(true);
     }
@@ -126,29 +138,45 @@ export default function UserManagementPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredUsers.map(user => (
-                            <TableRow key={user.id}>
-                                <TableCell className="font-mono">{user.address}</TableCell>
-                                <TableCell>${user.totalValue.toLocaleString()}</TableCell>
-                                <TableCell>{user.joinDate}</TableCell>
-                                <TableCell className="text-right">
-                                     <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                            <span className="sr-only">Open menu</span>
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => handleSendClick(user)}>
-                                                <Send className="mr-2 h-4 w-4" />
-                                                <span>Send Crypto</span>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                        {isLoadingUsers ? (
+                            <TableRow>
+                                <TableCell colSpan={4} className="h-24 text-center">
+                                    <Loader2 className="mx-auto h-8 w-8 animate-spin" />
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        ) : filteredUsers.length > 0 ? (
+                            filteredUsers.map(user => (
+                                <TableRow key={user.id}>
+                                    <TableCell className="font-mono">{user.walletAddress}</TableCell>
+                                    <TableCell>
+                                        <PortfolioValue userId={user.id} />
+                                    </TableCell>
+                                    <TableCell>{user.createdAt?.toDate().toLocaleDateString()}</TableCell>
+                                    <TableCell className="text-right">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                                <span className="sr-only">Open menu</span>
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => handleSendClick(user)}>
+                                                    <Send className="mr-2 h-4 w-4" />
+                                                    <span>Send Crypto</span>
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                             <TableRow>
+                                <TableCell colSpan={4} className="h-24 text-center">
+                                    No users found.
+                                </TableCell>
+                            </TableRow>
+                        )}
                     </TableBody>
                 </Table>
             </CardContent>
@@ -160,7 +188,7 @@ export default function UserManagementPage() {
                  <DialogHeader>
                     <DialogTitle>Send Crypto to User</DialogTitle>
                     <DialogDescription>
-                        Send any amount of a selected cryptocurrency directly to {selectedUser?.address}.
+                        Send any amount of a selected cryptocurrency directly to {selectedUser?.walletAddress}.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -220,3 +248,5 @@ export default function UserManagementPage() {
     </div>
   );
 }
+
+    
