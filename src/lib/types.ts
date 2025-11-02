@@ -48,6 +48,7 @@ export interface PriceAlert {
 export const GetExchangeRateInputSchema = z.object({
   fromAsset: z.string().describe('The symbol of the cryptocurrency to convert from.'),
   toAsset: z.string().describe('The symbol of the cryptocurrency to convert to.'),
+  fiatCurrency: z.string().optional().describe('The target fiat currency symbol (e.g., "USD", "EUR", "ZAR"). Defaults to USD.'),
 });
 export type GetExchangeRateInput = z.infer<typeof GetExchangeRateInputSchema>;
 
@@ -85,3 +86,8 @@ export const CryptoAssistantOutputSchema = z.object({
     .describe('A helpful and informative response to the user\'s query.'),
 });
 export type CryptoAssistantOutput = z.infer<typeof CryptoAssistantOutputSchema>;
+
+export interface Currency {
+    symbol: string;
+    name: string;
+}

@@ -22,6 +22,7 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query, orderBy, limit, type Timestamp } from 'firebase/firestore'
 import { useMemo } from "react";
 import { portfolioAssets as staticAssets } from "@/lib/data";
+import { useCurrency } from "@/context/currency-context";
 
 interface Transaction {
     id: string;
@@ -35,6 +36,7 @@ interface Transaction {
 export function TransactionHistory() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const { currency, formatCurrency } = useCurrency();
 
   // We need to listen to all wallet transaction subcollections.
   // This is a more complex query that we'll simplify for now.
@@ -101,7 +103,7 @@ export function TransactionHistory() {
                   </TableCell>
                   <TableCell>ETH</TableCell>
                   <TableCell className="text-right font-mono">{tx.amount.toFixed(4)}</TableCell>
-                  <TableCell className="text-right hidden md:table-cell font-mono">${tx.valueUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right hidden md:table-cell font-mono">{formatCurrency(tx.valueUSD * currency.rate)}</TableCell>
                   <TableCell className="hidden md:table-cell">{tx.timestamp.toDate().toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <Badge variant={getStatusVariant(tx.status) as any}>{tx.status}</Badge>

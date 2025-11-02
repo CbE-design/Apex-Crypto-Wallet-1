@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCurrency } from '@/context/currency-context';
 
 const chartConfig = {
   value: {
@@ -40,6 +41,7 @@ const chartConfig = {
 export function PortfolioOverview() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const { currency, formatCurrency } = useCurrency();
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -69,6 +71,8 @@ export function PortfolioOverview() {
     (acc, asset) => acc + asset.valueUSD,
     0
   );
+  
+  const totalBalanceInSelectedCurrency = totalBalance * currency.rate;
 
   const chartData = portfolioAssets
     .filter(asset => asset.valueUSD > 0)
@@ -78,7 +82,7 @@ export function PortfolioOverview() {
       fill: `var(--color-${asset.symbol.toLowerCase()})`,
     }));
   
-  const balanceDigits = Math.floor(totalBalance).toString().length;
+  const balanceDigits = Math.floor(totalBalanceInSelectedCurrency).toString().length;
 
   if (isLoading) {
     return (
@@ -126,7 +130,25 @@ export function PortfolioOverview() {
                  <PieChart>
                     <ChartTooltip
                         cursor={false}
-                        content={<ChartTooltipContent hideLabel />}
+                        content={<ChartTooltipContent 
+                            hideLabel 
+                            formatter={(value, name, props) => {
+                                const asset = portfolioAssets.find(a => a.symbol === name);
+                                if (!asset) return null;
+                                return (
+                                  <div className="w-full">
+                                      <div className="flex items-center justify-between">
+                                        <span>{asset.name}</span>
+                                        <span className="font-mono font-semibold">{formatCurrency(asset.valueUSD * currency.rate)}</span>
+                                      </div>
+                                      <div className="flex items-center justify-between text-muted-foreground">
+                                         <span></span>
+                                         <span className="font-mono text-xs">{asset.amount.toFixed(6)} {asset.symbol}</span>
+                                      </div>
+                                  </div>
+                                )
+                            }}
+                        />}
                     />
                     <Pie
                         data={chartData}
@@ -155,10 +177,7 @@ export function PortfolioOverview() {
                 balanceDigits > 10 ? 'text-xl' : 'text-2xl'
               )}
             >
-              ${totalBalance.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatCurrency(totalBalanceInSelectedCurrency)}
             </p>
           </div>
         </div>
@@ -179,13 +198,10 @@ export function PortfolioOverview() {
               </div>
               <div className="text-right">
                 <p className="font-mono font-semibold">
-                  ${asset.valueUSD.toLocaleString('en-US', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {formatCurrency(asset.valueUSD * currency.rate)}
                 </p>
-                <p className="text-sm text-muted-foreground">
-                    {totalBalance > 0 ? ((asset.valueUSD / totalBalance) * 100).toFixed(2) : '0.00'}%
+                <p className="text-sm text-muted-foreground font-mono">
+                    {asset.amount.toFixed(6)} {asset.symbol}
                 </p>
               </div>
             </div>

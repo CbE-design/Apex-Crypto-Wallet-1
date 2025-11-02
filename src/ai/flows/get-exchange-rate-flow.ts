@@ -29,20 +29,27 @@ const getExchangeRateFlow = ai.defineFlow(
     inputSchema: GetExchangeRateInputSchema,
     outputSchema: GetExchangeRateOutputSchema,
   },
-  async ({ fromAsset, toAsset }) => {
+  async ({ fromAsset, toAsset, fiatCurrency = 'USD' }) => {
     if (fromAsset === toAsset) {
         return { rate: 1 };
     }
 
-    // We need prices relative to a common currency (USD/USDT) to calculate the cross-rate.
-    const prices = await getLivePrices([fromAsset, toAsset]);
+    // We need prices relative to a common currency to calculate the cross-rate.
+    const prices = await getLivePrices([fromAsset, toAsset], fiatCurrency);
     
     const fromPrice = prices[fromAsset];
     const toPrice = prices[toAsset];
 
     // Handle cases where one or both prices could not be fetched.
-    if (!fromPrice || !toPrice) {
-        console.error(`Could not retrieve price for ${!fromPrice ? fromAsset : ''} ${!toPrice ? toAsset : ''}.`);
+    if (fromPrice === undefined || toPrice === undefined) {
+        console.error(`Could not retrieve price for ${fromPrice === undefined ? fromAsset : ''} ${toPrice === undefined ? toAsset : ''} in ${fiatCurrency}.`);
+        // Attempt to get USD prices as a fallback
+        const usdPrices = await getLivePrices([fromAsset, toAsset], 'USD');
+        const fromUsdPrice = usdPrices[fromAsset];
+        const toUsdPrice = usdPrices[toAsset];
+        if(fromUsdPrice && toUsdPrice > 0) {
+            return { rate: fromUsdPrice / toUsdPrice };
+        }
         return { rate: 0 };
     }
     

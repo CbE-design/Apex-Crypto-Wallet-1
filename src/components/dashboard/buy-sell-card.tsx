@@ -14,9 +14,11 @@ import { ArrowRight, Loader2 } from "lucide-react"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
 import { collection, query, doc, runTransaction, serverTimestamp } from 'firebase/firestore'
 import { useWallet } from "@/context/wallet-context"
+import { useCurrency } from "@/context/currency-context"
 
 export function BuySellCard() {
   const { toast } = useToast();
+  const { currency, formatCurrency } = useCurrency();
   const [activeTab, setActiveTab] = useState("buy");
   const [buyAmount, setBuyAmount] = useState("");
   const [sellAmount, setSellAmount] = useState("");
@@ -52,14 +54,16 @@ export function BuySellCard() {
 
 
   const assetForDisplay = portfolioAssets.find(a => a.symbol === selectedAsset) || staticAssets.find(a => a.symbol === selectedAsset);
-  const estimatedBuyValue = buyAmount && assetForDisplay ? (parseFloat(buyAmount) * assetForDisplay.priceUSD).toFixed(2) : "0.00";
-  const estimatedSellValue = sellAmount && assetForDisplay ? (parseFloat(sellAmount) * assetForDisplay.priceUSD).toFixed(2) : "0.00";
+  const assetPriceInSelectedCurrency = assetForDisplay ? assetForDisplay.priceUSD * currency.rate : 0;
+  
+  const estimatedBuyValue = buyAmount ? (parseFloat(buyAmount) * assetPriceInSelectedCurrency) : 0;
+  const estimatedSellValue = sellAmount ? (parseFloat(sellAmount) * assetPriceInSelectedCurrency) : 0;
 
   const handleTransaction = async () => {
     const isBuying = activeTab === "buy";
     const amountStr = isBuying ? buyAmount : sellAmount;
     const amount = parseFloat(amountStr);
-    const value = parseFloat(isBuying ? estimatedBuyValue : estimatedSellValue);
+    const value = parseFloat(isBuying ? estimatedBuyValue.toFixed(2) : estimatedSellValue.toFixed(2));
 
     if (!amountStr || isNaN(amount) || amount <= 0) {
       toast({
@@ -81,6 +85,8 @@ export function BuySellCard() {
             const txLogCollectionRef = collection(walletRef, 'transactions');
             const txLogRef = doc(txLogCollectionRef);
 
+            const assetPriceUSD = assetForDisplay?.priceUSD || 0;
+
             if (isBuying) {
                 const currentWalletDoc = await transaction.get(walletRef);
                 const currentBalance = currentWalletDoc.exists() ? currentWalletDoc.data().balance : 0;
@@ -96,9 +102,9 @@ export function BuySellCard() {
                 transaction.set(txLogRef, {
                   type: 'Buy',
                   amount: amount,
-                  price: assetForDisplay?.priceUSD,
+                  price: assetPriceUSD,
                   timestamp: serverTimestamp(),
-                  valueUSD: value,
+                  valueUSD: amount * assetPriceUSD,
                   status: 'Completed'
                 });
 
@@ -121,9 +127,9 @@ export function BuySellCard() {
                 transaction.set(txLogRef, {
                     type: 'Sell',
                     amount: amount,
-                    price: assetForDisplay?.priceUSD,
+                    price: assetPriceUSD,
                     timestamp: serverTimestamp(),
-                    valueUSD: value,
+                    valueUSD: amount * assetPriceUSD,
                     status: 'Completed'
                 });
             }
@@ -183,7 +189,7 @@ export function BuySellCard() {
                     <Input id="buy-amount" type="number" placeholder="0.00" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} />
                 </div>
                 <div className="text-sm text-muted-foreground">
-                    Estimated value: ${estimatedBuyValue}
+                    Estimated value: {formatCurrency(estimatedBuyValue)}
                 </div>
                 <Button className="w-full" onClick={handleTransaction}>
                     Buy {selectedAsset} <ArrowRight className="ml-2" />
@@ -208,11 +214,11 @@ export function BuySellCard() {
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="sell-amount">Amount ({`Balance: ${portfolioAssets.find(a => a.symbol === selectedAsset)?.amount.toFixed(6) ?? '0.00'}`})</Label>
+                    <Label htmlFor="sell-amount">{`Amount (Balance: ${portfolioAssets.find(a => a.symbol === selectedAsset)?.amount.toFixed(6) ?? '0.00'})`}</Label>
                     <Input id="sell-amount" type="number" placeholder="0.00" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} />
                 </div>
                 <div className="text-sm text-muted-foreground">
-                    Estimated value: ${estimatedSellValue}
+                    Estimated value: {formatCurrency(estimatedSellValue)}
                 </div>
                 <Button variant="destructive" className="w-full" onClick={handleTransaction}>
                     Sell {selectedAsset} <ArrowRight className="ml-2" />
@@ -225,5 +231,3 @@ export function BuySellCard() {
     </Card>
   )
 }
-
-    

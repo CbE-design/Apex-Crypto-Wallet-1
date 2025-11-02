@@ -7,6 +7,7 @@ import AppContent from './app-content';
 import { cn } from '@/lib/utils';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ThemeProvider } from '@/components/theme-provider';
+import { CurrencyProvider } from '@/context/currency-context';
 
 export const metadata: Metadata = {
   title: 'Apex Crypto Wallet',
@@ -35,9 +36,11 @@ export default function RootLayout({
         >
             <FirebaseClientProvider>
                 <WalletProvider>
+                  <CurrencyProvider>
                     <AppContent>
                     {children}
                     </AppContent>
+                  </CurrencyProvider>
                 </WalletProvider>
             </FirebaseClientProvider>
             <Toaster />
