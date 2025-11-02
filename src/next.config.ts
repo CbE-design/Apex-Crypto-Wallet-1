@@ -31,12 +31,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-    // This setting is required for the cloud-based development environment.
-    allowedDevOrigins: [
-        'https://*.cloudworkstations.dev',
-    ],
-  },
 };
 
 export default nextConfig;
