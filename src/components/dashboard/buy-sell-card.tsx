@@ -61,7 +61,7 @@ export function BuySellCard() {
     const amount = parseFloat(amountStr);
     const value = parseFloat(isBuying ? estimatedBuyValue : estimatedSellValue);
 
-    if (!amountStr || amount <= 0) {
+    if (!amountStr || isNaN(amount) || amount <= 0) {
       toast({
         title: "Invalid Amount",
         description: "Please enter a valid amount to transact.",
@@ -75,22 +75,12 @@ export function BuySellCard() {
         return;
     }
 
-    if (userProfile?.verificationStatus !== 'Verified' && !isBuying) { // Verification only needed for selling (cashing out)
-        toast({
-            title: "Verification Required",
-            description: `You must verify your account to sell assets.`,
-            variant: "destructive"
-        });
-        return;
-    }
-
-    const assetToTransact = portfolioAssets.find(a => a.symbol === selectedAsset);
-
     try {
         await runTransaction(firestore, async (transaction) => {
             const walletRef = doc(firestore, 'users', user.uid, 'wallets', selectedAsset);
-            const txLogRef = doc(collection(walletRef, 'transactions'));
-            
+            const txLogCollectionRef = collection(walletRef, 'transactions');
+            const txLogRef = doc(txLogCollectionRef);
+
             if (isBuying) {
                 const currentWalletDoc = await transaction.get(walletRef);
                 const currentBalance = currentWalletDoc.exists() ? currentWalletDoc.data().balance : 0;
@@ -99,8 +89,8 @@ export function BuySellCard() {
                 transaction.set(walletRef, { 
                     balance: newBalance,
                     currency: selectedAsset,
-                    userId: user.uid,
                     id: selectedAsset,
+                    userId: user.uid,
                 }, { merge: true });
 
                 transaction.set(txLogRef, {
@@ -113,14 +103,19 @@ export function BuySellCard() {
                 });
 
             } else { // Selling logic
-                if (!assetToTransact) {
-                    throw new Error(`You do not have any ${selectedAsset} in your portfolio.`);
-                }
-                if (amount > assetToTransact.amount) {
-                    throw new Error(`Your balance of ${assetToTransact.amount.toFixed(4)} ${assetToTransact.name} is not enough to sell ${amount}.`);
+                const walletDoc = await transaction.get(walletRef);
+
+                if (!walletDoc.exists()) {
+                    throw new Error(`You do not have any ${selectedAsset} to sell.`);
                 }
                 
-                const newBalance = assetToTransact.amount - amount;
+                const currentBalance = walletDoc.data().balance;
+
+                if (amount > currentBalance) {
+                    throw new Error(`Your balance of ${currentBalance.toFixed(6)} ${selectedAsset} is not enough to sell ${amount}.`);
+                }
+                
+                const newBalance = currentBalance - amount;
                 transaction.update(walletRef, { balance: newBalance });
 
                 transaction.set(txLogRef, {
@@ -141,6 +136,7 @@ export function BuySellCard() {
         isBuying ? setBuyAmount("") : setSellAmount("");
 
     } catch (error: any) {
+        console.error("Transaction failed:", error);
         toast({
             title: "Transaction Failed",
             description: error.message || "An unexpected error occurred.",
@@ -212,7 +208,7 @@ export function BuySellCard() {
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="sell-amount">Amount ({`Balance: ${assetForDisplay?.amount?.toFixed(6) ?? '0.00'}`})</Label>
+                    <Label htmlFor="sell-amount">Amount ({`Balance: ${portfolioAssets.find(a => a.symbol === selectedAsset)?.amount.toFixed(6) ?? '0.00'}`})</Label>
                     <Input id="sell-amount" type="number" placeholder="0.00" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} />
                 </div>
                 <div className="text-sm text-muted-foreground">
@@ -229,3 +225,5 @@ export function BuySellCard() {
     </Card>
   )
 }
+
+    
