@@ -232,7 +232,7 @@ export default function SendReceivePage() {
   }
 
   const renderSendContent = () => {
-      if (status === 'idle' || (status === 'error' && errorMessage)) { // also render form on error to allow retry
+      if (status === 'idle') {
           return (
             <>
                 <div className="space-y-2">
@@ -365,3 +365,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
