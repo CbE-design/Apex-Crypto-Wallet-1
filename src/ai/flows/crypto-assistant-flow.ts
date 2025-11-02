@@ -9,10 +9,11 @@
  */
 
 import {ai} from '@/ai/genkit';
+import {getLivePrices} from '@/services/crypto-service';
 import {z} from 'genkit';
 
 const CryptoAssistantInputSchema = z.object({
-  query: z.string().describe('The user\'s question about cryptocurrency.'),
+  query: z.string().describe("The user's question about cryptocurrency."),
 });
 export type CryptoAssistantInput = z.infer<typeof CryptoAssistantInputSchema>;
 
@@ -29,13 +30,37 @@ export async function cryptoAssistant(
   return cryptoAssistantFlow(input);
 }
 
+const getLiveCryptoPricesTool = ai.defineTool(
+  {
+    name: 'getLiveCryptoPrices',
+    description:
+      'Get the current market price of one or more cryptocurrencies in USD.',
+    inputSchema: z.object({
+      symbols: z
+        .array(z.string())
+        .describe(
+          'An array of cryptocurrency ticker symbols (e.g., ["BTC", "ETH"]).'
+        ),
+    }),
+    outputSchema: z.record(z.number()),
+  },
+  async input => {
+    return await getLivePrices(input.symbols);
+  }
+);
+
 const prompt = ai.definePrompt({
   name: 'cryptoAssistantPrompt',
   input: {schema: CryptoAssistantInputSchema},
   output: {schema: CryptoAssistantOutputSchema},
+  tools: [getLiveCryptoPricesTool],
   prompt: `You are a friendly and knowledgeable cryptocurrency assistant, powered by Google's Gemini model.
 
-  Your role is to provide clear, concise, and unbiased answers to questions about cryptocurrencies, blockchain technology, market trends, and related topics. Avoid giving financial advice, making price predictions, or promoting any specific cryptocurrency. Your goal is to educate and inform.
+  Your role is to provide clear, concise, and unbiased answers to questions about cryptocurrencies, blockchain technology, market trends, and related topics.
+
+  If the user asks for the price of a cryptocurrency, you MUST use the 'getLiveCryptoPrices' tool to get the real-time market data. Do not provide a price from your own knowledge.
+
+  Avoid giving financial advice, making price predictions, or promoting any specific cryptocurrency. Your goal is to educate and inform.
 
   User's Question: {{query}}
 
