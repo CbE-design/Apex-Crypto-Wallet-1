@@ -2,12 +2,9 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
-import { WalletProvider } from '@/context/wallet-context';
 import AppContent from './app-content';
 import { cn } from '@/lib/utils';
-import { FirebaseClientProvider } from '@/firebase/client-provider';
-import { ThemeProvider } from '@/components/theme-provider';
-import { CurrencyProvider } from '@/context/currency-context';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: 'Apex Crypto Wallet',
@@ -28,23 +25,12 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
       <body className={cn("font-body antialiased h-full")}>
-        <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-            disableTransitionOnChange
-        >
-            <FirebaseClientProvider>
-                <WalletProvider>
-                  <CurrencyProvider>
-                    <AppContent>
-                    {children}
-                    </AppContent>
-                  </CurrencyProvider>
-                </WalletProvider>
-            </FirebaseClientProvider>
-            <Toaster />
-        </ThemeProvider>
+        <Providers>
+          <AppContent>
+            {children}
+          </AppContent>
+          <Toaster />
+        </Providers>
       </body>
     </html>
   );
