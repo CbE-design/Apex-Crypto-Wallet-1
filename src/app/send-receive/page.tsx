@@ -198,130 +198,128 @@ export default function SendReceivePage() {
   const isInputDisabled = status === 'sending' || status === 'success';
   const isSendButtonDisabled = isInputDisabled || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || parseFloat(sendAmount) > selectedAssetBalance;
 
-  const getStatusContent = () => {
-    switch(status) {
-        case 'sending':
-            return (
-                <div className="flex flex-col items-center justify-center text-center space-y-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <h3 className="text-lg font-semibold capitalize">Processing...</h3>
-                    <p className="text-muted-foreground">Please wait while the virtual transaction is processed.</p>
-                </div>
-            );
-        case 'success':
-            return (
-                 <div className="flex flex-col items-center justify-center text-center space-y-4">
-                    <CheckCircle className="h-12 w-12 text-green-500" />
-                    <h3 className="text-lg font-semibold">Transaction Sent!</h3>
-                    <p className="text-muted-foreground">You have successfully sent {sendAmount} {sendAsset}.</p>
-                     <Button onClick={resetSendState} className="w-full">Send Another</Button>
-                </div>
-            );
-        case 'error':
-             return (
-                 <div className="flex flex-col items-center justify-center text-center space-y-4">
-                    <XCircle className="h-12 w-12 text-destructive" />
-                    <h3 className="text-lg font-semibold">Transaction Failed</h3>
-                    <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
-                    <Button onClick={resetSendState} variant="outline" className="w-full">Try Again</Button>
-                </div>
-            );
-        default:
-            return null;
-    }
-  }
-
   const renderSendContent = () => {
-      if (status === 'idle') {
-          return (
-            <>
-                <div className="space-y-2">
-                <Label htmlFor="send-asset">Asset</Label>
-                <Select value={sendAsset} onValueChange={setSendAsset} disabled={isInputDisabled}>
-                    <SelectTrigger id="send-asset">
-                    <SelectValue placeholder="Select asset" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {availableAssetsToSend.length > 0 ? (
-                           availableAssetsToSend.map(asset => (
-                             <SelectItem key={asset.symbol} value={asset.symbol}>
-                                <div className="flex items-center gap-2">
-                                    <CryptoIcon name={asset.name} />
-                                    {asset.name} ({asset.symbol})
-                                </div>
-                             </SelectItem>
-                           ))
-                        ) : (
-                            <SelectItem value="none" disabled>No assets to send</SelectItem>
-                        )}
-                    </SelectContent>
-                </Select>
-                </div>
-                <div className="space-y-2">
-                <Label htmlFor="recipient-address">Recipient Address</Label>
-                <Input 
-                    id="recipient-address" 
-                    placeholder="0x..." 
-                    value={recipientAddress}
-                    onChange={(e) => setRecipientAddress(e.target.value)}
-                    disabled={isInputDisabled}
-                />
-                </div>
-                <div className="space-y-2">
-                <Label htmlFor="send-amount">Amount</Label>
-                <Input 
-                    id="send-amount" 
-                    type="number" 
-                    placeholder="0.00" 
-                    value={sendAmount}
-                    onChange={(e) => setSendAmount(e.target.value)}
-                    disabled={isInputDisabled}
-                />
-                <p className="text-xs text-muted-foreground mt-1 h-4">
-                        {`Balance: ${selectedAssetBalance.toFixed(6)} ${sendAsset}`}
-                </p>
-                </div>
-                
-                <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button className="w-full" disabled={isSendButtonDisabled}>
-                        Send {sendAsset} <ArrowRight className="ml-2" />
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Transaction</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        You are about to send {sendAmount} {sendAsset}. This action is for simulation purposes.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="space-y-4 py-4 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Asset</span>
-                            <span className="font-medium flex items-center gap-2">
-                                <CryptoIcon name={staticAssets.find(a => a.symbol === sendAsset)?.name || ''} />
-                                {sendAmount} {sendAsset}
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">Recipient</span>
-                            <span className="font-mono break-all text-right ml-4">{recipientAddress}</span>
-                        </div>
-                        <div className="flex justify-between font-bold text-base pt-2 border-t">
-                            <span>Total</span>
-                            <span>{sendAmount} {sendAsset}</span>
-                        </div>
-                    </div>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleSend}>Confirm & Send</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-                </AlertDialog>
-            </>
-          );
+      if (status !== 'idle') {
+          switch(status) {
+              case 'sending':
+                  return (
+                      <div className="flex flex-col items-center justify-center text-center space-y-4">
+                          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                          <h3 className="text-lg font-semibold capitalize">Processing...</h3>
+                          <p className="text-muted-foreground">Please wait while the virtual transaction is processed.</p>
+                      </div>
+                  );
+              case 'success':
+                  return (
+                      <div className="flex flex-col items-center justify-center text-center space-y-4">
+                          <CheckCircle className="h-12 w-12 text-green-500" />
+                          <h3 className="text-lg font-semibold">Transaction Sent!</h3>
+                          <p className="text-muted-foreground">You have successfully sent {sendAmount} {sendAsset}.</p>
+                          <Button onClick={resetSendState} className="w-full">Send Another</Button>
+                      </div>
+                  );
+              case 'error':
+                  return (
+                      <div className="flex flex-col items-center justify-center text-center space-y-4">
+                          <XCircle className="h-12 w-12 text-destructive" />
+                          <h3 className="text-lg font-semibold">Transaction Failed</h3>
+                          <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
+                          <Button onClick={resetSendState} variant="outline" className="w-full">Try Again</Button>
+                      </div>
+                  );
+              default:
+                  return null;
+          }
       }
-      return getStatusContent();
+
+      // Default 'idle' state content
+      return (
+        <>
+            <div className="space-y-2">
+            <Label htmlFor="send-asset">Asset</Label>
+            <Select value={sendAsset} onValueChange={setSendAsset} disabled={isInputDisabled}>
+                <SelectTrigger id="send-asset">
+                <SelectValue placeholder="Select asset" />
+                </SelectTrigger>
+                <SelectContent>
+                    {availableAssetsToSend.length > 0 ? (
+                        availableAssetsToSend.map(asset => (
+                            <SelectItem key={asset.symbol} value={asset.symbol}>
+                            <div className="flex items-center gap-2">
+                                <CryptoIcon name={asset.name} />
+                                {asset.name} ({asset.symbol})
+                            </div>
+                            </SelectItem>
+                        ))
+                    ) : (
+                        <SelectItem value="none" disabled>No assets to send</SelectItem>
+                    )}
+                </SelectContent>
+            </Select>
+            </div>
+            <div className="space-y-2">
+            <Label htmlFor="recipient-address">Recipient Address</Label>
+            <Input 
+                id="recipient-address" 
+                placeholder="0x..." 
+                value={recipientAddress}
+                onChange={(e) => setRecipientAddress(e.target.value)}
+                disabled={isInputDisabled}
+            />
+            </div>
+            <div className="space-y-2">
+            <Label htmlFor="send-amount">Amount</Label>
+            <Input 
+                id="send-amount" 
+                type="number" 
+                placeholder="0.00" 
+                value={sendAmount}
+                onChange={(e) => setSendAmount(e.target.value)}
+                disabled={isInputDisabled}
+            />
+            <p className="text-xs text-muted-foreground mt-1 h-4">
+                    {`Balance: ${selectedAssetBalance.toFixed(6)} ${sendAsset}`}
+            </p>
+            </div>
+            
+            <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button className="w-full" disabled={isSendButtonDisabled}>
+                    Send {sendAsset} <ArrowRight className="ml-2" />
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Transaction</AlertDialogTitle>
+                <AlertDialogDescription>
+                    You are about to send {sendAmount} {sendAsset}. This action is for simulation purposes.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-4 py-4 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Asset</span>
+                        <span className="font-medium flex items-center gap-2">
+                            <CryptoIcon name={staticAssets.find(a => a.symbol === sendAsset)?.name || ''} />
+                            {sendAmount} {sendAsset}
+                        </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Recipient</span>
+                        <span className="font-mono break-all text-right ml-4">{recipientAddress}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-base pt-2 border-t">
+                        <span>Total</span>
+                        <span>{sendAmount} {sendAsset}</span>
+                    </div>
+                </div>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleSend}>Confirm & Send</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+            </AlertDialog>
+        </>
+      );
   }
 
 
@@ -365,5 +363,6 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
 
     
