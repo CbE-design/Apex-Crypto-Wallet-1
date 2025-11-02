@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 export default function ConnectWalletPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { createWallet, importWallet, loading, user } = useWallet();
+  const { createWallet, importWallet, loading, user, confirmAndCreateWallet } = useWallet();
   const [isImporting, setIsImporting] = useState(false);
   const [mnemonic, setMnemonic] = useState('');
   const [newMnemonic, setNewMnemonic] = useState('');
@@ -29,7 +29,7 @@ export default function ConnectWalletPage() {
 
   const handleCreateWallet = async () => {
     try {
-      const generatedMnemonic = createWallet();
+      const generatedMnemonic = await createWallet(); // Now just generates mnemonic
       setNewMnemonic(generatedMnemonic);
       setIsNewWalletDialogOpen(true);
     } catch (error) {
@@ -58,10 +58,20 @@ export default function ConnectWalletPage() {
     }
   };
 
-  const handleConfirmNewWallet = () => {
-    setIsNewWalletDialogOpen(false);
-    toast({ title: 'Wallet Created!', description: 'Your new wallet has been successfully set up.' });
-    router.push('/');
+  const handleConfirmNewWallet = async () => {
+    if (!newMnemonic) return;
+    try {
+      await confirmAndCreateWallet(newMnemonic);
+      setIsNewWalletDialogOpen(false);
+      toast({ title: 'Wallet Created!', description: 'Your new wallet has been successfully set up.' });
+      router.push('/');
+    } catch (error) {
+       toast({
+        title: 'Creation Failed',
+        description: 'Could not finalize wallet creation.',
+        variant: 'destructive',
+      });
+    }
   }
 
   return (
@@ -121,9 +131,9 @@ export default function ConnectWalletPage() {
             {newMnemonic}
           </div>
           <DialogFooter>
-            <DialogClose asChild>
-              <Button onClick={handleConfirmNewWallet}>I've Saved My Seed Phrase</Button>
-            </DialogClose>
+              <Button onClick={handleConfirmNewWallet} disabled={loading} className="w-full">
+                {loading ? <Loader2 className="animate-spin" /> : "I've Saved My Seed Phrase"}
+              </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

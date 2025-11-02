@@ -7,8 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, serverTimestamp, DocumentData, getDoc, setDoc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { doc, serverTimestamp, DocumentData, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { portfolioAssets } from '@/lib/data';
 
 interface Wallet {
@@ -29,8 +28,9 @@ interface WalletContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   isAdmin: boolean;
-  createWallet: () => string;
+  createWallet: () => Promise<string>;
   importWallet: (mnemonic: string) => void;
+  confirmAndCreateWallet: (mnemonic: string) => Promise<void>;
   disconnectWallet: () => void;
 }
 
@@ -70,37 +70,38 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const setupUserAndWalletDocuments = useCallback(async (firebaseUser: FirebaseUser, walletInstance: ethers.Wallet) => {
+      if (!firestore) throw new Error("Firestore is not available.");
+
+      const batch = writeBatch(firestore);
+
+      const userRef = doc(firestore, 'users', firebaseUser.uid);
+      const newUserDocument: UserProfile = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.crypto`,
+        createdAt: serverTimestamp(),
+        walletAddress: walletInstance.address,
+      };
+      batch.set(userRef, newUserDocument, { merge: true });
+
+      portfolioAssets.forEach(asset => {
+          const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', asset.symbol);
+          const newWalletDocument = {
+              id: asset.symbol,
+              userId: firebaseUser.uid,
+              currency: asset.symbol,
+              balance: 0,
+          };
+          batch.set(walletRef, newWalletDocument, { merge: true });
+      });
+
+      await batch.commit();
+
       const walletData = {
         address: walletInstance.address,
         privateKey: walletInstance.privateKey,
       };
       setWalletAndAdmin(walletData, firebaseUser);
 
-      if (firestore) {
-        const userRef = doc(firestore, 'users', firebaseUser.uid);
-        const userDocSnap = await getDoc(userRef);
-
-        if (!userDocSnap.exists()) {
-            const newUserDocument: UserProfile = {
-              id: firebaseUser.uid,
-              email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.crypto`,
-              createdAt: serverTimestamp(),
-              walletAddress: walletInstance.address,
-            };
-            setDocumentNonBlocking(userRef, newUserDocument, { merge: true });
-
-            portfolioAssets.forEach(asset => {
-                const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', asset.symbol);
-                const newWalletDocument = {
-                    id: asset.symbol,
-                    userId: firebaseUser.uid,
-                    currency: asset.symbol,
-                    balance: 0,
-                };
-                setDocumentNonBlocking(walletRef, newWalletDocument, { merge: true });
-            });
-        }
-      }
   }, [firestore, setWalletAndAdmin]);
 
 
@@ -130,24 +131,26 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, [user, auth, wallet, setWalletAndAdmin]);
 
 
-  const createWallet = useCallback((): string => {
-    if (auth) {
-      const newWallet = ethers.Wallet.createRandom();
-      const mnemonic = newWallet.mnemonic?.phrase;
-      if (!mnemonic) {
-        throw new Error("Failed to generate mnemonic");
-      }
-      
-      initiateAnonymousSignIn(auth)
-        .then(userCredential => {
-            if (userCredential?.user) {
-                setupUserAndWalletDocuments(userCredential.user, newWallet);
-            }
-        });
-
-      return mnemonic;
+  const createWallet = useCallback(async (): Promise<string> => {
+    const newWallet = ethers.Wallet.createRandom();
+    const mnemonic = newWallet.mnemonic?.phrase;
+    if (!mnemonic) {
+      throw new Error("Failed to generate mnemonic");
     }
-    throw new Error("Auth service not available");
+    return mnemonic;
+  }, []);
+
+  const confirmAndCreateWallet = useCallback(async (mnemonic: string) => {
+    if (!auth) throw new Error("Auth service not available");
+    
+    const newWallet = ethers.Wallet.fromPhrase(mnemonic);
+    const userCredential = await initiateAnonymousSignIn(auth);
+    
+    if (userCredential?.user) {
+      await setupUserAndWalletDocuments(userCredential.user, newWallet);
+    } else {
+      throw new Error("Failed to sign in anonymously.");
+    }
   }, [auth, setupUserAndWalletDocuments]);
 
   const importWallet = useCallback((mnemonic: string) => {
@@ -191,7 +194,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <WalletContext.Provider value={{ wallet, user, userProfile: userProfile as UserProfile | null, loading, isAdmin, createWallet, importWallet, disconnectWallet }}>
+    <WalletContext.Provider value={{ wallet, user, userProfile: userProfile as UserProfile | null, loading, isAdmin, createWallet, importWallet, confirmAndCreateWallet, disconnectWallet }}>
       {children}
     </WalletContext.Provider>
   );
@@ -204,5 +207,3 @@ export const useWallet = () => {
   }
   return context;
 };
-
-    
