@@ -10,23 +10,8 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { SupportAgentInputSchema, type SupportAgentInput, SupportAgentOutputSchema, type SupportAgentOutput } from '@/lib/types';
 
-export const SupportAgentInputSchema = z.object({
-  query: z.string().describe("The user's question for the support agent."),
-  history: z.array(z.object({
-    role: z.enum(['user', 'model']),
-    content: z.string(),
-  })).optional().describe('The previous conversation history.'),
-});
-export type SupportAgentInput = z.infer<typeof SupportAgentInputSchema>;
-
-export const SupportAgentOutputSchema = z.object({
-  response: z
-    .string()
-    .describe('A helpful and friendly response to the user\'s query.'),
-});
-export type SupportAgentOutput = z.infer<typeof SupportAgentOutputSchema>;
 
 export async function supportAgent(
   input: SupportAgentInput

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -23,6 +22,12 @@ export function SupportChatPopover() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // This state ensures the component only renders on the client, preventing hydration errors.
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -49,6 +54,11 @@ export function SupportChatPopover() {
       setIsLoading(false);
     }
   };
+
+  // Do not render on the server.
+  if (!isClient) {
+    return null;
+  }
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>

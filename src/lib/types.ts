@@ -55,3 +55,20 @@ export const GetExchangeRateOutputSchema = z.object({
   rate: z.number().describe('The exchange rate from the "from" asset to the "to" asset.'),
 });
 export type GetExchangeRateOutput = z.infer<typeof GetExchangeRateOutputSchema>;
+
+// Schema for SupportAgent flow
+export const SupportAgentInputSchema = z.object({
+  query: z.string().describe("The user's question for the support agent."),
+  history: z.array(z.object({
+    role: z.enum(['user', 'model']),
+    content: z.string(),
+  })).optional().describe('The previous conversation history.'),
+});
+export type SupportAgentInput = z.infer<typeof SupportAgentInputSchema>;
+
+export const SupportAgentOutputSchema = z.object({
+  response: z
+    .string()
+    .describe('A helpful and friendly response to the user\'s query.'),
+});
+export type SupportAgentOutput = z.infer<typeof SupportAgentOutputSchema>;
