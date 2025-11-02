@@ -156,7 +156,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const importWallet = useCallback((mnemonic: string) => {
      if (auth) {
         try {
-            const newWallet = ethers.Wallet.fromPhrase(mnemonic);
+            // Sanitize the mnemonic phrase
+            const sanitizedMnemonic = mnemonic.trim().replace(/\s+/g, ' ');
+            const newWallet = ethers.Wallet.fromPhrase(sanitizedMnemonic);
             initiateAnonymousSignIn(auth)
                 .then(userCredential => {
                     if (userCredential?.user) {
