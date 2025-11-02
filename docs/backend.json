@@ -19,18 +19,12 @@
           "type": "string",
           "description": "Timestamp indicating when the user account was created.",
           "format": "date-time"
-        },
-        "verificationStatus": {
-          "type": "string",
-          "description": "The user's account verification status.",
-          "enum": ["Unverified", "Pending", "Verified"]
         }
       },
       "required": [
         "id",
         "email",
-        "createdAt",
-        "verificationStatus"
+        "createdAt"
       ]
     },
     "Wallet": {

@@ -11,12 +11,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowRight, Copy, Loader2, ExternalLink, CheckCircle, XCircle, ShieldCheck, Clock } from 'lucide-react';
+import { ArrowRight, Copy, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, runTransaction, doc, serverTimestamp, getDocs, where, limit } from 'firebase/firestore';
 
@@ -25,7 +24,7 @@ type SendStatus = 'idle' | 'sending' | 'success' | 'error';
 
 export default function SendReceivePage() {
   const { toast } = useToast();
-  const { wallet, userProfile, requestVerification } = useWallet();
+  const { wallet } = useWallet();
   const { user } = useUser();
   const firestore = useFirestore();
 
@@ -78,11 +77,6 @@ export default function SendReceivePage() {
     
     if (recipientAddress.toLowerCase() === wallet.address.toLowerCase()) {
         toast({ title: "Invalid Recipient", description: "You cannot send assets to your own wallet.", variant: "destructive"});
-        return;
-    }
-
-    if (userProfile?.verificationStatus !== 'Verified') {
-        toast({ title: "Verification Required", description: "Your account must be verified to send funds.", variant: "destructive"});
         return;
     }
 
@@ -195,15 +189,6 @@ export default function SendReceivePage() {
     }
   };
   
-  const handleVerificationRequest = () => {
-    requestVerification();
-    toast({
-        title: 'Account Verified!',
-        description: 'Your account has been instantly verified and you can now send funds.',
-    });
-  }
-  
-  const isVerified = userProfile?.verificationStatus === 'Verified';
   const isSendButtonDisabled = status !== 'idle' || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0;
   const isInputDisabled = status !== 'idle' && status !== 'error';
 
@@ -241,25 +226,12 @@ export default function SendReceivePage() {
   }
 
   const renderSendContent = () => {
-      if (!isVerified) {
-        return (
-            <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Verification Required</AlertTitle>
-                <AlertDescription>
-                    <p className="mb-4">To send funds, you must verify your account. This is a one-time security process.</p>
-                    <Button onClick={handleVerificationRequest} size="sm">Start Verification</Button>
-                </AlertDescription>
-            </Alert>
-        )
-      }
-
       if (status === 'idle' || status === 'error') {
           return (
             <>
                 <div className="space-y-2">
                 <Label htmlFor="send-asset">Asset</Label>
-                <Select value={sendAsset} onValueChange={setSendAsset} disabled>
+                <Select value={sendAsset} onValueChange={setSendAsset} disabled={isInputDisabled}>
                     <SelectTrigger id="send-asset">
                     <SelectValue placeholder="Select asset" />
                     </SelectTrigger>

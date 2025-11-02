@@ -7,8 +7,8 @@ import { Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, serverTimestamp, DocumentData, collection, query, getDocs, runTransaction } from 'firebase/firestore';
-import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { doc, serverTimestamp, DocumentData, collection, query, getDocs } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { portfolioAssets } from '@/lib/data';
 
 interface Wallet {
@@ -21,7 +21,6 @@ interface UserProfile {
     email: string;
     createdAt: any;
     walletAddress: string;
-    verificationStatus: 'Unverified' | 'Pending' | 'Verified';
 }
 
 interface WalletContextType {
@@ -33,7 +32,6 @@ interface WalletContextType {
   createWallet: () => string;
   importWallet: (mnemonic: string) => void;
   disconnectWallet: () => void;
-  requestVerification: () => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -85,12 +83,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         const userExists = userDocSnap.docs.some(d => d.id === firebaseUser.uid);
 
         if (!userExists) {
-            const newUserDocument: UserProfile = {
+            const newUserDocument: Omit<UserProfile, 'verificationStatus'> = {
               id: firebaseUser.uid,
               email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.crypto`,
               createdAt: serverTimestamp(),
               walletAddress: walletInstance.address,
-              verificationStatus: 'Unverified',
             };
             setDocumentNonBlocking(userRef, newUserDocument, { merge: true });
 
@@ -187,12 +184,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [auth]);
 
-  const requestVerification = useCallback(() => {
-    if (userDocRef) {
-      updateDocumentNonBlocking(userDocRef, { verificationStatus: 'Pending' });
-    }
-  }, [userDocRef]);
-
   if (isUserLoading || isInitializing) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -202,7 +193,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <WalletContext.Provider value={{ wallet, user, userProfile: userProfile as UserProfile | null, loading, isAdmin, createWallet, importWallet, disconnectWallet, requestVerification }}>
+    <WalletContext.Provider value={{ wallet, user, userProfile: userProfile as UserProfile | null, loading, isAdmin, createWallet, importWallet, disconnectWallet }}>
       {children}
     </WalletContext.Provider>
   );
