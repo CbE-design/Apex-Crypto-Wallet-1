@@ -18,14 +18,14 @@ import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, runTransaction, doc, serverTimestamp, getDocs, where, limit } from 'firebase/firestore';
+import { portfolioAssets as staticAssets } from '@/lib/data';
 
 
 type SendStatus = 'idle' | 'sending' | 'success' | 'error';
 
 export default function SendReceivePage() {
   const { toast } = useToast();
-  const { wallet } = useWallet();
-  const { user } = useUser();
+  const { wallet, user } = useWallet();
   const firestore = useFirestore();
 
   const [sendAsset, setSendAsset] = useState('ETH');
@@ -50,6 +50,18 @@ export default function SendReceivePage() {
     const assetWallet = userWallets.find(w => w.currency === sendAsset);
     return assetWallet ? assetWallet.balance : 0;
   }, [userWallets, sendAsset]);
+  
+  const availableAssetsToSend = useMemo(() => {
+    if (!userWallets) return [];
+    return userWallets.filter(w => w.balance > 0).map(w => {
+        const staticData = staticAssets.find(sa => sa.symbol === w.currency);
+        return {
+            symbol: w.currency,
+            name: staticData?.name || w.currency,
+        }
+    });
+  }, [userWallets]);
+
 
   useEffect(() => {
     if (wallet?.address) {
@@ -183,8 +195,8 @@ export default function SendReceivePage() {
     }
   };
   
-  const isSendButtonDisabled = status !== 'idle' || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0;
   const isInputDisabled = status === 'sending' || status === 'success';
+  const isSendButtonDisabled = isInputDisabled || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || parseFloat(sendAmount) > selectedAssetBalance;
 
   const getStatusContent = () => {
     switch(status) {
@@ -220,7 +232,7 @@ export default function SendReceivePage() {
   }
 
   const renderSendContent = () => {
-      if (status === 'idle' || status === 'error') {
+      if (status === 'idle' || (status === 'error' && errorMessage)) { // also render form on error to allow retry
           return (
             <>
                 <div className="space-y-2">
@@ -230,12 +242,18 @@ export default function SendReceivePage() {
                     <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="ETH">
-                        <div className="flex items-center gap-2">
-                            <CryptoIcon name="Ethereum" />
-                            Ethereum (ETH)
-                        </div>
-                        </SelectItem>
+                        {availableAssetsToSend.length > 0 ? (
+                           availableAssetsToSend.map(asset => (
+                             <SelectItem key={asset.symbol} value={asset.symbol}>
+                                <div className="flex items-center gap-2">
+                                    <CryptoIcon name={asset.name} />
+                                    {asset.name} ({asset.symbol})
+                                </div>
+                             </SelectItem>
+                           ))
+                        ) : (
+                            <SelectItem value="none" disabled>No assets to send</SelectItem>
+                        )}
                     </SelectContent>
                 </Select>
                 </div>
@@ -281,7 +299,7 @@ export default function SendReceivePage() {
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">Asset</span>
                             <span className="font-medium flex items-center gap-2">
-                                <CryptoIcon name="Ethereum" />
+                                <CryptoIcon name={staticAssets.find(a => a.symbol === sendAsset)?.name || ''} />
                                 {sendAmount} {sendAsset}
                             </span>
                         </div>
@@ -347,3 +365,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    

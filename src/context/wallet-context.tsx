@@ -7,7 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, serverTimestamp, DocumentData, collection, query, getDocs } from 'firebase/firestore';
+import { doc, serverTimestamp, DocumentData, getDoc, setDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { portfolioAssets } from '@/lib/data';
 
@@ -77,13 +77,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       setWalletAndAdmin(walletData, firebaseUser);
 
       if (firestore) {
-        // Check if user document already exists
         const userRef = doc(firestore, 'users', firebaseUser.uid);
-        const userDocSnap = await getDocs(query(collection(firestore, 'users')));
-        const userExists = userDocSnap.docs.some(d => d.id === firebaseUser.uid);
+        const userDocSnap = await getDoc(userRef);
 
-        if (!userExists) {
-            const newUserDocument: Omit<UserProfile, 'verificationStatus'> = {
+        if (!userDocSnap.exists()) {
+            const newUserDocument: UserProfile = {
               id: firebaseUser.uid,
               email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.crypto`,
               createdAt: serverTimestamp(),
@@ -206,3 +204,5 @@ export const useWallet = () => {
   }
   return context;
 };
+
+    
