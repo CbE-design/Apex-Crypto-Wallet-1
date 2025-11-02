@@ -8,6 +8,7 @@ import { useWallet } from '@/context/wallet-context';
 import { useRouter } from 'next/navigation';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
+import { SupportChatPopover } from '@/components/support/support-chat-popover';
 
 export function Header() {
   const { wallet, disconnectWallet } = useWallet();
@@ -29,10 +30,7 @@ export function Header() {
         <h1 className="text-xl md:text-2xl font-bold text-primary">Apex Crypto Wallet</h1>
       </div>
       <div className="flex items-center gap-2 md:gap-4">
-        <Button variant="ghost" size="icon" className="rounded-full">
-          <Bell className="h-5 w-5" />
-          <span className="sr-only">Notifications</span>
-        </Button>
+        <SupportChatPopover />
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full" disabled={!wallet}>
