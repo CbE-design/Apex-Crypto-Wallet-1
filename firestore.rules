@@ -29,10 +29,8 @@ service cloud.firestore {
     
     function isAdmin() {
       // Admin status is determined by matching the user's UID
-      // with the one defined in the environment variables.
-      // In a production app, this would ideally be a custom claim.
-      let adminUID = firestore.get_param("ADMIN_UID", "");
-      return isSignedIn() && request.auth.uid == adminUID;
+      // with the one defined here. In a production app, this would ideally be a custom claim.
+      return isSignedIn() && request.auth.uid == "eHo0ensfcbVB1ApTwAITiXug6sp2";
     }
     
     /**
@@ -49,9 +47,16 @@ service cloud.firestore {
                     && isOwner(userId)
                     && request.resource.data.id == resource.data.id;
       allow delete: if isSignedIn() && isOwner(userId);
-      // Only admins can list all users.
-      allow list: if isSignedIn() && isAdmin();
     }
+
+    /**
+     * @description Allow admins to list all users.
+     * @path /users
+     */
+    match /users {
+        allow list: if isSignedIn() && isAdmin();
+    }
+
 
     /**
      * @description Enforces user-ownership for cryptocurrency wallets.
