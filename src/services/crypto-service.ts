@@ -14,7 +14,7 @@ import { marketCoins } from '@/lib/data';
 // It's kept separate to be reusable for other functions like creating orders.
 function getExchangeInstance() {
     const exchangeId = process.env.EXCHANGE_ID as keyof typeof ccxt.exchanges;
-    if (!exchangeId || !ccxt.exchanges.includes(exchangeId)) {
+    if (!exchangeId || !(exchangeId in ccxt.exchanges)) {
         // Return null instead of throwing an error to allow fallback to static data
         console.warn(`Exchange ID "${process.env.EXCHANGE_ID}" is not valid or not set. Falling back to static data.`);
         return null;
