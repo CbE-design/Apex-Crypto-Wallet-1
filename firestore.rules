@@ -32,9 +32,8 @@ service cloud.firestore {
       // with the one defined in the environment variables.
       // We read the user's own document to get their wallet address.
       let adminWalletAddress = firestore.get_param("NEXT_PUBLIC_ADMIN_WALLET_ADDRESS", "");
-      return isSignedIn() 
-             && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.walletAddress == adminWalletAddress;
+      let userWalletAddress = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.walletAddress;
+      return isSignedIn() && userWalletAddress == adminWalletAddress;
     }
     
     /**
@@ -45,11 +44,13 @@ service cloud.firestore {
       allow create: if isSignedIn()
                    && isOwner(userId)
                    && request.resource.data.id == userId;
+      // A user can get their own document, or an admin can get any document.
       allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow update: if isSignedIn()
                     && isOwner(userId)
                     && request.resource.data.id == resource.data.id;
       allow delete: if isSignedIn() && isOwner(userId);
+      // Only admins can list all users.
       allow list: if isSignedIn() && isAdmin();
     }
 
@@ -88,5 +89,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
