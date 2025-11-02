@@ -183,7 +183,7 @@ export default function SwapPage() {
     setErrorMessage('');
   }
 
-  const isButtonDisabled = isLoadingRate || status === 'processing' || !fromAmount || parseFloat(fromAmount) <= 0 || !exchangeRate || fromAsset === toAsset;
+  const isButtonDisabled = isLoadingRate || status === 'processing' || !fromAmount || parseFloat(fromAmount) <= 0 || !exchangeRate || fromAsset === toAsset || parseFloat(fromAmount) > fromAssetBalance;
   
   const getStatusContent = () => {
     switch(status) {
@@ -200,7 +200,7 @@ export default function SwapPage() {
                  <div className="flex flex-col items-center justify-center text-center space-y-4 h-56">
                     <CheckCircle className="h-12 w-12 text-green-500" />
                     <h3 className="text-lg font-semibold">Swap Successful!</h3>
-                    <p className="text-muted-foreground">You have successfully swapped {fromAmount} ${fromAsset} for {toAmount} ${toAsset}.</p>
+                    <p className="text-muted-foreground">You have successfully swapped {fromAmount} {fromAsset} for {toAmount} {toAsset}.</p>
                      <Button onClick={resetFlow} className="w-full">Perform Another Swap</Button>
                 </div>
             );

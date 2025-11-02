@@ -73,7 +73,7 @@ export default function SendReceivePage() {
       const firstAssetWithBalance = availableAssetsToSend.find(a => userWallets?.find(uw => uw.currency === a.symbol && uw.balance > 0));
       if(firstAssetWithBalance) {
         setSendAsset(firstAssetWithBalance.symbol);
-      } else {
+      } else if (availableAssetsToSend.length > 0) {
         setSendAsset(availableAssetsToSend[0].symbol);
       }
     }
@@ -374,5 +374,3 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
-
-    

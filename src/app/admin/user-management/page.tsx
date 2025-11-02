@@ -81,6 +81,14 @@ export default function UserManagementPage() {
     }
 
     const handleConfirmNewUser = async () => {
+        if (!newMnemonic) {
+            toast({
+                title: 'Mnemonic not found',
+                description: 'Cannot create user without a mnemonic.',
+                variant: 'destructive'
+            });
+            return;
+        }
         setIsCreatingUser(true);
         try {
             await confirmAndCreateWallet(newMnemonic);
@@ -88,6 +96,8 @@ export default function UserManagementPage() {
                 title: "User Created",
                 description: "The new user has been successfully created and their wallet is ready.",
             });
+            setIsNewUserMnemonicDialogOpen(false);
+            setNewMnemonic('');
         } catch (error) {
              toast({
                 title: 'User Creation Failed',
@@ -95,8 +105,6 @@ export default function UserManagementPage() {
                 variant: 'destructive'
             });
         } finally {
-            setIsNewUserMnemonicDialogOpen(false);
-            setNewMnemonic('');
             setIsCreatingUser(false);
         }
     }
@@ -240,7 +248,7 @@ export default function UserManagementPage() {
                 </div>
                 <DialogFooter>
                     <Button onClick={handleConfirmNewUser} disabled={isCreatingUser} className="w-full">
-                        {isCreatingUser ? <Loader2 className="animate-spin" /> : "User Account Created"}
+                        {isCreatingUser ? <Loader2 className="animate-spin" /> : "User Account Created & Wallet Ready"}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -248,5 +256,3 @@ export default function UserManagementPage() {
     </div>
   );
 }
-
-    

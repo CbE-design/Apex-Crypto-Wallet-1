@@ -65,7 +65,7 @@ export function BuySellCard() {
     if (activeTab === 'buy' && !allTradableAssets.some(a => a.symbol === selectedAsset)) {
         setSelectedAsset(allTradableAssets[0].symbol);
     } else if (activeTab === 'sell' && !ownedAssetSymbols.includes(selectedAsset)) {
-        setSelectedAsset(ownedAssetSymbols[0] || allTradableAssets[0].symbol);
+        setSelectedAsset(ownedAssetSymbols[0] || '');
     }
   }, [activeTab, selectedAsset, ownedAssetSymbols]);
 
@@ -142,7 +142,7 @@ export function BuySellCard() {
   };
 
   const numericAmount = parseFloat(amount);
-  const isButtonDisabled = isProcessing || isLoading || !amount || numericAmount <= 0 || (activeTab === 'sell' && numericAmount > currentBalance);
+  const isButtonDisabled = isProcessing || isLoading || !amount || numericAmount <= 0 || (activeTab === 'sell' && (!selectedAsset || numericAmount > currentBalance));
   
   const renderForm = (isBuy: boolean) => {
     const assetList = isBuy ? allTradableAssets : portfolioAssets;
@@ -182,7 +182,7 @@ export function BuySellCard() {
             </div>
             <Button className="w-full" onClick={handleTransaction} disabled={isButtonDisabled}>
                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {isBuy ? `Buy ${selectedAsset}` : `Sell ${selectedAsset}`}
+                {isBuy ? `Buy ${selectedAsset}` : `Sell ${selectedAsset || 'Asset'}`}
                 {!isProcessing && <ArrowRight className="ml-2" />}
             </Button>
         </div>

@@ -77,12 +77,6 @@ export function PriceAlerts() {
       thresholdPrice: parseFloat(newAlertPrice),
       alertType: newAlertType,
       triggered: false,
-      // non-schema fields for display, Firestore will ignore
-      asset: newAlertAsset,
-      targetPrice: parseFloat(newAlertPrice),
-      type: newAlertType,
-      status: 'Active',
-      icon: assetDetails.name,
     };
     
     addDocumentNonBlocking(collection(firestore, 'users', user.uid, 'price_alerts'), newAlert);
@@ -94,7 +88,7 @@ export function PriceAlerts() {
 
     toast({
       title: "Alert Created",
-      description: `You will be notified when ${newAlertAsset} is ${newAlertType.toLowerCase()} $${newAlert.targetPrice}.`,
+      description: `You will be notified when ${newAlertAsset} is ${newAlertType.toLowerCase()} $${newAlert.thresholdPrice}.`,
     });
   };
 
