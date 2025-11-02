@@ -53,15 +53,19 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#" tooltip="Staking" disabled>
-              <Sparkles />
-              Staking
+            <SidebarMenuButton href="/coming-soon" asChild>
+              <a href="/coming-soon">
+                <Sparkles />
+                Staking
+              </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#" tooltip="NFTs" disabled>
-              <Image />
-              NFTs
+            <SidebarMenuButton href="/coming-soon" asChild>
+              <a href="/coming-soon">
+                <Image />
+                NFTs
+              </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

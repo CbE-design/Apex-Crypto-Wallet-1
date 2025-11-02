@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Send } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Send, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,9 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { useWallet } from '@/context/wallet-context';
+
 
 const mockUsers = [
     { id: '1', address: '0x1234...5678', joinDate: '2024-05-20', totalValue: 12500.50 },
@@ -28,9 +30,16 @@ const mockUsers = [
 
 
 export default function UserManagementPage() {
+    const { toast } = useToast();
+    const { createWallet, confirmAndCreateWallet } = useWallet();
     const [searchTerm, setSearchTerm] = useState('');
     const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
+    const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+    const [isNewUserMnemonicDialogOpen, setIsNewUserMnemonicDialogOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<(typeof mockUsers)[0] | null>(null);
+    const [newMnemonic, setNewMnemonic] = useState('');
+    const [isCreatingUser, setIsCreatingUser] = useState(false);
+
 
     const filteredUsers = mockUsers.filter(user => 
         user.address.toLowerCase().includes(searchTerm.toLowerCase())
@@ -40,6 +49,45 @@ export default function UserManagementPage() {
         setSelectedUser(user);
         setIsSendDialogOpen(true);
     }
+
+    const handleAddUser = async () => {
+        setIsCreatingUser(true);
+        try {
+            const generatedMnemonic = await createWallet();
+            setNewMnemonic(generatedMnemonic);
+            setIsAddUserDialogOpen(false);
+            setIsNewUserMnemonicDialogOpen(true);
+        } catch (error) {
+            toast({
+                title: 'Error Creating Wallet',
+                description: 'Could not generate a new wallet. Please try again.',
+                variant: 'destructive'
+            });
+        } finally {
+            setIsCreatingUser(false);
+        }
+    }
+
+    const handleConfirmNewUser = async () => {
+        setIsCreatingUser(true);
+        try {
+            await confirmAndCreateWallet(newMnemonic);
+            toast({
+                title: "User Created",
+                description: "The new user has been successfully created and their wallet is ready.",
+            });
+        } catch (error) {
+             toast({
+                title: 'User Creation Failed',
+                description: 'There was an error finalizing the user creation.',
+                variant: 'destructive'
+            });
+        } finally {
+            setIsNewUserMnemonicDialogOpen(false);
+            setNewMnemonic('');
+            setIsCreatingUser(false);
+        }
+    }
     
   return (
     <div className="space-y-6">
@@ -48,7 +96,7 @@ export default function UserManagementPage() {
                 <h1 className="text-3xl font-bold">User Management</h1>
                 <p className="text-muted-foreground">Monitor and manage all application users.</p>
             </div>
-             <Button>
+             <Button onClick={() => setIsAddUserDialogOpen(true)}>
                 <PlusCircle className="mr-2" />
                 Add User
             </Button>
@@ -106,6 +154,7 @@ export default function UserManagementPage() {
             </CardContent>
         </Card>
 
+        {/* Send Crypto Dialog */}
         <Dialog open={isSendDialogOpen} onOpenChange={setIsSendDialogOpen}>
             <DialogContent>
                  <DialogHeader>
@@ -123,6 +172,48 @@ export default function UserManagementPage() {
                         <Button variant="outline">Cancel</Button>
                     </DialogClose>
                     <Button>Confirm & Send</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        
+        {/* Add User Confirmation Dialog */}
+        <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+            <DialogContent>
+                 <DialogHeader>
+                    <DialogTitle>Add New User</DialogTitle>
+                    <DialogDescription>
+                        This will generate a new wallet and a unique seed phrase for a new user.
+                    </DialogDescription>
+                </DialogHeader>
+                 <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="outline">Cancel</Button>
+                    </DialogClose>
+                    <Button onClick={handleAddUser} disabled={isCreatingUser}>
+                        {isCreatingUser ? <Loader2 className="animate-spin mr-2"/> : null}
+                        Generate New User Wallet
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+         {/* New User Mnemonic Dialog */}
+        <Dialog open={isNewUserMnemonicDialogOpen} onOpenChange={setIsNewUserMnemonicDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>New User's Seed Phrase</DialogTitle>
+                    <DialogDescription>
+                    This is the new user's seed phrase. Copy it now and provide it to the user.
+                    <strong className="text-destructive"> They will NOT be able to recover their wallet without it. This is the only time you will see this.</strong>
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="my-4 p-4 bg-muted rounded-lg font-mono text-center text-lg tracking-wider">
+                    {newMnemonic}
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleConfirmNewUser} disabled={isCreatingUser} className="w-full">
+                        {isCreatingUser ? <Loader2 className="animate-spin" /> : "User Account Created"}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
