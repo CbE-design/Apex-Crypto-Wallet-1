@@ -54,10 +54,10 @@ export function MarketOverview() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono font-semibold">{formatCurrency(priceInSelectedCurrency)}</TableCell>
+                    <TableCell className="text-right font-semibold">{formatCurrency(priceInSelectedCurrency)}</TableCell>
                     <TableCell className="text-right">
                       <span className={cn(
-                        "flex items-center justify-end gap-1 text-sm font-mono font-semibold",
+                        "flex items-center justify-end gap-1 text-sm font-semibold",
                         coin.change24h >= 0 ? "text-green-400" : "text-red-400"
                       )}>
                         {coin.change24h >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
