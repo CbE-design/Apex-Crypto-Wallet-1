@@ -22,7 +22,7 @@ export async function supportAgent(
 
 const prompt = ai.definePrompt({
   name: 'supportAgentPrompt',
-  model: googleAI.model('gemini-1.5-flash-latest'),
+  model: googleAI.model('gemini-1.5-flash'),
   input: {schema: SupportAgentInputSchema},
   output: {schema: SupportAgentOutputSchema},
   prompt: `You are a friendly, helpful, and knowledgeable AI customer support agent for "Apex Crypto Wallet", a modern cryptocurrency wallet application.
