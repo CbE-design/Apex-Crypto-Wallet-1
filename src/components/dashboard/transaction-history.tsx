@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -17,9 +18,9 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
-import { collection, query, orderBy, limit, type Timestamp, getDocs, collectionGroup } from 'firebase/firestore'
-import { useEffect, useMemo, useState } from "react";
+import { useUser, useFirestore } from '@/firebase'
+import { collection, query, orderBy, limit, type Timestamp, collectionGroup, onSnapshot } from 'firebase/firestore'
+import { useEffect, useState } from "react";
 import { portfolioAssets as staticAssets } from "@/lib/data";
 import { useCurrency } from "@/context/currency-context";
 import { CryptoIcon } from "../crypto-icon";
@@ -44,7 +45,10 @@ export function TransactionHistory() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !firestore) return;
+    if (!user || !firestore) {
+      setIsLoading(false);
+      return;
+    };
 
     setIsLoading(true);
     const transactionsQuery = query(
