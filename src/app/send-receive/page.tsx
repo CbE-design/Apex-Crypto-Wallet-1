@@ -209,33 +209,12 @@ export default function SendReceivePage() {
             <CardDescription>Send funds to another wallet on the network.</CardDescription>
           </CardHeader>
           <CardContent>
-            {status === 'sending' && (
-                <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <h3 className="text-lg font-semibold capitalize">Processing...</h3>
-                    <p className="text-muted-foreground">Please wait while the virtual transaction is processed.</p>
-                </div>
-            )}
-            {status === 'success' && (
-                <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
-                    <CheckCircle className="h-12 w-12 text-green-500" />
-                    <h3 className="text-lg font-semibold">Transaction Sent!</h3>
-                    <p className="text-muted-foreground">You have successfully sent {sendAmount} {sendAsset}.</p>
-                </div>
-            )}
-            {status === 'error' && (
-                <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
-                    <XCircle className="h-12 w-12 text-destructive" />
-                    <h3 className="text-lg font-semibold">Transaction Failed</h3>
-                    <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
-                </div>
-            )}
             {status === 'idle' && (
                 <div className="space-y-4">
                     {selectedAssetBalance === 0 && (
                         <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 text-center space-y-2">
                             <h4 className="font-semibold">Your ETH balance is zero</h4>
-                            <p className="text-sm text-muted-foreground">Click the button below to get some test ETH from the faucet to start sending transactions.</p>
+                            <p className="text-sm text-muted-foreground">Click the button below to get some test ETH to start sending transactions.</p>
                             <Button onClick={handleFaucet}>
                                 <Droplets className="mr-2" />
                                 Get 1 Test ETH
@@ -310,6 +289,27 @@ export default function SendReceivePage() {
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
+                </div>
+            )}
+            {status === 'sending' && (
+                <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                    <h3 className="text-lg font-semibold capitalize">Processing...</h3>
+                    <p className="text-muted-foreground">Please wait while the virtual transaction is processed.</p>
+                </div>
+            )}
+            {status === 'success' && (
+                <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
+                    <CheckCircle className="h-12 w-12 text-green-500" />
+                    <h3 className="text-lg font-semibold">Transaction Sent!</h3>
+                    <p className="text-muted-foreground">You have successfully sent {sendAmount} {sendAsset}.</p>
+                </div>
+            )}
+            {status === 'error' && (
+                <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
+                    <XCircle className="h-12 w-12 text-destructive" />
+                    <h3 className="text-lg font-semibold">Transaction Failed</h3>
+                    <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
                 </div>
             )}
           </CardContent>
