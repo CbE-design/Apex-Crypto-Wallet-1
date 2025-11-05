@@ -65,7 +65,7 @@ export default function SendReceivePage() {
     setSendAmount('');
     setRecipientAddress('');
     setErrorMessage('');
-  }, []);
+  }, [setStatus, setSendAmount, setRecipientAddress, setErrorMessage]);
 
   useEffect(() => {
     if (status === 'success' || status === 'error') {
@@ -337,3 +337,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
