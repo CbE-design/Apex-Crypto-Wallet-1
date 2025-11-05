@@ -34,13 +34,18 @@ function initializeFirebaseAdmin() {
     return;
   }
   
+  if (!process.env.FIREBASE_ADMIN_SDK_CONFIG) {
+    console.warn("FIREBASE_ADMIN_SDK_CONFIG is not set. Skipping Firebase Admin initialization.");
+    return;
+  }
+
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG!);
+    const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG);
     initializeApp({
         credential: cert(serviceAccount)
     });
   } catch(e) {
-      console.error("Could not initialize Firebase Admin SDK. Make sure FIREBASE_ADMIN_SDK_CONFIG is set in .env.local", e);
+      console.error("Could not initialize Firebase Admin SDK. Make sure FIREBASE_ADMIN_SDK_CONFIG is set in .env", e);
       throw new Error("Admin SDK initialization failed.");
   }
 }
@@ -60,6 +65,11 @@ const sendNotificationFlow = ai.defineFlow(
   },
   async ({ title, body }) => {
     initializeFirebaseAdmin();
+
+    // Check if the admin app was initialized before proceeding
+    if (!getApps().length) {
+        throw new Error("Firebase Admin SDK is not initialized. Cannot send notifications.");
+    }
     
     const db = getFirestore();
     const messaging = getMessaging();
