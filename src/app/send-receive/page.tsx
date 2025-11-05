@@ -60,6 +60,22 @@ export default function SendReceivePage() {
     }
   }, [wallet?.address]);
 
+  const resetSendState = () => {
+    setStatus('idle');
+    setSendAmount('');
+    setRecipientAddress('');
+    setErrorMessage('');
+  }
+
+  useEffect(() => {
+    if (status === 'success' || status === 'error') {
+      const timer = setTimeout(() => {
+        resetSendState();
+      }, 3000); // Reset after 3 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [status]);
+
 
   const handleSend = async () => {
     if (!wallet || !user || !firestore) {
@@ -165,12 +181,6 @@ export default function SendReceivePage() {
     }
   };
   
-  const resetSendState = () => {
-    setStatus('idle');
-    setSendAmount('');
-    setRecipientAddress('');
-    setErrorMessage('');
-  }
 
   const handleCopyAddress = () => {
     if (wallet?.address) {
@@ -200,7 +210,6 @@ export default function SendReceivePage() {
                     <CheckCircle className="h-12 w-12 text-green-500" />
                     <h3 className="text-lg font-semibold">Transaction Sent!</h3>
                     <p className="text-muted-foreground">You have successfully sent {sendAmount} {sendAsset}.</p>
-                    <Button onClick={resetSendState} className="w-full">Send Another</Button>
                 </div>
             );
         case 'error':
@@ -209,7 +218,6 @@ export default function SendReceivePage() {
                     <XCircle className="h-12 w-12 text-destructive" />
                     <h3 className="text-lg font-semibold">Transaction Failed</h3>
                     <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
-                    <Button onClick={resetSendState} variant="outline" className="w-full">Try Again</Button>
                 </div>
             );
         case 'idle':
@@ -329,3 +337,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
