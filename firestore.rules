@@ -76,7 +76,8 @@ service cloud.firestore {
      * @path /users/{userId}/wallets/{walletId}/transactions/{transactionId}
      */
     match /users/{userId}/wallets/{walletId}/transactions/{transactionId} {
-      allow create, get, update, delete, list: if isSignedIn() && isOwner(userId);
+      allow create, get, update, delete: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
     }
 
      /**
