@@ -33,23 +33,27 @@ export default function AdminDashboardPage() {
                     <CardDescription>Jump directly to key management areas.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <Link href="/admin/user-management" legacyBehavior={false}>
-                        <Button className="w-full justify-between" variant="outline">
-                           <div className="flex items-center gap-2">
-                                <Users />
-                                Manage Users
-                            </div>
-                            <ArrowRight />
-                        </Button>
+                    <Link href="/admin/user-management" passHref legacyBehavior>
+                        <a>
+                            <Button className="w-full justify-between" variant="outline">
+                               <div className="flex items-center gap-2">
+                                    <Users />
+                                    Manage Users
+                                </div>
+                                <ArrowRight />
+                            </Button>
+                        </a>
                     </Link>
-                    <Link href="/admin/notification-center" legacyBehavior={false}>
-                        <Button className="w-full justify-between" variant="outline">
-                            <div className="flex items-center gap-2">
-                                <Bell />
-                                Send Notifications
-                            </div>
-                            <ArrowRight />
-                        </Button>
+                    <Link href="/admin/notification-center" passHref legacyBehavior>
+                        <a>
+                            <Button className="w-full justify-between" variant="outline">
+                                <div className="flex items-center gap-2">
+                                    <Bell />
+                                    Send Notifications
+                                </div>
+                                <ArrowRight />
+                            </Button>
+                        </a>
                     </Link>
                 </CardContent>
             </Card>
