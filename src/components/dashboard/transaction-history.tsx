@@ -19,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
-import { collection, query, orderBy, limit, type Timestamp, collectionGroup, where } from 'firebase/firestore'
+import { collection, query, orderBy, limit, type Timestamp } from 'firebase/firestore'
 import { portfolioAssets as staticAssets } from "@/lib/data";
 import { useCurrency } from "@/context/currency-context";
 import { CryptoIcon } from "../crypto-icon";
@@ -33,8 +33,6 @@ interface Transaction {
     timestamp: Timestamp;
     status: 'Completed' | 'Pending' | 'Failed';
     notes?: string;
-    userId: string;
-    currency?: string; // This might exist on some tx logs
 }
 
 export function TransactionHistory() {
@@ -45,30 +43,15 @@ export function TransactionHistory() {
   const transactionsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return query(
-        collectionGroup(firestore, 'transactions'),
-        where('userId', '==', user.uid),
+        collection(firestore, 'users', user.uid, 'wallets', 'ETH', 'transactions'),
         orderBy('timestamp', 'desc'),
         limit(20)
     );
   }, [user, firestore]);
 
   const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
-  
-  const getAssetDetailsFromPath = (path: string) => {
-    // Path is like: users/{userId}/wallets/{assetSymbol}/transactions/{txId}
-    const parts = path.split('/');
-    if (parts.length >= 4) {
-        const assetSymbol = parts[3];
-        const assetInfo = staticAssets.find(a => a.symbol === assetSymbol);
-        return {
-            symbol: assetSymbol,
-            name: assetInfo?.name || 'Unknown',
-            priceUSD: assetInfo?.priceUSD || 0
-        };
-    }
-    return { symbol: '???', name: 'Unknown', priceUSD: 0 };
-  };
 
+  const assetDetails = staticAssets.find(a => a.symbol === 'ETH') || { name: 'Ethereum', priceUSD: 0 };
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -111,7 +94,6 @@ export function TransactionHistory() {
                 </TableRow>
             ) : transactions && transactions.length > 0 ? (
               transactions.map((tx) => {
-                const assetDetails = getAssetDetailsFromPath(tx.id);
                 const valueInSelectedCurrency = (tx.amount * (tx.price > 0 ? tx.price : assetDetails.priceUSD)) * currency.rate;
 
                 return (
@@ -127,7 +109,7 @@ export function TransactionHistory() {
                     <TableCell>
                         <div className="flex items-center gap-2">
                             <CryptoIcon name={assetDetails.name} className="h-6 w-6"/>
-                            <span>{assetDetails.symbol}</span>
+                            <span>ETH</span>
                         </div>
                     </TableCell>
                     <TableCell className="text-right">{tx.amount.toFixed(4)}</TableCell>
