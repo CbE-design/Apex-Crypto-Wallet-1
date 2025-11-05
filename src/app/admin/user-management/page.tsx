@@ -250,13 +250,13 @@ export default function UserManagementPage() {
                                 </TableCell>
                             </TableRow>
                         ) : filteredUsers.length > 0 ? (
-                            filteredUsers.map(user => (
-                                <TableRow key={user.id}>
-                                    <TableCell className="font-mono">{user.walletAddress}</TableCell>
+                            filteredUsers.map(u => (
+                                <TableRow key={u.id}>
+                                    <TableCell className="font-mono">{u.walletAddress}</TableCell>
                                     <TableCell>
-                                        <PortfolioValue userId={user.id} />
+                                        <PortfolioValue userId={u.id} />
                                     </TableCell>
-                                    <TableCell>{user.createdAt?.toDate().toLocaleDateString()}</TableCell>
+                                    <TableCell>{u.createdAt?.toDate().toLocaleDateString()}</TableCell>
                                     <TableCell className="text-right">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
@@ -266,7 +266,7 @@ export default function UserManagementPage() {
                                             </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => handleSendClick(user)} disabled={user.id === (auth.currentUser?.uid || '')}>
+                                                <DropdownMenuItem onClick={() => handleSendClick(u)} disabled={u.id === (user?.uid || '')}>
                                                     <Send className="mr-2 h-4 w-4" />
                                                     <span>Send Crypto</span>
                                                 </DropdownMenuItem>

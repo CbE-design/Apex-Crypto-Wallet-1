@@ -38,9 +38,7 @@ service cloud.firestore {
      * @path /users/{userId}
      */
     match /users/{userId} {
-      allow create: if isSignedIn()
-                   && isOwner(userId)
-                   && request.resource.data.id == userId;
+      allow create: if isSignedIn() && isOwner(userId);
       // A user can get their own document, or an admin can get any document.
       allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow update: if isSignedIn()

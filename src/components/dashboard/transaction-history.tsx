@@ -19,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
-import { collection, query, orderBy, limit, type Timestamp } from 'firebase/firestore'
+import { collection, query, orderBy, limit, type Timestamp, collectionGroup, where } from 'firebase/firestore'
 import { portfolioAssets as staticAssets } from "@/lib/data";
 import { useCurrency } from "@/context/currency-context";
 import { CryptoIcon } from "../crypto-icon";
@@ -29,10 +29,12 @@ interface Transaction {
     id: string;
     type: 'Buy' | 'Sell';
     amount: number;
+    price: number;
     timestamp: Timestamp;
     status: 'Completed' | 'Pending' | 'Failed';
     notes?: string;
     userId: string;
+    currency?: string; // This might exist on some tx logs
 }
 
 export function TransactionHistory() {
@@ -40,19 +42,33 @@ export function TransactionHistory() {
   const firestore = useFirestore();
   const { currency, formatCurrency } = useCurrency();
   
-  const ethWalletTxQuery = useMemoFirebase(() => {
+  const transactionsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    // Query only the transactions subcollection of the ETH wallet.
     return query(
-        collection(firestore, 'users', user.uid, 'wallets', 'ETH', 'transactions'),
+        collectionGroup(firestore, 'transactions'),
+        where('userId', '==', user.uid),
         orderBy('timestamp', 'desc'),
         limit(20)
     );
   }, [user, firestore]);
 
-  const { data: transactions, isLoading } = useCollection<Transaction>(ethWalletTxQuery);
+  const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
+  
+  const getAssetDetailsFromPath = (path: string) => {
+    // Path is like: users/{userId}/wallets/{assetSymbol}/transactions/{txId}
+    const parts = path.split('/');
+    if (parts.length >= 4) {
+        const assetSymbol = parts[3];
+        const assetInfo = staticAssets.find(a => a.symbol === assetSymbol);
+        return {
+            symbol: assetSymbol,
+            name: assetInfo?.name || 'Unknown',
+            priceUSD: assetInfo?.priceUSD || 0
+        };
+    }
+    return { symbol: '???', name: 'Unknown', priceUSD: 0 };
+  };
 
-  const ethPriceUSD = staticAssets.find(a => a.symbol === 'ETH')?.priceUSD || 0;
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -95,7 +111,9 @@ export function TransactionHistory() {
                 </TableRow>
             ) : transactions && transactions.length > 0 ? (
               transactions.map((tx) => {
-                const valueInSelectedCurrency = (tx.amount * ethPriceUSD) * currency.rate;
+                const assetDetails = getAssetDetailsFromPath(tx.id);
+                const valueInSelectedCurrency = (tx.amount * (tx.price > 0 ? tx.price : assetDetails.priceUSD)) * currency.rate;
+
                 return (
                     <TableRow key={tx.id}>
                     <TableCell>
@@ -108,8 +126,8 @@ export function TransactionHistory() {
                     </TableCell>
                     <TableCell>
                         <div className="flex items-center gap-2">
-                            <CryptoIcon name="Ethereum" className="h-6 w-6"/>
-                            <span>ETH</span>
+                            <CryptoIcon name={assetDetails.name} className="h-6 w-6"/>
+                            <span>{assetDetails.symbol}</span>
                         </div>
                     </TableCell>
                     <TableCell className="text-right">{tx.amount.toFixed(4)}</TableCell>
@@ -124,7 +142,7 @@ export function TransactionHistory() {
             ) : (
                  <TableRow>
                     <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">
-                        No ETH transactions found.
+                        No transactions found.
                     </TableCell>
                 </TableRow>
             )}
