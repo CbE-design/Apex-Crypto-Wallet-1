@@ -124,7 +124,7 @@ export default function SendReceivePage() {
             // 2. Create sender transaction log
             const senderTxLogRef = doc(collection(senderWalletRef, 'transactions'));
             transaction.set(senderTxLogRef, {
-              userId: user.uid, // Add userId for security rules
+              userId: user.uid,
               type: 'Sell',
               amount: amount,
               price: 0, 
@@ -150,7 +150,7 @@ export default function SendReceivePage() {
             // 4. Create recipient transaction log
             const recipientTxLogRef = doc(collection(recipientWalletRef, 'transactions'));
             transaction.set(recipientTxLogRef, {
-              userId: recipientId, // Add userId for security rules
+              userId: recipientId,
               type: 'Buy',
               amount: amount,
               price: 0,
@@ -335,3 +335,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
