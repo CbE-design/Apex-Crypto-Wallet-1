@@ -69,8 +69,8 @@ export function TransactionHistory() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Apex Wallet History</CardTitle>
-        <CardDescription>Your recent wallet transaction activity.</CardDescription>
+        <CardTitle>ETH Transactions</CardTitle>
+        <CardDescription>Your recent ETH transaction activity.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="max-h-[450px] overflow-auto">
