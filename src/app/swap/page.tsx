@@ -145,6 +145,7 @@ export default function SwapPage() {
             
             const sellTxLogRef = doc(collection(fromWalletRef, 'transactions'));
             transaction.set(sellTxLogRef, {
+                userId: user.uid, // Denormalize userId for security rules
                 type: 'Sell',
                 amount: amountNum,
                 price: fromAssetPrice,
@@ -156,6 +157,7 @@ export default function SwapPage() {
             
             const buyTxLogRef = doc(collection(toWalletRef, 'transactions'));
             transaction.set(buyTxLogRef, {
+                userId: user.uid, // Denormalize userId for security rules
                 type: 'Buy',
                 amount: toAmountNum,
                 price: toAssetPrice,
@@ -352,3 +354,5 @@ export default function SwapPage() {
     </PrivateRoute>
   );
 }
+
+    

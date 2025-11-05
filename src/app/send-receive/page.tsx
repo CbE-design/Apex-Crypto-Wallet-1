@@ -142,6 +142,7 @@ export default function SendReceivePage() {
 
             const senderTxLogRef = doc(collection(senderWalletRef, 'transactions'));
             transaction.set(senderTxLogRef, {
+              userId: user.uid, // Denormalize userId for security rules
               type: 'Sell',
               amount: amount,
               price: 0, 
@@ -166,6 +167,7 @@ export default function SendReceivePage() {
 
             const recipientTxLogRef = doc(collection(recipientWalletRef, 'transactions'));
             transaction.set(recipientTxLogRef, {
+              userId: recipientId, // Denormalize userId for security rules
               type: 'Buy',
               amount: amount,
               price: 0,
@@ -374,3 +376,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
