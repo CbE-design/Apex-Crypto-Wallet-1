@@ -60,23 +60,26 @@ service cloud.firestore {
 
     /**
      * @description Enforces user-ownership for cryptocurrency wallets.
+     * Admins are allowed to read wallets and update balances for funding purposes.
      * @path /users/{userId}/wallets/{walletId}
      */
     match /users/{userId}/wallets/{walletId} {
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
       allow get, list: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow update: if isSignedIn()
-                    && isOwner(userId)
-                    && request.resource.data.userId == resource.data.userId;
+      // A user can update their own wallet if the userId is not changed.
+      // An admin can update any user's wallet (e.g., for funding).
+      allow update: if (isSignedIn() && isOwner(userId) && request.resource.data.userId == resource.data.userId) || (isSignedIn() && isAdmin());
       allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
      * @description Enforces user-ownership for transaction history within a wallet.
+     * Admins can also write transaction logs when funding a user.
      * @path /users/{userId}/wallets/{walletId}/transactions/{transactionId}
      */
     match /users/{userId}/wallets/{walletId}/transactions/{transactionId} {
-      allow read, write: if isSignedIn() && isOwner(userId);
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow write: if (isSignedIn() && isOwner(userId)) || (isSignedIn() && isAdmin());
     }
 
      /**
