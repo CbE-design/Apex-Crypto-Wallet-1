@@ -74,14 +74,14 @@ service cloud.firestore {
     /**
      * @description Enforces user-ownership for transaction history within a wallet.
      * Admins can also write transaction logs when funding a user.
-     * A user can list their own transactions across all wallets.
+     * A user can list their own transactions.
      * @path /users/{userId}/wallets/{walletId}/transactions/{transactionId}
      */
     match /users/{userId}/wallets/{walletId}/transactions/{transactionId} {
       // Allow user to get their own transaction or admin to get any.
       allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
-      // Allow a user to list their own transactions across all wallets (collection group query).
-      allow list: if isSignedIn() && request.query.where[0][2] == request.auth.uid;
+      // Allow a user to list transactions from their own wallet.
+      allow list: if isSignedIn() && isOwner(userId);
       allow write: if (isSignedIn() && isOwner(userId)) || (isSignedIn() && isAdmin());
     }
 
