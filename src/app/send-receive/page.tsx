@@ -101,25 +101,32 @@ export default function SendReceivePage() {
         await runTransaction(firestore, async (transaction) => {
             const usersRef = collection(firestore, 'users');
             const recipientQuery = query(usersRef, where("walletAddress", "==", recipientAddress), limit(1));
+            
+            // --- ALL READS FIRST ---
+            const senderWalletRef = doc(firestore, 'users', user.uid, 'wallets', sendAsset);
+            const senderWalletDoc = await transaction.get(senderWalletRef);
+            
             const recipientSnapshot = await getDocs(recipientQuery);
-
             if (recipientSnapshot.empty) {
                 throw new Error("Recipient address not found in the system.");
             }
-
             const recipientDoc = recipientSnapshot.docs[0];
             const recipientId = recipientDoc.id;
+            const recipientWalletRef = doc(firestore, 'users', recipientId, 'wallets', sendAsset);
+            const recipientWalletDoc = await transaction.get(recipientWalletRef);
 
-            const senderWalletRef = doc(firestore, 'users', user.uid, 'wallets', sendAsset);
-            const senderWalletDoc = await transaction.get(senderWalletRef);
 
+            // --- VALIDATION & CALCULATION ---
             const senderBalance = senderWalletDoc.exists() ? senderWalletDoc.data().balance : 0;
             if (senderBalance < amount) {
                 throw new Error(`Insufficient balance. You only have ${senderBalance.toFixed(6)} ${sendAsset}.`);
             }
-
-            // 1. Debit sender
             const newSenderBalance = senderBalance - amount;
+            const recipientBalance = recipientWalletDoc.exists() ? recipientWalletDoc.data().balance : 0;
+            const newRecipientBalance = recipientBalance + amount;
+
+            // --- ALL WRITES LAST ---
+            // 1. Debit sender
             transaction.update(senderWalletRef, { balance: newSenderBalance });
 
             // 2. Create sender transaction log
@@ -136,11 +143,6 @@ export default function SendReceivePage() {
             });
 
             // 3. Credit recipient
-            const recipientWalletRef = doc(firestore, 'users', recipientId, 'wallets', sendAsset);
-            const recipientWalletDoc = await transaction.get(recipientWalletRef);
-            const recipientBalance = recipientWalletDoc.exists() ? recipientWalletDoc.data().balance : 0;
-            const newRecipientBalance = recipientBalance + amount;
-            
             transaction.set(recipientWalletRef, { 
                 balance: newRecipientBalance,
                 currency: sendAsset,
@@ -325,3 +327,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
