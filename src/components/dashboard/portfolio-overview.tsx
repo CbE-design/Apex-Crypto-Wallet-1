@@ -169,17 +169,19 @@ export function PortfolioOverview() {
                 </div>
             )}
           </ChartContainer>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none space-y-1">
-            <p className="text-sm text-muted-foreground">Total Balance</p>
-            <p
-              className={cn(
-                'font-bold',
-                balanceDigits > 10 ? 'text-xl' : 'text-2xl'
-              )}
-            >
-              {formatCurrency(totalBalanceInSelectedCurrency)}
-            </p>
-          </div>
+          {totalBalance > 0 && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none space-y-1">
+              <p className="text-sm text-muted-foreground">Total Balance</p>
+              <p
+                className={cn(
+                  'font-bold',
+                  balanceDigits > 10 ? 'text-xl' : 'text-2xl'
+                )}
+              >
+                {formatCurrency(totalBalanceInSelectedCurrency)}
+              </p>
+            </div>
+          )}
         </div>
         <div className="w-full md:w-1/2 space-y-4">
           {portfolioAssets.length > 0 ? portfolioAssets.map((asset) => (
