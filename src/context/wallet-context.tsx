@@ -6,8 +6,8 @@ import { ethers } from 'ethers';
 import { Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
-import { signOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, serverTimestamp, DocumentData, getDoc, setDoc, writeBatch, updateDoc } from 'firebase/firestore';
+import { signInWithCustomToken, signOut, User as FirebaseUser } from 'firebase/auth';
+import { doc, serverTimestamp, DocumentData, getDoc, setDoc, writeBatch, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { portfolioAssets } from '@/lib/data';
 import { getMessaging, getToken } from 'firebase/messaging';
 
@@ -31,7 +31,7 @@ interface WalletContextType {
   loading: boolean;
   isAdmin: boolean;
   createWallet: () => Promise<string>;
-  importWallet: (mnemonic: string) => void;
+  importWallet: (mnemonic: string) => Promise<void>;
   confirmAndCreateWallet: (mnemonic: string) => Promise<void>;
   disconnectWallet: () => void;
 }
@@ -156,7 +156,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     handleTokenRefresh();
-  }, [user, firestore, wallet, userProfile, VAPID_KEY]);
+  }, [user, firestore, wallet, userProfile]);
 
 
   const createWallet = useCallback(async (): Promise<string> => {
@@ -181,26 +181,50 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [auth, setupUserAndWalletDocuments]);
 
-  const importWallet = useCallback((mnemonic: string) => {
-     if (auth) {
-        try {
-            // Sanitize the mnemonic phrase
-            const sanitizedMnemonic = mnemonic.trim().replace(/\s+/g, ' ');
-            const newWallet = ethers.Wallet.fromPhrase(sanitizedMnemonic);
-            initiateAnonymousSignIn(auth)
-                .then(userCredential => {
-                    if (userCredential?.user) {
-                        setupUserAndWalletDocuments(userCredential.user, newWallet);
-                    }
-                });
-        } catch (e) {
-            console.error("Invalid mnemonic phrase:", e);
-            throw new Error("Invalid seed phrase. Please check and try again.");
-        }
-    } else {
-         throw new Error("Auth service not available");
+  const importWallet = useCallback(async (mnemonic: string) => {
+    if (!auth || !firestore) {
+      throw new Error("Auth or Firestore service not available");
     }
-  }, [auth, setupUserAndWalletDocuments]);
+    
+    try {
+      const sanitizedMnemonic = mnemonic.trim().replace(/\s+/g, ' ');
+      const importedWallet = ethers.Wallet.fromPhrase(sanitizedMnemonic);
+      
+      const usersRef = collection(firestore, 'users');
+      const q = query(usersRef, where("walletAddress", "==", importedWallet.address), limit(1));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        throw new Error("No account found for this seed phrase.");
+      }
+      
+      const userDoc = querySnapshot.docs[0];
+      const userId = userDoc.id;
+
+      // We are signing in anonymously for simplicity. 
+      // In a real app, you would have a more robust custom auth system.
+      const userCredential = await initiateAnonymousSignIn(auth, userId);
+      const firebaseUser = userCredential.user;
+
+      if (firebaseUser) {
+        const walletData = {
+          address: importedWallet.address,
+          privateKey: importedWallet.privateKey,
+        };
+        setWalletAndAdmin(walletData, firebaseUser);
+      } else {
+        throw new Error("Failed to authenticate user.");
+      }
+
+    } catch (e: any) {
+      console.error("Error importing wallet:", e);
+      if (e.message.includes('invalid mnemonic')) {
+          throw new Error("Invalid seed phrase. Please check and try again.");
+      }
+      throw e; // Re-throw other errors
+    }
+  }, [auth, firestore, setWalletAndAdmin]);
+
 
   const disconnectWallet = useCallback(() => {
     if (auth) {

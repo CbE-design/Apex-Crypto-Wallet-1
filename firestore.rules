@@ -50,11 +50,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allow admins to list all users.
+     * @description Allow anyone to query the users collection to find a user by wallet address for login.
+     * This is required for the seed phrase login flow.
      * @path /users
      */
     match /users {
-        allow list: if isSignedIn() && isAdmin();
+        allow list: if true;
     }
 
 

@@ -47,8 +47,9 @@ export default function ConnectWalletPage() {
       return;
     }
     try {
-      importWallet(mnemonic);
-      toast({ title: 'Importing Wallet...', description: 'Please wait while we set up your wallet.' });
+      await importWallet(mnemonic);
+      toast({ title: 'Wallet Imported!', description: 'You have successfully logged in.' });
+      router.push('/');
     } catch (error: any) {
        toast({
         title: 'Import Failed',
