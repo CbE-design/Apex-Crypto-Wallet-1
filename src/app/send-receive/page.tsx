@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import QRCode from 'qrcode';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -60,12 +60,12 @@ export default function SendReceivePage() {
     }
   }, [wallet?.address]);
 
-  const resetSendState = () => {
+  const resetSendState = useCallback(() => {
     setStatus('idle');
     setSendAmount('');
     setRecipientAddress('');
     setErrorMessage('');
-  }
+  }, []);
 
   useEffect(() => {
     if (status === 'success' || status === 'error') {
@@ -74,7 +74,7 @@ export default function SendReceivePage() {
       }, 3000); // Reset after 3 seconds
       return () => clearTimeout(timer);
     }
-  }, [status]);
+  }, [status, resetSendState]);
 
 
   const handleSend = async () => {
@@ -337,5 +337,3 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
-
-    
