@@ -69,7 +69,7 @@ export function TransactionHistory() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>ETH Transactions</CardTitle>
+        <CardTitle>Apex Wallet Transactions</CardTitle>
         <CardDescription>Your recent ETH transaction activity.</CardDescription>
       </CardHeader>
       <CardContent>
