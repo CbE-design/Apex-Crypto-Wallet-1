@@ -24,6 +24,10 @@
         "walletAddress": {
             "type": "string",
             "description": "The user's primary Ethereum wallet address."
+        },
+        "bankBalance": {
+            "type": "number",
+            "description": "The user's simulated bank account balance in USD."
         }
       },
       "required": [
@@ -237,5 +241,3 @@
     "reasoning": "The Firestore data structure is designed to support the Apex Crypto Wallet application, prioritizing security, scalability, and debuggability as per the core design principles. Authorization Independence is achieved by leveraging path-based ownership for private user data and avoiding `get()` calls in security rules. The structure facilitates secure `list` operations (QAPs) through structural segregation. \n\nThe `users/{userId}` collection stores user profiles. Each user owns their wallets, stored in the `users/{userId}/wallets/{walletId}` subcollection.  Transactions are nested under wallets in `users/{userId}/wallets/{walletId}/transactions/{transactionId}`. Price alerts are stored under the user's path in `users/{userId}/price_alerts/{priceAlertId}`.  This hierarchical structure simplifies ownership-based security rules and eliminates the need for complex authorization logic. This design ensures that all documents within a collection share the same security requirements, simplifying rule creation and maintenance."
   }
 }
-
-    

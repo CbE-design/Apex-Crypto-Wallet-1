@@ -7,7 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, serverTimestamp, DocumentData, getDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, serverTimestamp, DocumentData, getDoc, setDoc, writeBatch, updateDoc } from 'firebase/firestore';
 import { portfolioAssets } from '@/lib/data';
 
 interface Wallet {
@@ -20,6 +20,7 @@ interface UserProfile {
     email: string;
     createdAt: any;
     walletAddress: string;
+    bankBalance?: number;
 }
 
 interface WalletContextType {
@@ -80,6 +81,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.crypto`,
         createdAt: serverTimestamp(),
         walletAddress: walletInstance.address,
+        bankBalance: 10000, // Give user a starting bank balance of $10,000
       };
       batch.set(userRef, newUserDocument, { merge: true });
 

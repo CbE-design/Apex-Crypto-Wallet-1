@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from "react"
@@ -9,11 +10,12 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { portfolioAssets as staticAssets, marketCoins } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowRight, Loader2 } from "lucide-react"
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
-import { collection, query, doc, runTransaction, serverTimestamp } from 'firebase/firestore'
+import { ArrowRight, Loader2, Landmark } from "lucide-react"
+import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase'
+import { collection, query, doc, runTransaction, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { useCurrency } from "@/context/currency-context"
 import { getLivePrices } from "@/services/crypto-service"
+import { useWallet } from "@/context/wallet-context"
 
 const allTradableAssets = [...staticAssets, ...marketCoins].reduce((acc, current) => {
     if (!acc.find(item => item.symbol === current.symbol)) {
@@ -33,7 +35,7 @@ export function BuySellCard() {
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const [isFetchingPrice, setIsFetchingPrice] = useState(false);
   
-  const { user } = useUser();
+  const { user, userProfile } = useWallet();
   const firestore = useFirestore();
 
   const walletsQuery = useMemoFirebase(() => {
@@ -91,9 +93,11 @@ export function BuySellCard() {
 
   useEffect(() => {
     setAmount("");
-    let defaultAsset = allTradableAssets[0].symbol; // Default to the first tradable asset
+    let defaultAsset = allTradableAssets[0].symbol; 
     if (activeTab === 'sell' && ownedAssetSymbols.length > 0) {
       defaultAsset = ownedAssetSymbols[0];
+    } else if (activeTab === 'sell') {
+      defaultAsset = allTradableAssets[0].symbol;
     }
     
     setSelectedAsset(defaultAsset);
@@ -117,6 +121,7 @@ export function BuySellCard() {
   }, [amount, livePrice]);
 
   const currentBalance = useMemo(() => portfolioAssets.find(a => a.symbol === selectedAsset)?.amount ?? 0, [portfolioAssets, selectedAsset]);
+  const bankBalance = userProfile?.bankBalance ?? 0;
 
   const handleTransaction = async () => {
     const isBuying = activeTab === "buy";
@@ -132,9 +137,17 @@ export function BuySellCard() {
         return;
     }
 
-    if (!isBuying && numericAmount > currentBalance) {
-        toast({ title: "Insufficient Funds", description: `You cannot sell more ${selectedAsset} than you own.`, variant: "destructive"});
-        return;
+    if (isBuying) {
+        const cost = estimatedValue / currency.rate; // cost in USD
+        if (cost > bankBalance) {
+             toast({ title: "Insufficient Bank Funds", description: `Your bank balance is too low to complete this purchase.`, variant: "destructive"});
+            return;
+        }
+    } else { // is selling
+        if (numericAmount > currentBalance) {
+            toast({ title: "Insufficient Asset Balance", description: `You cannot sell more ${selectedAsset} than you own.`, variant: "destructive"});
+            return;
+        }
     }
 
     setIsProcessing(true);
@@ -143,20 +156,35 @@ export function BuySellCard() {
         const priceInUSD = livePrice / currency.rate;
 
         await runTransaction(firestore, async (transaction) => {
+            const userRef = doc(firestore, 'users', user.uid);
             const walletRef = doc(firestore, 'users', user.uid, 'wallets', selectedAsset);
             const txLogRef = doc(collection(walletRef, 'transactions'));
             
             const currentWalletDoc = await transaction.get(walletRef);
-            const currentWalletBalance = currentWalletDoc.exists() ? currentWalletDoc.data().balance : 0;
+            const currentUserDoc = await transaction.get(userRef);
 
-            const newBalance = isBuying ? currentWalletBalance + numericAmount : currentWalletBalance - numericAmount;
-            
-            transaction.set(walletRef, { 
-                balance: newBalance,
-                currency: selectedAsset,
-                id: selectedAsset,
-                userId: user.uid,
-            }, { merge: true });
+            const currentWalletBalance = currentWalletDoc.exists() ? currentWalletDoc.data().balance : 0;
+            const currentBankBalance = currentUserDoc.exists() ? currentUserDoc.data()?.bankBalance ?? 0 : 0;
+
+            if(isBuying) {
+                const cost = numericAmount * priceInUSD;
+                if (cost > currentBankBalance) {
+                    throw new Error("Insufficient bank funds.");
+                }
+                const newBankBalance = currentBankBalance - cost;
+                const newWalletBalance = currentWalletBalance + numericAmount;
+                transaction.update(userRef, { bankBalance: newBankBalance });
+                transaction.set(walletRef, { balance: newWalletBalance, currency: selectedAsset, id: selectedAsset, userId: user.uid }, { merge: true });
+            } else { // Selling
+                if (numericAmount > currentWalletBalance) {
+                    throw new Error(`Insufficient balance of ${selectedAsset}.`);
+                }
+                const proceeds = numericAmount * priceInUSD;
+                const newBankBalance = currentBankBalance + proceeds;
+                const newWalletBalance = currentWalletBalance - numericAmount;
+                transaction.update(userRef, { bankBalance: newBankBalance });
+                transaction.update(walletRef, { balance: newWalletBalance });
+            }
 
             transaction.set(txLogRef, {
               type: isBuying ? 'Buy' : 'Sell',
@@ -187,7 +215,17 @@ export function BuySellCard() {
   };
 
   const numericAmount = parseFloat(amount);
-  const isButtonDisabled = isProcessing || isLoading || isFetchingPrice || !amount || numericAmount <= 0 || !livePrice || (activeTab === 'sell' && (!selectedAsset || numericAmount > currentBalance));
+  const costInSelectedCurrency = estimatedValue;
+
+  const isButtonDisabled = 
+    isProcessing || 
+    isLoading || 
+    isFetchingPrice || 
+    !amount || 
+    numericAmount <= 0 || 
+    !livePrice ||
+    (activeTab === 'buy' && costInSelectedCurrency > (bankBalance * currency.rate)) ||
+    (activeTab === 'sell' && (!selectedAsset || numericAmount > currentBalance));
   
   const renderForm = (isBuy: boolean) => {
     const assetList = isBuy ? allTradableAssets : portfolioAssets;
@@ -219,7 +257,7 @@ export function BuySellCard() {
                 </Select>
             </div>
             <div className="space-y-2">
-                <Label htmlFor={`${activeTab}-amount`}>{`Amount ${!isBuy ? `(Balance: ${currentBalance.toFixed(6)})` : ''}`}</Label>
+                <Label htmlFor={`${activeTab}-amount`}>Amount</Label>
                 <Input 
                     id={`${activeTab}-amount`} 
                     type="number" 
@@ -229,10 +267,22 @@ export function BuySellCard() {
                     disabled={isProcessing}
                 />
             </div>
-            <div className="text-sm text-muted-foreground h-5 flex items-center">
-                {isFetchingPrice && <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Fetching live price...</>}
-                {!isFetchingPrice && livePrice && `Est. value: ${formatCurrency(estimatedValue)}`}
-                {!isFetchingPrice && !livePrice && selectedAsset && <span className="text-destructive">Could not load price</span>}
+            <div className="text-sm text-muted-foreground h-5 flex items-center justify-between">
+                <div>
+                  {isFetchingPrice && <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Fetching live price...</>}
+                  {!isFetchingPrice && livePrice && `Est. value: ${formatCurrency(estimatedValue)}`}
+                  {!isFetchingPrice && !livePrice && selectedAsset && <span className="text-destructive">Could not load price</span>}
+                </div>
+                {isBuy ? (
+                    <div className="flex items-center gap-1 text-xs">
+                        <Landmark className="h-3 w-3" />
+                        <span>Bank: {formatCurrency(bankBalance * currency.rate)}</span>
+                    </div>
+                ) : (
+                    <div className="text-xs">
+                        Balance: {currentBalance.toFixed(6)}
+                    </div>
+                )}
             </div>
             <Button className="w-full" onClick={handleTransaction} disabled={isButtonDisabled}>
                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
