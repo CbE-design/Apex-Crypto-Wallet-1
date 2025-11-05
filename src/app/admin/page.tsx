@@ -33,26 +33,22 @@ export default function AdminDashboardPage() {
                     <CardDescription>Jump directly to key management areas.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <Link href="/admin/user-management" passHref>
-                        <Button className="w-full justify-between" variant="outline" asChild>
-                           <a>
-                                <div className="flex items-center gap-2">
-                                    <Users />
-                                    Manage Users
-                                </div>
-                                <ArrowRight />
-                           </a>
+                    <Link href="/admin/user-management" legacyBehavior={false}>
+                        <Button className="w-full justify-between" variant="outline">
+                           <div className="flex items-center gap-2">
+                                <Users />
+                                Manage Users
+                            </div>
+                            <ArrowRight />
                         </Button>
                     </Link>
-                    <Link href="/admin/notification-center" passHref>
-                        <Button className="w-full justify-between" variant="outline" asChild>
-                            <a>
-                                <div className="flex items-center gap-2">
-                                    <Bell />
-                                    Send Notifications
-                                </div>
-                                <ArrowRight />
-                            </a>
+                    <Link href="/admin/notification-center" legacyBehavior={false}>
+                        <Button className="w-full justify-between" variant="outline">
+                            <div className="flex items-center gap-2">
+                                <Bell />
+                                Send Notifications
+                            </div>
+                            <ArrowRight />
                         </Button>
                     </Link>
                 </CardContent>
