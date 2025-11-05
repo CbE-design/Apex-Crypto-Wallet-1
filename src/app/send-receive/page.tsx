@@ -192,34 +192,37 @@ export default function SendReceivePage() {
   
   const isSendButtonDisabled = status !== 'idle' || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || parseFloat(sendAmount) > selectedAssetBalance;
 
-  const renderSendContent = () => {
-    switch (status) {
-        case 'sending':
-            return (
+  return (
+    <PrivateRoute>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Send Crypto</CardTitle>
+            <CardDescription>Send funds to another wallet on the network.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {status === 'sending' && (
                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
                     <Loader2 className="h-12 w-12 animate-spin text-primary" />
                     <h3 className="text-lg font-semibold capitalize">Processing...</h3>
                     <p className="text-muted-foreground">Please wait while the virtual transaction is processed.</p>
                 </div>
-            );
-        case 'success':
-            return (
+            )}
+            {status === 'success' && (
                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
                     <CheckCircle className="h-12 w-12 text-green-500" />
                     <h3 className="text-lg font-semibold">Transaction Sent!</h3>
                     <p className="text-muted-foreground">You have successfully sent {sendAmount} {sendAsset}.</p>
                 </div>
-            );
-        case 'error':
-            return (
-                <div className="flex flex_col items-center justify-center text-center space-y-4 h-64">
+            )}
+            {status === 'error' && (
+                <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
                     <XCircle className="h-12 w-12 text-destructive" />
                     <h3 className="text-lg font-semibold">Transaction Failed</h3>
                     <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
                 </div>
-            );
-        case 'idle':
-            return (
+            )}
+            {status === 'idle' && (
                 <div className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="send-asset">Asset</Label>
@@ -290,21 +293,7 @@ export default function SendReceivePage() {
                         </AlertDialogContent>
                     </AlertDialog>
                 </div>
-            );
-    }
-  }
-
-
-  return (
-    <PrivateRoute>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Send Crypto</CardTitle>
-            <CardDescription>Send funds to another wallet on the network.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {renderSendContent()}
+            )}
           </CardContent>
         </Card>
 
@@ -335,5 +324,3 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
-
-    
