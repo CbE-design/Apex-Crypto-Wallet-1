@@ -139,11 +139,11 @@ export function PortfolioOverview() {
                                   <div className="w-full">
                                       <div className="flex items-center justify-between">
                                         <span>{asset.name}</span>
-                                        <span className="font-mono font-semibold">{formatCurrency(asset.valueUSD * currency.rate)}</span>
+                                        <span className="font-semibold">{formatCurrency(asset.valueUSD * currency.rate)}</span>
                                       </div>
                                       <div className="flex items-center justify-between text-muted-foreground">
                                          <span></span>
-                                         <span className="font-mono text-xs">{asset.amount.toFixed(6)} {asset.symbol}</span>
+                                         <span className="text-xs">{asset.amount.toFixed(6)} {asset.symbol}</span>
                                       </div>
                                   </div>
                                 )
@@ -199,10 +199,10 @@ export function PortfolioOverview() {
                 <span className="font-semibold">{asset.name}</span>
               </div>
               <div className="text-right">
-                <p className="font-mono font-semibold">
+                <p className="font-semibold">
                   {formatCurrency(asset.valueUSD * currency.rate)}
                 </p>
-                <p className="text-sm text-muted-foreground font-mono">
+                <p className="text-sm text-muted-foreground">
                     {asset.amount.toFixed(6)} {asset.symbol}
                 </p>
               </div>
