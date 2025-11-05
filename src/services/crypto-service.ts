@@ -11,12 +11,7 @@ import { marketCoins } from '@/lib/data';
  */
 
 function getExchangeInstance() {
-    const exchangeId = process.env.EXCHANGE_ID as keyof typeof ccxt.exchanges;
-    if (!exchangeId || !(exchangeId in ccxt.exchanges)) {
-        console.warn(`Exchange ID "${process.env.EXCHANGE_ID}" is not valid or not set. Falling back to static data.`);
-        return null;
-    }
-
+    const exchangeId = 'binance' as keyof typeof ccxt.exchanges; // Using a reliable default
     const exchangeClass = ccxt[exchangeId];
     const exchange = new exchangeClass({
         apiKey: process.env.EXCHANGE_API_KEY,
@@ -32,47 +27,73 @@ function getExchangeInstance() {
 
 /**
  * Fetches the current price for a list of given cryptocurrency symbols against a target fiat currency.
+ * Uses USD as a base for cross-currency conversions to ensure reliability.
  * @param symbols - An array of cryptocurrency symbols (e.g., ['BTC', 'ETH']).
- * @param targetCurrency - The fiat currency to get the price in (e.g., 'USD', 'ZAR'). Defaults to 'USD'.
+ * @param targetCurrency - The fiat currency to get the price in (e.g., 'USD', 'EUR'). Defaults to 'USD'.
  * @returns A promise that resolves to a record mapping symbols to their prices in the target currency.
  */
 export async function getLivePrices(symbols: string[], targetCurrency: string = 'USD'): Promise<Record<string, number>> {
     const exchange = getExchangeInstance();
-    const isUsd = targetCurrency.toUpperCase() === 'USD';
+    const isUsdTarget = targetCurrency.toUpperCase() === 'USD';
 
-    // If the exchange isn't configured, or if we need USD (which is in our static data), use static as a fallback.
     if (!exchange) {
         console.warn("CCXT exchange not initialized, falling back to static data.");
         return getStaticPrices(symbols, targetCurrency);
     }
-    
+
     try {
-        const pairs = symbols.map(s => `${s}/${targetCurrency.toUpperCase()}`);
-        const tickers = await exchange.fetchTickers(pairs);
-        
-        const prices: Record<string, number> = {};
-        for (const symbol in tickers) {
+        // 1. Fetch all crypto prices against USD first.
+        const usdPairs = symbols.map(s => `${s}/USDT`);
+        const usdTickers = await exchange.fetchTickers(usdPairs);
+        const usdPrices: Record<string, number> = {};
+
+        for (const symbol in usdTickers) {
             const originalSymbol = symbol.split('/')[0];
-            if (tickers[symbol]?.last) {
-                prices[originalSymbol] = tickers[symbol]!.last!;
+            if (usdTickers[symbol]?.last) {
+                usdPrices[originalSymbol] = usdTickers[symbol]!.last!;
             }
         }
-
-        // Fill any missing prices with static data as a fallback
+        
+        // Fill any missing USD prices from static data.
         symbols.forEach(s => {
-            if (!prices[s]) {
+            if (!usdPrices[s]) {
                 const staticCoin = marketCoins.find(c => c.symbol === s);
                 if (staticCoin) {
-                     // If we couldn't get a direct pair, calculate from USD static price
-                    prices[s] = isUsd ? staticCoin.priceUSD : 0; // Cannot calculate for non-USD without a USD rate for the target
+                    usdPrices[s] = staticCoin.priceUSD;
                 }
             }
         });
 
-        return prices;
+        // 2. If target is USD, we are done.
+        if (isUsdTarget) {
+            return usdPrices;
+        }
+
+        // 3. If target is not USD, get the conversion rate for the target currency.
+        let usdToTargetRate = 1;
+        try {
+            // We need to find a pair that gives us the target currency's value in USD.
+            // e.g., for EUR, we fetch EUR/USDT.
+            const targetRateTicker = await exchange.fetchTicker(`${targetCurrency.toUpperCase()}/USDT`);
+            if (targetRateTicker && targetRateTicker.last) {
+                 usdToTargetRate = 1 / targetRateTicker.last; // If 1 EUR = 1.07 USDT, then 1 USDT = 1/1.07 EUR
+            } else {
+                 console.warn(`Could not fetch direct rate for ${targetCurrency}/USDT. Currency conversion may be inaccurate.`);
+            }
+        } catch (rateError) {
+             console.error(`Could not fetch conversion rate for ${targetCurrency}. Falling back.`, rateError);
+        }
+        
+        // 4. Convert all USD prices to the target currency.
+        const targetPrices: Record<string, number> = {};
+        for (const symbol in usdPrices) {
+            targetPrices[symbol] = usdPrices[symbol] * usdToTargetRate;
+        }
+
+        return targetPrices;
+
     } catch (error) {
-        console.error(`Error fetching live crypto prices for ${targetCurrency} with ccxt:`, error);
-        // On critical error, fall back entirely to static data
+        console.error(`Error fetching live crypto prices with ccxt, falling back to static.`, error);
         return getStaticPrices(symbols, targetCurrency);
     }
 }
@@ -80,8 +101,7 @@ export async function getLivePrices(symbols: string[], targetCurrency: string = 
 
 /**
  * A fallback function to get prices from the static data file.
- * NOTE: This only works accurately for USD. For other currencies, it would need a USD-to-Target rate.
- * For this implementation, we will assume non-USD fallbacks result in 0.
+ * NOTE: This only works accurately for USD. For other currencies, it returns 0.
  */
 function getStaticPrices(symbols: string[], targetCurrency: string = 'USD'): Record<string, number> {
     const isUsd = targetCurrency.toUpperCase() === 'USD';
@@ -89,10 +109,9 @@ function getStaticPrices(symbols: string[], targetCurrency: string = 'USD'): Rec
     return symbols.reduce((acc, symbol) => {
         const coin = marketCoins.find(c => c.symbol === symbol);
         if (coin) {
-            // Only return a price if the target is USD, as we can't do static conversion.
             acc[symbol] = isUsd ? coin.priceUSD : 0; 
         } else {
-            acc[symbol] = 0; // Default to 0 if not found
+            acc[symbol] = 0;
         }
         return acc;
     }, {} as Record<string, number>);
