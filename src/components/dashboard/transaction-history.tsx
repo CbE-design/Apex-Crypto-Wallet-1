@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -19,10 +18,12 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
-import { collection, query, orderBy, limit, type Timestamp } from 'firebase/firestore'
-import { useMemo } from "react";
+import { collection, query, orderBy, limit, type Timestamp, getDocs, collectionGroup } from 'firebase/firestore'
+import { useEffect, useMemo, useState } from "react";
 import { portfolioAssets as staticAssets } from "@/lib/data";
 import { useCurrency } from "@/context/currency-context";
+import { CryptoIcon } from "../crypto-icon";
+import { Loader2 } from "lucide-react";
 
 interface Transaction {
     id: string;
@@ -31,26 +32,49 @@ interface Transaction {
     valueUSD: number;
     timestamp: Timestamp;
     status: 'Completed' | 'Pending' | 'Failed';
+    notes?: string;
+    currency?: string; // We'll derive this from the path
 }
 
 export function TransactionHistory() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { currency, formatCurrency } = useCurrency();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // We need to listen to all wallet transaction subcollections.
-  // This is a more complex query that we'll simplify for now.
-  // For this version, we will just show transactions for ETH.
-  const transactionsQuery = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return query(
-        collection(firestore, 'users', user.uid, 'wallets', 'ETH', 'transactions'), 
-        orderBy('timestamp', 'desc'), 
-        limit(10)
+  useEffect(() => {
+    if (!user || !firestore) return;
+
+    setIsLoading(true);
+    const transactionsQuery = query(
+        collectionGroup(firestore, 'transactions'),
+        orderBy('timestamp', 'desc'),
+        limit(20)
     );
-  }, [user, firestore]);
 
-  const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
+    const unsubscribe = onSnapshot(transactionsQuery, (snapshot) => {
+        const userTransactions: Transaction[] = [];
+        snapshot.forEach((doc) => {
+            if (doc.ref.path.startsWith(`users/${user.uid}/`)) {
+                const currency = doc.ref.parent.parent?.id; // wallets/{currency}
+                userTransactions.push({
+                    ...doc.data(),
+                    id: doc.id,
+                    currency,
+                } as Transaction);
+            }
+        });
+        setTransactions(userTransactions);
+        setIsLoading(false);
+    }, (error) => {
+        console.error("Error fetching transactions:", error);
+        setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+
+  }, [user, firestore]);
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -69,11 +93,12 @@ export function TransactionHistory() {
     <Card>
       <CardHeader>
         <CardTitle>Transaction History</CardTitle>
-        <CardDescription>Your recent transaction activity for ETH.</CardDescription>
+        <CardDescription>Your recent transaction activity across all assets.</CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="max-h-[450px] overflow-auto">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 bg-card/80 backdrop-blur-sm">
             <TableRow>
               <TableHead>Type</TableHead>
               <TableHead>Asset</TableHead>
@@ -86,8 +111,8 @@ export function TransactionHistory() {
           <TableBody>
             {isLoading ? (
                 <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                        Loading transactions...
+                    <TableCell colSpan={6} className="h-48 text-center">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                     </TableCell>
                 </TableRow>
             ) : transactions && transactions.length > 0 ? (
@@ -101,7 +126,12 @@ export function TransactionHistory() {
                       {tx.type}
                     </div>
                   </TableCell>
-                  <TableCell>ETH</TableCell>
+                  <TableCell>
+                      <div className="flex items-center gap-2">
+                        <CryptoIcon name={staticAssets.find(a => a.symbol === tx.currency)?.name || ''} className="h-6 w-6"/>
+                        <span>{tx.currency}</span>
+                      </div>
+                  </TableCell>
                   <TableCell className="text-right font-mono">{tx.amount.toFixed(4)}</TableCell>
                   <TableCell className="text-right hidden md:table-cell font-mono">{formatCurrency(tx.valueUSD * currency.rate)}</TableCell>
                   <TableCell className="hidden md:table-cell">{tx.timestamp.toDate().toLocaleDateString()}</TableCell>
@@ -112,13 +142,14 @@ export function TransactionHistory() {
               ))
             ) : (
                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">
                         No transactions found.
                     </TableCell>
                 </TableRow>
             )}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
     </Card>
   )
