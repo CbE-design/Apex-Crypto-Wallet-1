@@ -33,7 +33,7 @@ export function Header() {
         <SupportChatPopover />
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full" disabled={!wallet}>
+                <Button variant="ghost" size="icon" className="rounded-full">
                     <UserCircle className="h-6 w-6" />
                     <span className="sr-only">Profile</span>
                 </Button>
