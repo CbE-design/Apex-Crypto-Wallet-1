@@ -25,7 +25,7 @@ export default function SendReceivePage() {
   const { wallet, user } = useWallet();
   const firestore = useFirestore();
 
-  const sendAsset = 'ETH'; // Hardcoded to ETH
+  const sendAsset = 'ETH'; 
   const [sendAmount, setSendAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   
@@ -235,7 +235,6 @@ export default function SendReceivePage() {
                             placeholder="0x..."
                             value={recipientAddress}
                             onChange={(e) => setRecipientAddress(e.target.value)}
-                            disabled={status !== 'idle'}
                         />
                     </div>
                     <div className="space-y-2">
@@ -246,7 +245,6 @@ export default function SendReceivePage() {
                             placeholder="0.00"
                             value={sendAmount}
                             onChange={(e) => setSendAmount(e.target.value)}
-                            disabled={status !== 'idle'}
                         />
                         <p className="text-xs text-muted-foreground mt-1 h-4">
                             {`Balance: ${selectedAssetBalance.toFixed(6)} ${sendAsset}`}
@@ -342,5 +340,3 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
-
-    
