@@ -24,6 +24,10 @@
         "walletAddress": {
             "type": "string",
             "description": "The user's primary Ethereum wallet address."
+        },
+        "fcmToken": {
+            "type": "string",
+            "description": "The Firebase Cloud Messaging token for sending push notifications to the user's device."
         }
       },
       "required": [

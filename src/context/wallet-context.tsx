@@ -9,6 +9,7 @@ import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, serverTimestamp, DocumentData, getDoc, setDoc, writeBatch, updateDoc } from 'firebase/firestore';
 import { portfolioAssets } from '@/lib/data';
+import { getMessaging, getToken } from 'firebase/messaging';
 
 interface Wallet {
   address: string;
@@ -20,6 +21,7 @@ interface UserProfile {
     email: string;
     createdAt: any;
     walletAddress: string;
+    fcmToken?: string;
 }
 
 interface WalletContextType {
@@ -37,6 +39,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const WALLET_STORAGE_KEY_PREFIX = 'apex-wallet-';
+const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { user, isUserLoading } = useUser();
@@ -134,6 +137,26 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
     setIsInitializing(false);
   }, [user, auth, wallet, setWalletAndAdmin]);
+
+   useEffect(() => {
+    const handleTokenRefresh = async () => {
+      if ('Notification' in window && VAPID_KEY && user && firestore && userProfile && userProfile.walletAddress === wallet?.address) {
+        if (Notification.permission === 'granted') {
+          try {
+            const messaging = getMessaging();
+            const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+            if (currentToken && currentToken !== userProfile.fcmToken) {
+              const userRef = doc(firestore, 'users', user.uid);
+              await updateDoc(userRef, { fcmToken: currentToken });
+            }
+          } catch (err) {
+            console.error('An error occurred while retrieving token. ', err);
+          }
+        }
+      }
+    };
+    handleTokenRefresh();
+  }, [user, firestore, wallet, userProfile, VAPID_KEY]);
 
 
   const createWallet = useCallback(async (): Promise<string> => {
