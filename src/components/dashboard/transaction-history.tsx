@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { useUser, useFirestore } from '@/firebase'
+import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase'
 import { collection, query, orderBy, limit, type Timestamp, collectionGroup, onSnapshot } from 'firebase/firestore'
 import { useEffect, useState } from "react";
 import { portfolioAssets as staticAssets } from "@/lib/data";
@@ -72,7 +72,11 @@ export function TransactionHistory() {
         setTransactions(userTransactions);
         setIsLoading(false);
     }, (error) => {
-        console.error("Error fetching transactions:", error);
+        const contextualError = new FirestorePermissionError({
+          path: `users/${user.uid}/wallets/{walletId}/transactions`, // Representing the collection group query
+          operation: 'list',
+        });
+        errorEmitter.emit('permission-error', contextualError);
         setIsLoading(false);
     });
 
@@ -136,8 +140,8 @@ export function TransactionHistory() {
                         <span>{tx.currency}</span>
                       </div>
                   </TableCell>
-                  <TableCell className="text-right font-mono">{tx.amount.toFixed(4)}</TableCell>
-                  <TableCell className="text-right hidden md:table-cell font-mono">{formatCurrency(tx.valueUSD * currency.rate)}</TableCell>
+                  <TableCell className="text-right">{tx.amount.toFixed(4)}</TableCell>
+                  <TableCell className="text-right hidden md:table-cell">{formatCurrency(tx.valueUSD * currency.rate)}</TableCell>
                   <TableCell className="hidden md:table-cell">{tx.timestamp.toDate().toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <Badge variant={getStatusVariant(tx.status) as any}>{tx.status}</Badge>
