@@ -91,20 +91,18 @@ export function BuySellCard() {
 
   useEffect(() => {
     setAmount("");
-    if (activeTab === 'buy') {
-        const defaultAsset = allTradableAssets[0].symbol;
-        setSelectedAsset(defaultAsset);
+    let defaultAsset = allTradableAssets[0].symbol; // Default to the first tradable asset
+    if (activeTab === 'sell' && ownedAssetSymbols.length > 0) {
+      defaultAsset = ownedAssetSymbols[0];
+    }
+    
+    setSelectedAsset(defaultAsset);
+    if (defaultAsset) {
         fetchLivePrice(defaultAsset, currency.symbol);
     } else {
-        const defaultAsset = ownedAssetSymbols.length > 0 ? ownedAssetSymbols[0] : '';
-        setSelectedAsset(defaultAsset);
-        if (defaultAsset) {
-            fetchLivePrice(defaultAsset, currency.symbol);
-        } else {
-            setLivePrice(null);
-        }
+        setLivePrice(null);
     }
-  }, [activeTab, ownedAssetSymbols, fetchLivePrice, currency.symbol]);
+}, [activeTab, ownedAssetSymbols, fetchLivePrice, currency.symbol]);
   
   useEffect(() => {
       if (selectedAsset) {
