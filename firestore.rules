@@ -91,5 +91,15 @@ service cloud.firestore {
                     && request.resource.data.userId == resource.data.userId;
       allow delete: if isSignedIn() && isOwner(userId);
     }
+
+    /**
+     * @description Allows a user to perform a collection group query on their own transactions.
+     * This is necessary for the unified transaction history view on the dashboard.
+     * It checks ownership by verifying the user's UID against the parent user document.
+     */
+    match /{path=**}/transactions/{transactionId} {
+      allow list: if isSignedIn() 
+                  && get(/databases/$(database)/documents/$(path[0])/$(path[1])).data.id == request.auth.uid;
+    }
   }
 }
