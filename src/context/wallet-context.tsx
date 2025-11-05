@@ -83,7 +83,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       };
       batch.set(userRef, newUserDocument, { merge: true });
 
-      portfolioAssets.forEach(asset => {
+      const initialAssets = [...portfolioAssets];
+      if (!initialAssets.some(a => a.symbol === 'ETH')) {
+        initialAssets.push({ symbol: 'ETH', name: 'Ethereum', amount: 0, valueUSD: 0, priceUSD: 0, change24h: 0, icon: 'Ethereum' });
+      }
+
+      initialAssets.forEach(asset => {
           const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', asset.symbol);
           const newWalletDocument = {
               id: asset.symbol,

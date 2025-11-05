@@ -15,7 +15,7 @@ import { CryptoIcon } from '@/components/crypto-icon';
 import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, runTransaction, doc, serverTimestamp, getDocs, where, limit } from 'firebase/firestore';
 
 type SendStatus = 'idle' | 'sending' | 'success' | 'error';
@@ -35,18 +35,14 @@ export default function SendReceivePage() {
   
   const userAddress = wallet?.address || '0x... (address not available)';
   
-  const walletsQuery = useMemoFirebase(() => {
+  const ethWalletRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    return query(collection(firestore, 'users', user.uid, 'wallets'));
+    return doc(firestore, 'users', user.uid, 'wallets', 'ETH');
   }, [user, firestore]);
   
-  const { data: userWallets } = useCollection(walletsQuery);
+  const { data: ethWallet } = useDoc<{balance: number}>(ethWalletRef);
 
-  const selectedAssetBalance = useMemo(() => {
-    if (!userWallets) return 0;
-    const assetWallet = userWallets.find(w => w.currency === sendAsset);
-    return assetWallet ? assetWallet.balance : 0;
-  }, [userWallets]);
+  const selectedAssetBalance = ethWallet?.balance ?? 0;
 
   useEffect(() => {
     if (wallet?.address) {
@@ -337,5 +333,3 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
-
-    

@@ -19,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
-import { collection, query, orderBy, limit, type Timestamp, doc } from 'firebase/firestore'
+import { collection, query, orderBy, limit, type Timestamp } from 'firebase/firestore'
 import { portfolioAssets as staticAssets } from "@/lib/data";
 import { useCurrency } from "@/context/currency-context";
 import { CryptoIcon } from "../crypto-icon";
@@ -29,7 +29,6 @@ interface Transaction {
     id: string;
     type: 'Buy' | 'Sell';
     amount: number;
-    valueUSD: number;
     timestamp: Timestamp;
     status: 'Completed' | 'Pending' | 'Failed';
     notes?: string;
@@ -53,6 +52,7 @@ export function TransactionHistory() {
 
   const { data: transactions, isLoading } = useCollection<Transaction>(ethWalletTxQuery);
 
+  const ethPriceUSD = staticAssets.find(a => a.symbol === 'ETH')?.priceUSD || 0;
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -94,30 +94,33 @@ export function TransactionHistory() {
                     </TableCell>
                 </TableRow>
             ) : transactions && transactions.length > 0 ? (
-              transactions.map((tx) => (
-                <TableRow key={tx.id}>
-                  <TableCell>
-                    <div className={cn(
-                      "font-medium",
-                      tx.type === 'Buy' ? 'text-green-400' : 'text-red-400'
-                    )}>
-                      {tx.type}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                      <div className="flex items-center gap-2">
-                        <CryptoIcon name="Ethereum" className="h-6 w-6"/>
-                        <span>ETH</span>
-                      </div>
-                  </TableCell>
-                  <TableCell className="text-right">{tx.amount.toFixed(4)}</TableCell>
-                  <TableCell className="text-right hidden md:table-cell">{formatCurrency(tx.valueUSD * currency.rate)}</TableCell>
-                  <TableCell className="hidden md:table-cell">{tx.timestamp.toDate().toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant={getStatusVariant(tx.status) as any}>{tx.status}</Badge>
-                  </TableCell>
-                </TableRow>
-              ))
+              transactions.map((tx) => {
+                const valueInSelectedCurrency = (tx.amount * ethPriceUSD) * currency.rate;
+                return (
+                    <TableRow key={tx.id}>
+                    <TableCell>
+                        <div className={cn(
+                        "font-medium",
+                        tx.type === 'Buy' ? 'text-green-400' : 'text-red-400'
+                        )}>
+                        {tx.type}
+                        </div>
+                    </TableCell>
+                    <TableCell>
+                        <div className="flex items-center gap-2">
+                            <CryptoIcon name="Ethereum" className="h-6 w-6"/>
+                            <span>ETH</span>
+                        </div>
+                    </TableCell>
+                    <TableCell className="text-right">{tx.amount.toFixed(4)}</TableCell>
+                    <TableCell className="text-right hidden md:table-cell">{formatCurrency(valueInSelectedCurrency)}</TableCell>
+                    <TableCell className="hidden md:table-cell">{tx.timestamp.toDate().toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">
+                        <Badge variant={getStatusVariant(tx.status) as any}>{tx.status}</Badge>
+                    </TableCell>
+                    </TableRow>
+                )
+              })
             ) : (
                  <TableRow>
                     <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">
