@@ -44,6 +44,13 @@ export default function SendReceivePage() {
 
   const selectedAssetBalance = ethWallet?.balance ?? 0;
 
+  const resetSendState = useCallback(() => {
+    setStatus('idle');
+    setSendAmount('');
+    setRecipientAddress('');
+    setErrorMessage('');
+  }, [setStatus, setSendAmount, setRecipientAddress, setErrorMessage]);
+
   useEffect(() => {
     if (wallet?.address) {
       QRCode.toDataURL(wallet.address, { errorCorrectionLevel: 'H', width: 160 })
@@ -56,12 +63,6 @@ export default function SendReceivePage() {
     }
   }, [wallet?.address]);
 
-  const resetSendState = useCallback(() => {
-    setStatus('idle');
-    setSendAmount('');
-    setRecipientAddress('');
-    setErrorMessage('');
-  }, [setStatus, setSendAmount, setRecipientAddress, setErrorMessage]);
 
   useEffect(() => {
     if (status === 'success' || status === 'error') {
@@ -209,7 +210,7 @@ export default function SendReceivePage() {
             <CardDescription>Send funds to another wallet on the network.</CardDescription>
           </CardHeader>
           <CardContent>
-            {status === 'idle' && (
+            {status === 'idle' ? (
                 <div className="space-y-4">
                     {selectedAssetBalance === 0 && (
                         <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 text-center space-y-2">
@@ -288,28 +289,25 @@ export default function SendReceivePage() {
                         </AlertDialogContent>
                     </AlertDialog>
                 </div>
-            )}
-            {status === 'sending' && (
+            ) : status === 'sending' ? (
                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
                     <Loader2 className="h-12 w-12 animate-spin text-primary" />
                     <h3 className="text-lg font-semibold capitalize">Processing...</h3>
                     <p className="text-muted-foreground">Please wait while the virtual transaction is processed.</p>
                 </div>
-            )}
-            {status === 'success' && (
+            ) : status === 'success' ? (
                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
                     <CheckCircle className="h-12 w-12 text-green-500" />
                     <h3 className="text-lg font-semibold">Transaction Sent!</h3>
                     <p className="text-muted-foreground">You have successfully sent {sendAmount} {sendAsset}.</p>
                 </div>
-            )}
-            {status === 'error' && (
+            ) : status === 'error' ? (
                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
                     <XCircle className="h-12 w-12 text-destructive" />
                     <h3 className="text-lg font-semibold">Transaction Failed</h3>
                     <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
                 </div>
-            )}
+            ) : null}
           </CardContent>
         </Card>
 
@@ -340,3 +338,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
