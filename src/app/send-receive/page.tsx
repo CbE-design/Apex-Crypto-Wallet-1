@@ -10,12 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowRight, Copy, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowRight, Copy, Loader2, CheckCircle, XCircle, Droplets } from 'lucide-react';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, runTransaction, doc, serverTimestamp, getDocs, where, limit } from 'firebase/firestore';
 
 type SendStatus = 'idle' | 'sending' | 'success' | 'error';
@@ -179,6 +179,14 @@ export default function SendReceivePage() {
     }
   };
   
+  const handleFaucet = () => {
+    if (!ethWalletRef) return;
+    updateDocumentNonBlocking(ethWalletRef, { balance: 1 });
+    toast({
+        title: 'Faucet Activated!',
+        description: 'You have received 1 Test ETH.'
+    });
+  }
 
   const handleCopyAddress = () => {
     if (wallet?.address) {
@@ -224,6 +232,16 @@ export default function SendReceivePage() {
             )}
             {status === 'idle' && (
                 <div className="space-y-4">
+                    {selectedAssetBalance === 0 && (
+                        <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 text-center space-y-2">
+                            <h4 className="font-semibold">Your ETH balance is zero</h4>
+                            <p className="text-sm text-muted-foreground">Click the button below to get some test ETH from the faucet to start sending transactions.</p>
+                            <Button onClick={handleFaucet}>
+                                <Droplets className="mr-2" />
+                                Get 1 Test ETH
+                            </Button>
+                        </div>
+                    )}
                     <div className="space-y-2">
                         <Label htmlFor="send-asset">Asset</Label>
                          <div className="flex items-center gap-2 p-2 rounded-md bg-muted w-full">
@@ -324,3 +342,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
