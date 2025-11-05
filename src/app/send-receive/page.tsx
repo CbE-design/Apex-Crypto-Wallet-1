@@ -117,22 +117,24 @@ export default function SendReceivePage() {
                 throw new Error(`Insufficient balance. You only have ${senderBalance.toFixed(6)} ${sendAsset}.`);
             }
 
+            // 1. Debit sender
             const newSenderBalance = senderBalance - amount;
             transaction.update(senderWalletRef, { balance: newSenderBalance });
 
+            // 2. Create sender transaction log
             const senderTxLogRef = doc(collection(senderWalletRef, 'transactions'));
             transaction.set(senderTxLogRef, {
-              userId: user.uid,
+              userId: user.uid, // Add userId for security rules
               type: 'Sell',
               amount: amount,
               price: 0, 
               timestamp: serverTimestamp(),
-              valueUSD: 0,
               status: 'Completed',
               recipient: recipientAddress,
               sender: userAddress,
             });
 
+            // 3. Credit recipient
             const recipientWalletRef = doc(firestore, 'users', recipientId, 'wallets', sendAsset);
             const recipientWalletDoc = await transaction.get(recipientWalletRef);
             const recipientBalance = recipientWalletDoc.exists() ? recipientWalletDoc.data().balance : 0;
@@ -145,14 +147,14 @@ export default function SendReceivePage() {
                 userId: recipientId
              }, { merge: true });
 
+            // 4. Create recipient transaction log
             const recipientTxLogRef = doc(collection(recipientWalletRef, 'transactions'));
             transaction.set(recipientTxLogRef, {
-              userId: recipientId,
+              userId: recipientId, // Add userId for security rules
               type: 'Buy',
               amount: amount,
               price: 0,
               timestamp: serverTimestamp(),
-              valueUSD: 0,
               status: 'Completed',
               sender: userAddress,
               recipient: recipientAddress,
@@ -210,7 +212,7 @@ export default function SendReceivePage() {
             );
         case 'error':
             return (
-                <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
+                <div className="flex flex_col items-center justify-center text-center space-y-4 h-64">
                     <XCircle className="h-12 w-12 text-destructive" />
                     <h3 className="text-lg font-semibold">Transaction Failed</h3>
                     <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>

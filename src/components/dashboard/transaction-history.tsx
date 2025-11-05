@@ -32,7 +32,7 @@ interface Transaction {
     timestamp: Timestamp;
     status: 'Completed' | 'Pending' | 'Failed';
     notes?: string;
-    currency?: string; 
+    userId: string;
 }
 
 export function TransactionHistory() {
