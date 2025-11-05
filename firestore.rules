@@ -76,9 +76,7 @@ service cloud.firestore {
      * @path /users/{userId}/wallets/{walletId}/transactions/{transactionId}
      */
     match /users/{userId}/wallets/{walletId}/transactions/{transactionId} {
-      allow create, get, update, delete: if isSignedIn() && isOwner(userId);
-      // Allow list for collection group queries is handled by the rule below.
-      allow list: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow read, write: if isSignedIn() && isOwner(userId);
     }
 
      /**
@@ -93,15 +91,5 @@ service cloud.firestore {
                     && request.resource.data.userId == resource.data.userId;
       allow delete: if isSignedIn() && isOwner(userId);
     }
-
-    /**
-     * @description Allows a user to perform a collection group query on their own transactions.
-     * This rule works because the 'userId' field is denormalized and stored on each transaction document.
-     */
-    match /{path=**}/transactions/{transactionId} {
-      allow list: if isSignedIn() && request.auth.uid == resource.data.userId;
-    }
   }
 }
-
-    

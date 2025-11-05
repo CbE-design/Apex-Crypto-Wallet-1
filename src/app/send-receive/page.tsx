@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowRight, Copy, Loader2, CheckCircle, XCircle } from 'lucide-react';
@@ -18,8 +17,6 @@ import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, runTransaction, doc, serverTimestamp, getDocs, where, limit } from 'firebase/firestore';
-import { portfolioAssets as staticAssets } from '@/lib/data';
-
 
 type SendStatus = 'idle' | 'sending' | 'success' | 'error';
 
@@ -28,7 +25,7 @@ export default function SendReceivePage() {
   const { wallet, user } = useWallet();
   const firestore = useFirestore();
 
-  const [sendAsset, setSendAsset] = useState('ETH');
+  const sendAsset = 'ETH'; // Hardcoded to ETH
   const [sendAmount, setSendAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   
@@ -49,36 +46,7 @@ export default function SendReceivePage() {
     if (!userWallets) return 0;
     const assetWallet = userWallets.find(w => w.currency === sendAsset);
     return assetWallet ? assetWallet.balance : 0;
-  }, [userWallets, sendAsset]);
-  
-  const availableAssetsToSend = useMemo(() => {
-    if (!userWallets) return [];
-    // Always show ETH as an option, even with 0 balance, then other owned assets.
-    const assets = userWallets.filter(w => w.balance > 0).map(w => {
-        const staticData = staticAssets.find(sa => sa.symbol === w.currency);
-        return {
-            symbol: w.currency,
-            name: staticData?.name || w.currency,
-        }
-    });
-    if (!assets.some(a => a.symbol === 'ETH')) {
-        assets.unshift({ symbol: 'ETH', name: 'Ethereum' });
-    }
-    return assets;
   }, [userWallets]);
-
-  // Set default asset to the first available asset with a balance, or ETH.
-  useEffect(() => {
-    if (availableAssetsToSend.length > 0) {
-      const firstAssetWithBalance = availableAssetsToSend.find(a => userWallets?.find(uw => uw.currency === a.symbol && uw.balance > 0));
-      if(firstAssetWithBalance) {
-        setSendAsset(firstAssetWithBalance.symbol);
-      } else if (availableAssetsToSend.length > 0) {
-        setSendAsset(availableAssetsToSend[0].symbol);
-      }
-    }
-  }, [availableAssetsToSend, userWallets]);
-
 
   useEffect(() => {
     if (wallet?.address) {
@@ -94,7 +62,7 @@ export default function SendReceivePage() {
 
 
   const handleSend = async () => {
-    if (!wallet || !user || !firestore || !sendAsset) {
+    if (!wallet || !user || !firestore) {
         toast({ title: "Cannot process transaction", description: "User wallet is not properly configured.", variant: "destructive"});
         return;
     }
@@ -142,7 +110,7 @@ export default function SendReceivePage() {
 
             const senderTxLogRef = doc(collection(senderWalletRef, 'transactions'));
             transaction.set(senderTxLogRef, {
-              userId: user.uid, // Denormalize userId for security rules
+              userId: user.uid,
               type: 'Sell',
               amount: amount,
               price: 0, 
@@ -167,7 +135,7 @@ export default function SendReceivePage() {
 
             const recipientTxLogRef = doc(collection(recipientWalletRef, 'transactions'));
             transaction.set(recipientTxLogRef, {
-              userId: recipientId, // Denormalize userId for security rules
+              userId: recipientId,
               type: 'Buy',
               amount: amount,
               price: 0,
@@ -214,7 +182,7 @@ export default function SendReceivePage() {
     }
   };
   
-  const isSendButtonDisabled = status !== 'idle' || !sendAsset || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || parseFloat(sendAmount) > selectedAssetBalance;
+  const isSendButtonDisabled = status !== 'idle' || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || parseFloat(sendAmount) > selectedAssetBalance;
 
   const renderSendContent = () => {
     switch (status) {
@@ -249,25 +217,10 @@ export default function SendReceivePage() {
                 <div className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="send-asset">Asset</Label>
-                        <Select value={sendAsset} onValueChange={setSendAsset}>
-                            <SelectTrigger id="send-asset">
-                                <SelectValue placeholder="Select asset" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {availableAssetsToSend.length > 0 ? (
-                                    availableAssetsToSend.map(asset => (
-                                        <SelectItem key={asset.symbol} value={asset.symbol}>
-                                            <div className="flex items-center gap-2">
-                                                <CryptoIcon name={asset.name} />
-                                                {asset.name} ({asset.symbol})
-                                            </div>
-                                        </SelectItem>
-                                    ))
-                                ) : (
-                                    <SelectItem value="none" disabled>No assets to send</SelectItem>
-                                )}
-                            </SelectContent>
-                        </Select>
+                         <div className="flex items-center gap-2 p-2 rounded-md bg-muted w-full">
+                            <CryptoIcon name="Ethereum" />
+                            <span className="font-semibold">Ethereum (ETH)</span>
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="recipient-address">Recipient Address</Label>
@@ -311,7 +264,7 @@ export default function SendReceivePage() {
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Asset</span>
                                     <span className="font-medium flex items-center gap-2">
-                                        <CryptoIcon name={staticAssets.find(a => a.symbol === sendAsset)?.name || ''} />
+                                        <CryptoIcon name="Ethereum" />
                                         {sendAmount} {sendAsset}
                                     </span>
                                 </div>
@@ -376,5 +329,3 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
-
-    

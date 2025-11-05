@@ -18,9 +18,8 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase'
-import { collection, query, orderBy, limit, type Timestamp, collectionGroup, onSnapshot } from 'firebase/firestore'
-import { useEffect, useState } from "react";
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
+import { collection, query, orderBy, limit, type Timestamp, doc } from 'firebase/firestore'
 import { portfolioAssets as staticAssets } from "@/lib/data";
 import { useCurrency } from "@/context/currency-context";
 import { CryptoIcon } from "../crypto-icon";
@@ -34,55 +33,26 @@ interface Transaction {
     timestamp: Timestamp;
     status: 'Completed' | 'Pending' | 'Failed';
     notes?: string;
-    currency?: string; // We'll derive this from the path
+    currency?: string; 
 }
 
 export function TransactionHistory() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { currency, formatCurrency } = useCurrency();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user || !firestore) {
-      setIsLoading(false);
-      return;
-    };
-
-    setIsLoading(true);
-    const transactionsQuery = query(
-        collectionGroup(firestore, 'transactions'),
+  
+  const ethWalletTxQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    // Query only the transactions subcollection of the ETH wallet.
+    return query(
+        collection(firestore, 'users', user.uid, 'wallets', 'ETH', 'transactions'),
         orderBy('timestamp', 'desc'),
         limit(20)
     );
-
-    const unsubscribe = onSnapshot(transactionsQuery, (snapshot) => {
-        const userTransactions: Transaction[] = [];
-        snapshot.forEach((doc) => {
-            if (doc.ref.path.startsWith(`users/${user.uid}/`)) {
-                const currency = doc.ref.parent.parent?.id; // wallets/{currency}
-                userTransactions.push({
-                    ...doc.data(),
-                    id: doc.id,
-                    currency,
-                } as Transaction);
-            }
-        });
-        setTransactions(userTransactions);
-        setIsLoading(false);
-    }, (error) => {
-        const contextualError = new FirestorePermissionError({
-          path: `users/${user.uid}/wallets/{walletId}/transactions`, // Representing the collection group query
-          operation: 'list',
-        });
-        errorEmitter.emit('permission-error', contextualError);
-        setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-
   }, [user, firestore]);
+
+  const { data: transactions, isLoading } = useCollection<Transaction>(ethWalletTxQuery);
+
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -100,8 +70,8 @@ export function TransactionHistory() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Transaction History</CardTitle>
-        <CardDescription>Your recent transaction activity across all assets.</CardDescription>
+        <CardTitle>ETH Transaction History</CardTitle>
+        <CardDescription>Your recent Ethereum transaction activity.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="max-h-[450px] overflow-auto">
@@ -136,8 +106,8 @@ export function TransactionHistory() {
                   </TableCell>
                   <TableCell>
                       <div className="flex items-center gap-2">
-                        <CryptoIcon name={staticAssets.find(a => a.symbol === tx.currency)?.name || ''} className="h-6 w-6"/>
-                        <span>{tx.currency}</span>
+                        <CryptoIcon name="Ethereum" className="h-6 w-6"/>
+                        <span>ETH</span>
                       </div>
                   </TableCell>
                   <TableCell className="text-right">{tx.amount.toFixed(4)}</TableCell>
@@ -151,7 +121,7 @@ export function TransactionHistory() {
             ) : (
                  <TableRow>
                     <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">
-                        No transactions found.
+                        No ETH transactions found.
                     </TableCell>
                 </TableRow>
             )}
