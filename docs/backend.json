@@ -24,10 +24,6 @@
         "walletAddress": {
             "type": "string",
             "description": "The user's primary Ethereum wallet address."
-        },
-        "bankBalance": {
-            "type": "number",
-            "description": "The user's simulated bank account balance in USD."
         }
       },
       "required": [

@@ -35,7 +35,7 @@ export function BuySellCard() {
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const [isFetchingPrice, setIsFetchingPrice] = useState(false);
   
-  const { user, userProfile } = useWallet();
+  const { user } = useWallet();
   const firestore = useFirestore();
 
   const walletsQuery = useMemoFirebase(() => {
@@ -121,10 +121,15 @@ export function BuySellCard() {
   }, [amount, livePrice]);
 
   const currentBalance = useMemo(() => portfolioAssets.find(a => a.symbol === selectedAsset)?.amount ?? 0, [portfolioAssets, selectedAsset]);
-  const bankBalance = userProfile?.bankBalance ?? 0;
+  
 
   const handleTransaction = async () => {
     const isBuying = activeTab === "buy";
+    if (isBuying) {
+        toast({ title: "Feature Not Available", description: "Buying from an external source is not yet implemented.", variant: "destructive" });
+        return;
+    }
+
     const numericAmount = parseFloat(amount);
 
     if (isNaN(numericAmount) || numericAmount <= 0) {
@@ -137,13 +142,7 @@ export function BuySellCard() {
         return;
     }
 
-    if (isBuying) {
-        const cost = estimatedValue / currency.rate; // cost in USD
-        if (cost > bankBalance) {
-             toast({ title: "Insufficient Bank Funds", description: `Your bank balance is too low to complete this purchase.`, variant: "destructive"});
-            return;
-        }
-    } else { // is selling
+    if (!isBuying) { // is selling
         if (numericAmount > currentBalance) {
             toast({ title: "Insufficient Asset Balance", description: `You cannot sell more ${selectedAsset} than you own.`, variant: "destructive"});
             return;
@@ -161,33 +160,19 @@ export function BuySellCard() {
             const txLogRef = doc(collection(walletRef, 'transactions'));
             
             const currentWalletDoc = await transaction.get(walletRef);
-            const currentUserDoc = await transaction.get(userRef);
-
+            
             const currentWalletBalance = currentWalletDoc.exists() ? currentWalletDoc.data().balance : 0;
-            const currentBankBalance = currentUserDoc.exists() ? currentUserDoc.data()?.bankBalance ?? 0 : 0;
-
-            if(isBuying) {
-                const cost = numericAmount * priceInUSD;
-                if (cost > currentBankBalance) {
-                    throw new Error("Insufficient bank funds.");
-                }
-                const newBankBalance = currentBankBalance - cost;
-                const newWalletBalance = currentWalletBalance + numericAmount;
-                transaction.update(userRef, { bankBalance: newBankBalance });
-                transaction.set(walletRef, { balance: newWalletBalance, currency: selectedAsset, id: selectedAsset, userId: user.uid }, { merge: true });
-            } else { // Selling
-                if (numericAmount > currentWalletBalance) {
-                    throw new Error(`Insufficient balance of ${selectedAsset}.`);
-                }
-                const proceeds = numericAmount * priceInUSD;
-                const newBankBalance = currentBankBalance + proceeds;
-                const newWalletBalance = currentWalletBalance - numericAmount;
-                transaction.update(userRef, { bankBalance: newBankBalance });
-                transaction.update(walletRef, { balance: newWalletBalance });
+            
+            if (numericAmount > currentWalletBalance) {
+                throw new Error(`Insufficient balance of ${selectedAsset}.`);
             }
-
+            // For now, "selling" just removes the asset from the wallet.
+            // We can later add logic to credit a USD balance if needed.
+            const newWalletBalance = currentWalletBalance - numericAmount;
+            transaction.update(walletRef, { balance: newWalletBalance });
+            
             transaction.set(txLogRef, {
-              type: isBuying ? 'Buy' : 'Sell',
+              type: 'Sell',
               amount: numericAmount,
               price: priceInUSD,
               timestamp: serverTimestamp(),
@@ -198,7 +183,7 @@ export function BuySellCard() {
 
         toast({
           title: "Transaction Successful",
-          description: `Your ${isBuying ? 'buy' : 'sell'} order for ${numericAmount} ${selectedAsset} was successful.`,
+          description: `Your sell order for ${numericAmount} ${selectedAsset} was successful.`,
         });
         setAmount("");
 
@@ -215,8 +200,7 @@ export function BuySellCard() {
   };
 
   const numericAmount = parseFloat(amount);
-  const costInSelectedCurrency = estimatedValue;
-
+  
   const isButtonDisabled = 
     isProcessing || 
     isLoading || 
@@ -224,7 +208,7 @@ export function BuySellCard() {
     !amount || 
     numericAmount <= 0 || 
     !livePrice ||
-    (activeTab === 'buy' && costInSelectedCurrency > (bankBalance * currency.rate)) ||
+    (activeTab === 'buy') || // Disable buy button for now
     (activeTab === 'sell' && (!selectedAsset || numericAmount > currentBalance));
   
   const renderForm = (isBuy: boolean) => {
@@ -264,7 +248,7 @@ export function BuySellCard() {
                     placeholder="0.00" 
                     value={amount} 
                     onChange={(e) => setAmount(e.target.value)} 
-                    disabled={isProcessing}
+                    disabled={isProcessing || isBuy}
                 />
             </div>
             <div className="text-sm text-muted-foreground h-5 flex items-center justify-between">
@@ -273,12 +257,7 @@ export function BuySellCard() {
                   {!isFetchingPrice && livePrice && `Est. value: ${formatCurrency(estimatedValue)}`}
                   {!isFetchingPrice && !livePrice && selectedAsset && <span className="text-destructive">Could not load price</span>}
                 </div>
-                {isBuy ? (
-                    <div className="flex items-center gap-1 text-xs">
-                        <Landmark className="h-3 w-3" />
-                        <span>Bank: {formatCurrency(bankBalance * currency.rate)}</span>
-                    </div>
-                ) : (
+                {!isBuy && (
                     <div className="text-xs">
                         Balance: {currentBalance.toFixed(6)}
                     </div>
@@ -310,7 +289,10 @@ export function BuySellCard() {
                     <TabsTrigger value="sell">Sell</TabsTrigger>
                 </TabsList>
                 <TabsContent value="buy">
-                    {renderForm(true)}
+                    <div className="pt-4 text-center text-muted-foreground text-sm space-y-4">
+                        <p>To acquire assets, another user must send them to your wallet address.</p>
+                        <p>The "Buy" feature from an external source is not implemented in this simulation.</p>
+                    </div>
                 </TabsContent>
                 <TabsContent value="sell">
                     {renderForm(false)}
