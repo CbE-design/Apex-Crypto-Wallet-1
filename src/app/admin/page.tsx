@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, Users, Bell, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Users, Bell, ArrowRight, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminDashboardPage() {
@@ -47,6 +47,15 @@ export default function AdminDashboardPage() {
                             <div className="flex items-center gap-2">
                                 <Bell />
                                 Send Notifications
+                            </div>
+                            <ArrowRight />
+                        </Button>
+                    </Link>
+                    <Link href="/admin/direct-send">
+                        <Button className="w-full justify-between" variant="outline">
+                            <div className="flex items-center gap-2">
+                                <DollarSign />
+                                Direct Send
                             </div>
                             <ArrowRight />
                         </Button>
