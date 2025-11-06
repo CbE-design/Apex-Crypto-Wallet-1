@@ -37,7 +37,6 @@ export async function getLivePrices(symbols: string[], targetCurrency: string = 
     const isUsdTarget = targetCurrency.toUpperCase() === 'USD';
 
     if (!exchange) {
-        console.warn("CCXT exchange not initialized, falling back to static data.");
         return getStaticPrices(symbols, targetCurrency);
     }
 
@@ -77,11 +76,9 @@ export async function getLivePrices(symbols: string[], targetCurrency: string = 
             const targetRateTicker = await exchange.fetchTicker(`${targetCurrency.toUpperCase()}/USDT`);
             if (targetRateTicker && targetRateTicker.last) {
                  usdToTargetRate = 1 / targetRateTicker.last; // If 1 EUR = 1.07 USDT, then 1 USDT = 1/1.07 EUR
-            } else {
-                 console.warn(`Could not fetch direct rate for ${targetCurrency}/USDT. Currency conversion may be inaccurate.`);
             }
         } catch (rateError) {
-             console.error(`Could not fetch conversion rate for ${targetCurrency}. Falling back.`, rateError);
+             // Silently handle rate error and fallback
         }
         
         // 4. Convert all USD prices to the target currency.
@@ -93,7 +90,6 @@ export async function getLivePrices(symbols: string[], targetCurrency: string = 
         return targetPrices;
 
     } catch (error) {
-        console.error(`Error fetching live crypto prices with ccxt, falling back to static.`, error);
         return getStaticPrices(symbols, targetCurrency);
     }
 }
