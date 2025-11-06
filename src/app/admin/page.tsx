@@ -33,7 +33,7 @@ export default function AdminDashboardPage() {
                     <CardDescription>Jump directly to key management areas.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <Link href="/admin/notification-center">
+                    <Link href="/admin/notification-center" asChild>
                         <Button className="w-full justify-between" variant="outline">
                             <div className="flex items-center gap-2">
                                 <Bell />
@@ -42,7 +42,7 @@ export default function AdminDashboardPage() {
                             <ArrowRight />
                         </Button>
                     </Link>
-                    <Link href="/admin/direct-send">
+                    <Link href="/admin/direct-send" asChild>
                         <Button className="w-full justify-between" variant="outline">
                             <div className="flex items-center gap-2">
                                 <DollarSign />
