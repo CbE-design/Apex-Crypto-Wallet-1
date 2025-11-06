@@ -33,8 +33,8 @@ export default function AdminDashboardPage() {
                     <CardDescription>Jump directly to key management areas.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <Link href="/admin/notification-center" passHref legacyBehavior>
-                        <Button as="a" className="w-full justify-between" variant="outline">
+                    <Link href="/admin/notification-center">
+                        <Button className="w-full justify-between" variant="outline">
                             <div className="flex items-center gap-2">
                                 <Bell />
                                 Send Notifications
@@ -42,8 +42,8 @@ export default function AdminDashboardPage() {
                             <ArrowRight />
                         </Button>
                     </Link>
-                    <Link href="/admin/direct-send" passHref legacyBehavior>
-                        <Button as="a" className="w-full justify-between" variant="outline">
+                    <Link href="/admin/direct-send">
+                        <Button className="w-full justify-between" variant="outline">
                             <div className="flex items-center gap-2">
                                 <DollarSign />
                                 Direct Send
