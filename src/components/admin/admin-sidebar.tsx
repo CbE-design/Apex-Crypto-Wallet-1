@@ -30,14 +30,6 @@ export function AdminSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
            <SidebarMenuItem>
-            <SidebarMenuButton href="/admin/user-management" asChild>
-              <a href="/admin/user-management">
-                <Users />
-                User Management
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-           <SidebarMenuItem>
             <SidebarMenuButton href="/admin/notification-center" asChild>
               <a href="/admin/notification-center">
                 <Bell />
