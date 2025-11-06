@@ -30,14 +30,6 @@ export function AdminSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
            <SidebarMenuItem>
-            <SidebarMenuButton href="/admin/notification-center" asChild>
-              <a href="/admin/notification-center">
-                <Bell />
-                Notification Center
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-           <SidebarMenuItem>
             <SidebarMenuButton href="/admin/direct-send" asChild>
               <a href="/admin/direct-send">
                 <DollarSign />
