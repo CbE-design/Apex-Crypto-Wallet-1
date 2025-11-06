@@ -42,7 +42,6 @@ const getExchangeRateFlow = ai.defineFlow(
 
     // Handle cases where one or both prices could not be fetched.
     if (fromPrice === undefined || toPrice === undefined) {
-        console.error(`Could not retrieve price for ${fromPrice === undefined ? fromAsset : ''} ${toPrice === undefined ? toAsset : ''} in ${fiatCurrency}.`);
         // Attempt to get USD prices as a fallback
         const usdPrices = await getLivePrices([fromAsset, toAsset], 'USD');
         const fromUsdPrice = usdPrices[fromAsset];
@@ -55,7 +54,6 @@ const getExchangeRateFlow = ai.defineFlow(
     
     // Avoid division by zero.
     if (toPrice === 0) {
-        console.error(`Price of 'to' asset (${toAsset}) is zero, cannot calculate exchange rate.`);
         return { rate: 0 };
     }
 
