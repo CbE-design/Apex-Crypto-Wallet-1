@@ -15,6 +15,7 @@ export const marketCoins: MarketCoin[] = [
   { symbol: 'BNB', name: 'BNB', priceUSD: 600.00, change24h: 1.8, marketCap: 88e9, icon: 'Bnb' },
   { symbol: 'XRP', name: 'XRP', priceUSD: 0.52, change24h: -0.8, marketCap: 28e9, icon: 'Xrp' },
   { symbol: 'ADA', name: 'Cardano', priceUSD: 0.45, change24h: 3.2, marketCap: 16e9, icon: 'Cardano' },
+  { symbol: 'USDT', name: 'Tether', priceUSD: 1.00, change24h: 0.01, marketCap: 110e9, icon: 'Tether' },
 ];
 
 export const transactions: Transaction[] = [];
