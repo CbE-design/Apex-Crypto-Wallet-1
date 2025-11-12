@@ -22,6 +22,9 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrency } from '@/context/currency-context';
+import { getLivePrices } from '@/services/crypto-service';
+import type { PortfolioAsset } from '@/lib/types';
+
 
 const chartConfig = {
   value: {
@@ -42,29 +45,62 @@ export function PortfolioOverview() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { currency, formatCurrency } = useCurrency();
+  const [livePrices, setLivePrices] = React.useState<Record<string, number>>({});
+  const [isPriceLoading, setIsPriceLoading] = React.useState(true);
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return query(collection(firestore, 'users', user.uid, 'wallets'));
   }, [user, firestore]);
   
-  const { data: walletData, isLoading } = useCollection<{balance: number, currency: string}>(walletsQuery);
+  const { data: walletData, isLoading: isWalletLoading } = useCollection<{balance: number, currency: string}>(walletsQuery);
 
-  const portfolioAssets = React.useMemo(() => {
+  const portfolioSymbols = React.useMemo(() => {
+    if (!walletData) return [];
+    return walletData.map(w => w.currency);
+  }, [walletData]);
+
+  React.useEffect(() => {
+    async function fetchPrices() {
+      if (portfolioSymbols.length === 0) {
+        setIsPriceLoading(false);
+        return;
+      };
+      setIsPriceLoading(true);
+      try {
+        const prices = await getLivePrices(portfolioSymbols, 'USD');
+        setLivePrices(prices);
+      } catch (error) {
+        console.error("Failed to fetch live prices for portfolio", error);
+      } finally {
+        setIsPriceLoading(false);
+      }
+    }
+    fetchPrices();
+  }, [portfolioSymbols]);
+
+
+  const portfolioAssets: PortfolioAsset[] = React.useMemo(() => {
     if (!walletData) return [];
     
     return walletData.map(walletDoc => {
+      const livePriceUSD = livePrices[walletDoc.currency];
       const staticAssetData = staticAssets.find(sa => sa.symbol === walletDoc.currency);
-      if (!staticAssetData) return null;
-      
-      return {
-        ...staticAssetData,
-        amount: walletDoc.balance,
-        valueUSD: walletDoc.balance * staticAssetData.priceUSD,
-      };
-    }).filter(Boolean) as (typeof staticAssets[0] & {amount: number, valueUSD: number})[];
 
-  }, [walletData]);
+      const priceUSD = livePriceUSD !== undefined ? livePriceUSD : (staticAssetData?.priceUSD || 0);
+
+      return {
+        symbol: walletDoc.currency,
+        name: staticAssetData?.name || walletDoc.currency,
+        amount: walletDoc.balance,
+        valueUSD: walletDoc.balance * priceUSD,
+        priceUSD: priceUSD,
+        change24h: staticAssetData?.change24h || 0,
+        icon: staticAssetData?.icon || '',
+      };
+    }).filter(Boolean) as PortfolioAsset[];
+
+  }, [walletData, livePrices]);
 
 
   const totalBalance = portfolioAssets.reduce(
@@ -75,7 +111,7 @@ export function PortfolioOverview() {
   const totalBalanceInSelectedCurrency = totalBalance * currency.rate;
 
   const chartData = portfolioAssets
-    .filter(asset => asset.valueUSD > 0)
+    .filter(asset => asset.valueUSD > 0.01) // Only include assets with a meaningful value
     .map((asset) => ({
       name: asset.symbol,
       value: asset.valueUSD,
@@ -83,6 +119,8 @@ export function PortfolioOverview() {
     }));
   
   const balanceDigits = Math.floor(totalBalanceInSelectedCurrency).toString().length;
+
+  const isLoading = isWalletLoading || isPriceLoading;
 
   if (isLoading) {
     return (
@@ -156,7 +194,7 @@ export function PortfolioOverview() {
                         nameKey="name"
                         innerRadius="60%"
                         strokeWidth={5}
-                        paddingAngle={5}
+                        paddingAngle={chartData.length > 1 ? 5 : 0}
                     >
                         {chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -184,15 +222,15 @@ export function PortfolioOverview() {
           )}
         </div>
         <div className="w-full md:w-1/2 space-y-4">
-          {portfolioAssets.length > 0 ? portfolioAssets.map((asset) => (
+          {portfolioAssets.length > 0 ? portfolioAssets.sort((a,b) => b.valueUSD - a.valueUSD).map((asset) => (
             <div key={asset.symbol} className="flex items-center">
               <div className="flex items-center gap-2 flex-1">
                 <div
                   className="w-2 h-2 rounded-full"
                   style={{
-                    backgroundColor: `hsl(var(--chart-${
-                      Object.keys(chartConfig).indexOf(asset.symbol.toLowerCase())
-                    }))`,
+                    backgroundColor: asset.valueUSD > 0.01 ? `hsl(var(--chart-${
+                      (Object.keys(chartConfig).indexOf(asset.symbol.toLowerCase()) % 5) + 1
+                    }))` : 'transparent',
                   }}
                 />
                 <CryptoIcon name={asset.name} className="h-6 w-6" />

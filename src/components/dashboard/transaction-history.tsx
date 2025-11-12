@@ -1,6 +1,7 @@
 
 'use client';
 
+import * as React from 'react';
 import {
   Card,
   CardContent,
@@ -20,10 +21,10 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
 import { collection, query, orderBy, limit, type Timestamp } from 'firebase/firestore'
-import { portfolioAssets as staticAssets } from "@/lib/data";
 import { useCurrency } from "@/context/currency-context";
 import { CryptoIcon } from "../crypto-icon";
 import { Loader2 } from "lucide-react";
+import { getLivePrices } from '@/services/crypto-service';
 
 interface Transaction {
     id: string;
@@ -39,6 +40,7 @@ export function TransactionHistory() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { currency, formatCurrency } = useCurrency();
+  const [ethPrice, setEthPrice] = React.useState(0);
   
   const transactionsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -51,7 +53,19 @@ export function TransactionHistory() {
 
   const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
 
-  const assetDetails = staticAssets.find(a => a.symbol === 'ETH') || { name: 'Ethereum', priceUSD: 0 };
+  React.useEffect(() => {
+    async function fetchEthPrice() {
+      try {
+        const prices = await getLivePrices(['ETH'], 'USD');
+        if (prices.ETH) {
+          setEthPrice(prices.ETH);
+        }
+      } catch (error) {
+        console.error("Failed to fetch ETH price for history", error);
+      }
+    }
+    fetchEthPrice();
+  }, []);
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -94,7 +108,7 @@ export function TransactionHistory() {
                 </TableRow>
             ) : transactions && transactions.length > 0 ? (
               transactions.map((tx) => {
-                const valueInSelectedCurrency = (tx.amount * (tx.price > 0 ? tx.price : assetDetails.priceUSD)) * currency.rate;
+                const valueInSelectedCurrency = (tx.amount * (tx.price > 0 ? tx.price : ethPrice)) * currency.rate;
 
                 return (
                     <TableRow key={tx.id}>
@@ -108,7 +122,7 @@ export function TransactionHistory() {
                     </TableCell>
                     <TableCell>
                         <div className="flex items-center gap-2">
-                            <CryptoIcon name={assetDetails.name} className="h-6 w-6"/>
+                            <CryptoIcon name="Ethereum" className="h-6 w-6"/>
                             <span>ETH</span>
                         </div>
                     </TableCell>
@@ -116,7 +130,7 @@ export function TransactionHistory() {
                     <TableCell className="text-right hidden md:table-cell">{formatCurrency(valueInSelectedCurrency)}</TableCell>
                     <TableCell className="hidden md:table-cell">{tx.timestamp.toDate().toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
-                        <Badge variant={getStatusVariant(tx.status) as any}>{tx.status}</Badge>
+                        <Badge variant={getStatusVariant(tx.status || 'Completed') as any}>{tx.status || 'Completed'}</Badge>
                     </TableCell>
                     </TableRow>
                 )
