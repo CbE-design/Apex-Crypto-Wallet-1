@@ -38,12 +38,11 @@ function getExchangeInstance() {
  */
 export async function getLivePrices(symbols: string[], targetCurrency: string = 'USD'): Promise<Record<string, number>> {
     const exchange = getExchangeInstance();
-    const isUsdTarget = targetCurrency.toUpperCase() === 'USD';
     
     const symbolsToFetch: string[] = [];
     const cachedPrices: Record<string, number> = {};
 
-    // Check cache first
+    // Check cache first for USD prices
     for (const symbol of symbols) {
         const cacheKey = `${symbol}-USD`;
         const cached = cache.get(cacheKey);
@@ -54,46 +53,43 @@ export async function getLivePrices(symbols: string[], targetCurrency: string = 
         }
     }
     
-    if (symbolsToFetch.length === 0) {
-        return convertPrices(cachedPrices, targetCurrency, exchange);
-    }
+    // Fetch remaining prices from the exchange
+    if (symbolsToFetch.length > 0) {
+        if (!exchange) {
+            const staticPrices = getStaticPrices(symbolsToFetch, 'USD');
+            Object.assign(cachedPrices, staticPrices);
+        } else {
+            try {
+                const usdPairs = symbolsToFetch.map(s => `${s}/USDT`);
+                const usdTickers = await exchange.fetchTickers(usdPairs);
 
-    if (!exchange) {
-        return getStaticPrices(symbols, targetCurrency);
-    }
+                for (const symbol in usdTickers) {
+                    const originalSymbol = symbol.split('/')[0];
+                    if (usdTickers[symbol]?.last) {
+                        const price = usdTickers[symbol]!.last!;
+                        cachedPrices[originalSymbol] = price;
+                        cache.set(`${originalSymbol}-USD`, { price, timestamp: Date.now() });
+                    }
+                }
+                
+                // Fill any remaining missing prices from static data as a final fallback.
+                symbolsToFetch.forEach(s => {
+                    if (!cachedPrices[s]) {
+                        const staticCoin = marketCoins.find(c => c.symbol === s);
+                        if (staticCoin) {
+                            cachedPrices[s] = staticCoin.priceUSD;
+                        }
+                    }
+                });
 
-    try {
-        // 1. Fetch all crypto prices against USD first.
-        const usdPairs = symbolsToFetch.map(s => `${s}/USDT`);
-        const usdTickers = await exchange.fetchTickers(usdPairs);
-        const fetchedUsdPrices: Record<string, number> = {};
-
-        for (const symbol in usdTickers) {
-            const originalSymbol = symbol.split('/')[0];
-            if (usdTickers[symbol]?.last) {
-                fetchedUsdPrices[originalSymbol] = usdTickers[symbol]!.last!;
-                // Update cache
-                cache.set(`${originalSymbol}-USD`, { price: fetchedUsdPrices[originalSymbol], timestamp: Date.now() });
+            } catch (error) {
+                const staticPrices = getStaticPrices(symbolsToFetch, 'USD');
+                Object.assign(cachedPrices, staticPrices);
             }
         }
-        
-        // Fill any missing USD prices from static data.
-        symbolsToFetch.forEach(s => {
-            if (!fetchedUsdPrices[s]) {
-                const staticCoin = marketCoins.find(c => c.symbol === s);
-                if (staticCoin) {
-                    fetchedUsdPrices[s] = staticCoin.priceUSD;
-                }
-            }
-        });
-        
-        const allUsdPrices = { ...cachedPrices, ...fetchedUsdPrices };
-
-        return convertPrices(allUsdPrices, targetCurrency, exchange);
-
-    } catch (error) {
-        return getStaticPrices(symbols, targetCurrency);
     }
+    
+    return convertPrices(cachedPrices, targetCurrency, exchange);
 }
 
 async function convertPrices(usdPrices: Record<string, number>, targetCurrency: string, exchange: ccxt.Exchange) {
@@ -105,17 +101,23 @@ async function convertPrices(usdPrices: Record<string, number>, targetCurrency: 
     const cachedRate = cache.get(rateCacheKey);
 
     let usdToTargetRate = 1;
+
     if (cachedRate && (Date.now() - cachedRate.timestamp < CACHE_TTL)) {
         usdToTargetRate = cachedRate.price;
     } else {
         try {
-            const targetRateTicker = await exchange.fetchTicker(`${targetCurrency.toUpperCase()}/USDT`);
+            // We fetch the price of USD in terms of the target currency.
+            // e.g., if target is EUR, we want EUR/USDT price.
+            const targetRateTicker = await exchange.fetchTicker(`USDT/${targetCurrency.toUpperCase()}`);
             if (targetRateTicker && targetRateTicker.last) {
-                usdToTargetRate = 1 / targetRateTicker.last;
-                 cache.set(rateCacheKey, { price: usdToTargetRate, timestamp: Date.now() });
+                // The rate is how many of the target currency one USD is worth.
+                usdToTargetRate = targetRateTicker.last;
+                cache.set(rateCacheKey, { price: usdToTargetRate, timestamp: Date.now() });
             }
         } catch (rateError) {
-             // Silently handle rate error and fallback to 1
+             // If fetching fails, we might fall back or use a default.
+             // For simplicity, we'll keep the rate at 1, which means prices will be shown in USD.
+             usdToTargetRate = 1;
         }
     }
 

@@ -39,13 +39,19 @@ export function MarketOverview() {
         
         const updatedMarketData = staticMarketCoins.map(coin => ({
           ...coin,
-          priceUSD: livePrices[coin.symbol] !== undefined ? livePrices[coin.symbol] / currency.rate : coin.priceUSD,
+          // The price from getLivePrices is already in the target currency.
+          priceUSD: livePrices[coin.symbol] ?? coin.priceUSD, 
         }));
         
         setMarketData(updatedMarketData);
       } catch (error) {
         console.error("Could not fetch live market data, using static data as fallback.", error);
-        // In case of error, marketData will remain as staticMarketCoins
+        // Fallback to static data if the live price fetch fails
+        const staticDataInCurrency = staticMarketCoins.map(coin => ({
+            ...coin,
+            priceUSD: coin.priceUSD * currency.rate,
+        }));
+        setMarketData(staticDataInCurrency);
       } finally {
         setIsLoading(false);
       }
@@ -93,7 +99,7 @@ export function MarketOverview() {
             </TableHeader>
             <TableBody>
               {isLoading ? renderSkeleton() : marketData.map((coin) => {
-                const priceInSelectedCurrency = coin.priceUSD * currency.rate;
+                const priceInSelectedCurrency = coin.priceUSD; // Price is already in the correct currency
                 return (
                   <TableRow key={coin.symbol}>
                     <TableCell>
