@@ -1,5 +1,5 @@
 
-"use client";
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
@@ -20,6 +20,7 @@ import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, runTransaction, doc, serverTimestamp, getDocs, where, limit } from 'firebase/firestore';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const sendSchema = z.object({
   recipientAddress: z.string().refine(ethers.isAddress, {
@@ -75,7 +76,7 @@ export default function SendReceivePage() {
 
   useEffect(() => {
     if (wallet?.address) {
-      QRCode.toDataURL(wallet.address, { errorCorrectionLevel: 'H', width: 160 })
+      QRCode.toDataURL(wallet.address, { errorCorrectionLevel: 'H', width: 200 })
         .then(setQrCodeDataUrl)
         .catch(err => console.error('Failed to generate QR code', err));
     }
@@ -173,116 +174,123 @@ export default function SendReceivePage() {
     }
   };
   
-  const renderStatus = () => {
-      switch (status) {
-          case 'sending':
-              return (
-                  <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
-                      <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                      <h3 className="text-lg font-semibold">Processing Transaction...</h3>
-                      <p className="text-muted-foreground">Please wait.</p>
-                  </div>
-              );
-          case 'success':
-              return (
-                  <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
-                      <CheckCircle className="h-12 w-12 text-green-500" />
-                      <h3 className="text-lg font-semibold">Transaction Sent!</h3>
-                      <p className="text-muted-foreground">You successfully sent {formValues.amount} {sendAsset}.</p>
-                      <Button onClick={resetSendState}>Send Another Transaction</Button>
-                  </div>
-              );
-          case 'error':
-              return (
-                   <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
-                      <XCircle className="h-12 w-12 text-destructive" />
-                      <h3 className="text-lg font-semibold">Transaction Failed</h3>
-                      <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
-                      <Button variant="outline" onClick={resetSendState}>Try Again</Button>
-                  </div>
-              );
-          default:
-              return null;
-      }
+  const renderSendContent = () => {
+    switch (status) {
+        case 'sending':
+            return (
+                <div className="flex flex-col items-center justify-center text-center space-y-4 h-96">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                    <h3 className="text-lg font-semibold">Processing Transaction...</h3>
+                    <p className="text-muted-foreground">Please wait.</p>
+                </div>
+            );
+        case 'success':
+            return (
+                <div className="flex flex-col items-center justify-center text-center space-y-4 h-96">
+                    <CheckCircle className="h-12 w-12 text-green-500" />
+                    <h3 className="text-lg font-semibold">Transaction Sent!</h3>
+                    <p className="text-muted-foreground">You successfully sent {formValues.amount} {sendAsset}.</p>
+                    <Button onClick={resetSendState}>Send Another Transaction</Button>
+                </div>
+            );
+        case 'error':
+            return (
+                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-96">
+                    <XCircle className="h-12 w-12 text-destructive" />
+                    <h3 className="text-lg font-semibold">Transaction Failed</h3>
+                    <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
+                    <Button variant="outline" onClick={resetSendState}>Try Again</Button>
+                </div>
+            );
+        default: // 'idle' or 'confirming'
+            return (
+              <form onSubmit={handleSubmit(handleSendSubmit)} className="space-y-6">
+                {selectedAssetBalance === 0 && (
+                    <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 text-center space-y-2">
+                        <h4 className="font-semibold">Your ETH balance is zero</h4>
+                        <p className="text-sm text-muted-foreground">You can receive ETH from another user to get started.</p>
+                    </div>
+                )}
+                <div className="space-y-2">
+                    <Label htmlFor="send-asset">Asset</Label>
+                     <div className="flex items-center gap-2 p-2 rounded-md bg-muted w-full">
+                        <CryptoIcon name="Ethereum" />
+                        <span className="font-semibold">Ethereum (ETH)</span>
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="recipient-address">Recipient Address</Label>
+                    <Input
+                        id="recipient-address"
+                        placeholder="0x..."
+                        {...register('recipientAddress')}
+                        disabled={status !== 'idle'}
+                    />
+                    {errors.recipientAddress && <p className="text-sm text-destructive">{errors.recipientAddress.message}</p>}
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="send-amount">Amount</Label>
+                    <Input
+                        id="send-amount"
+                        type="number"
+                        placeholder="0.00"
+                        step="any"
+                        {...register('amount')}
+                        disabled={status !== 'idle'}
+                    />
+                    {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
+                    <p className="text-xs text-muted-foreground mt-1 h-4">
+                        {`Balance: ${selectedAssetBalance.toFixed(6)} ${sendAsset}`}
+                    </p>
+                </div>
+
+                <Button type="submit" className="w-full" disabled={!isValid || status !== 'idle'}>
+                    Send {sendAsset} <ArrowRight className="ml-2" />
+                </Button>
+              </form>
+            );
+    }
   };
   
   return (
     <PrivateRoute>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Card>
+      <div className="flex justify-center items-start pt-2">
+        <Card className="w-full max-w-lg">
           <CardHeader>
-            <CardTitle>Send Crypto</CardTitle>
-            <CardDescription>Send funds to another wallet on the network.</CardDescription>
+            <CardTitle>Send & Receive</CardTitle>
+            <CardDescription>
+                Easily manage your crypto assets. Send funds to others or receive them into your wallet.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {status !== 'idle' && status !== 'confirming' ? renderStatus() : (
-              <form onSubmit={handleSubmit(handleSendSubmit)} className="space-y-4">
-                  {selectedAssetBalance === 0 && (
-                      <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 text-center space-y-2">
-                          <h4 className="font-semibold">Your ETH balance is zero</h4>
-                          <p className="text-sm text-muted-foreground">You can receive ETH from another user to get started.</p>
-                      </div>
-                  )}
-                  <div className="space-y-2">
-                      <Label htmlFor="send-asset">Asset</Label>
-                       <div className="flex items-center gap-2 p-2 rounded-md bg-muted w-full">
-                          <CryptoIcon name="Ethereum" />
-                          <span className="font-semibold">Ethereum (ETH)</span>
-                      </div>
-                  </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="recipient-address">Recipient Address</Label>
-                      <Input
-                          id="recipient-address"
-                          placeholder="0x..."
-                          {...register('recipientAddress')}
-                      />
-                      {errors.recipientAddress && <p className="text-sm text-destructive">{errors.recipientAddress.message}</p>}
-                  </div>
-                  <div className="space-y-2">
-                      <Label htmlFor="send-amount">Amount</Label>
-                      <Input
-                          id="send-amount"
-                          type="number"
-                          placeholder="0.00"
-                          step="any"
-                          {...register('amount')}
-                      />
-                      {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
-                      <p className="text-xs text-muted-foreground mt-1 h-4">
-                          {`Balance: ${selectedAssetBalance.toFixed(6)} ${sendAsset}`}
-                      </p>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={!isValid}>
-                      Send {sendAsset} <ArrowRight className="ml-2" />
-                  </Button>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Receive Crypto</CardTitle>
-            <CardDescription>Share your address to get paid.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center space-y-4 pt-8">
-              <div className="p-4 bg-white rounded-lg">
-                  {qrCodeDataUrl ? (
-                      <Image src={qrCodeDataUrl} alt="Wallet QR Code" width={160} height={160} />
-                  ) : (
-                      <div className="w-[160px] h-[160px] bg-muted animate-pulse rounded-md" />
-                  )}
-              </div>
-              <p className="text-sm text-center text-muted-foreground">Your primary wallet address:</p>
-              <div className="flex items-center gap-2 p-2 rounded-md bg-muted w-full justify-center">
-                  <code className="text-sm break-all text-center">{userAddress}</code>
-                  <Button variant="ghost" size="icon" onClick={handleCopyAddress} disabled={!wallet?.address}>
-                      <Copy className="h-4 w-4" />
-                      <span className="sr-only">Copy address</span>
-                  </Button>
-              </div>
+            <Tabs defaultValue="send" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="send">Send</TabsTrigger>
+                <TabsTrigger value="receive">Receive</TabsTrigger>
+              </TabsList>
+              <TabsContent value="send" className="pt-6">
+                 {renderSendContent()}
+              </TabsContent>
+              <TabsContent value="receive" className="pt-6">
+                <div className="flex flex-col items-center justify-center space-y-4 pt-4">
+                    <div className="p-4 bg-white rounded-lg border">
+                        {qrCodeDataUrl ? (
+                            <Image src={qrCodeDataUrl} alt="Wallet QR Code" width={200} height={200} />
+                        ) : (
+                            <div className="w-[200px] h-[200px] bg-muted animate-pulse rounded-md" />
+                        )}
+                    </div>
+                    <p className="text-sm text-center text-muted-foreground">Your primary wallet address:</p>
+                    <div className="flex items-center gap-2 p-3 rounded-md bg-muted w-full justify-center">
+                        <code className="text-sm break-all text-center">{userAddress}</code>
+                        <Button variant="ghost" size="icon" onClick={handleCopyAddress} disabled={!wallet?.address}>
+                            <Copy className="h-4 w-4" />
+                            <span className="sr-only">Copy address</span>
+                        </Button>
+                    </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
@@ -321,3 +329,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+
+    
