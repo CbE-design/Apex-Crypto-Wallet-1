@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -172,39 +172,6 @@ export default function SendReceivePage() {
         });
     }
   };
-
-  const getStatusContent = () => {
-    switch (status) {
-      case 'sending':
-        return (
-          <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <h3 className="text-lg font-semibold">Processing Transaction...</h3>
-            <p className="text-muted-foreground">Please wait.</p>
-          </div>
-        );
-      case 'success':
-        return (
-          <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
-            <CheckCircle className="h-12 w-12 text-green-500" />
-            <h3 className="text-lg font-semibold">Transaction Sent!</h3>
-            <p className="text-muted-foreground">You successfully sent {formValues.amount} {sendAsset}.</p>
-            <Button onClick={resetSendState}>Send Another Transaction</Button>
-          </div>
-        );
-      case 'error':
-        return (
-          <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
-            <XCircle className="h-12 w-12 text-destructive" />
-            <h3 className="text-lg font-semibold">Transaction Failed</h3>
-            <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
-            <Button variant="outline" onClick={resetSendState}>Try Again</Button>
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
   
   return (
     <PrivateRoute>
@@ -215,8 +182,32 @@ export default function SendReceivePage() {
             <CardDescription>Send funds to another wallet on the network.</CardDescription>
           </CardHeader>
           <CardContent>
-            {status === 'idle' ? (
-              <form onSubmit={handleSubmit(handleSendSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(handleSendSubmit)} className="space-y-4">
+              {status === 'sending' && (
+                <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                    <h3 className="text-lg font-semibold">Processing Transaction...</h3>
+                    <p className="text-muted-foreground">Please wait.</p>
+                </div>
+              )}
+              {status === 'success' && (
+                <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
+                    <CheckCircle className="h-12 w-12 text-green-500" />
+                    <h3 className="text-lg font-semibold">Transaction Sent!</h3>
+                    <p className="text-muted-foreground">You successfully sent {formValues.amount} {sendAsset}.</p>
+                    <Button onClick={resetSendState}>Send Another Transaction</Button>
+                </div>
+              )}
+              {status === 'error' && (
+                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
+                    <XCircle className="h-12 w-12 text-destructive" />
+                    <h3 className="text-lg font-semibold">Transaction Failed</h3>
+                    <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
+                    <Button variant="outline" onClick={resetSendState}>Try Again</Button>
+                </div>
+              )}
+              {(status === 'idle' || status === 'confirming') && (
+                <>
                   {selectedAssetBalance === 0 && (
                       <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 text-center space-y-2">
                           <h4 className="font-semibold">Your ETH balance is zero</h4>
@@ -257,8 +248,9 @@ export default function SendReceivePage() {
                   <Button type="submit" className="w-full" disabled={!isValid}>
                       Send {sendAsset} <ArrowRight className="ml-2" />
                   </Button>
-              </form>
-            ) : getStatusContent()}
+                </>
+              )}
+            </form>
           </CardContent>
         </Card>
 
@@ -321,4 +313,5 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
+    
     
