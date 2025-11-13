@@ -152,15 +152,14 @@ export default function DirectSendPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit(handleConfirmSend)}>
-                        {status === 'idle' && (
-                            <div className="space-y-4">
+                        {status !== 'sending' && status !== 'success' && status !== 'error' && (
+                             <div className="space-y-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="recipientAddress">Recipient Wallet Address</Label>
                                     <Input 
                                         id="recipientAddress" 
                                         placeholder="0x..."
                                         {...register('recipientAddress')}
-                                        disabled={isLoading}
                                     />
                                     {errors.recipientAddress && <p className="text-sm text-destructive">{errors.recipientAddress.message}</p>}
                                 </div>
@@ -171,7 +170,6 @@ export default function DirectSendPage() {
                                         type="number"
                                         placeholder="0.00"
                                         {...register('amount')}
-                                        disabled={isLoading}
                                         step="any"
                                     />
                                     {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
@@ -179,7 +177,7 @@ export default function DirectSendPage() {
 
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button className="w-full" disabled={isLoading || !isValid}>
+                                        <Button className="w-full" disabled={!isValid}>
                                             <Send className="mr-2" /> Review & Send
                                         </Button>
                                     </AlertDialogTrigger>
@@ -205,8 +203,8 @@ export default function DirectSendPage() {
                                         </div>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction type="submit" disabled={isLoading}>
-                                                {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Send className="mr-2" />}
+                                            <AlertDialogAction type="submit">
+                                                <Send className="mr-2" />
                                                 Confirm & Send
                                             </AlertDialogAction>
                                         </AlertDialogFooter>
@@ -246,3 +244,4 @@ export default function DirectSendPage() {
         </div>
     )
 }
+    

@@ -68,7 +68,7 @@ export default function SendReceivePage() {
     if (status === 'success' || status === 'error') {
       const timer = setTimeout(() => {
         resetSendState();
-      }, 3000); // Reset after 3 seconds
+      }, 5000); // Reset after 5 seconds
       return () => clearTimeout(timer);
     }
   }, [status, resetSendState]);
@@ -192,7 +192,7 @@ export default function SendReceivePage() {
     }
   };
   
-  const isSendButtonDisabled = status !== 'idle' || !sendAmount || !recipientAddress || parseFloat(sendAmount) <= 0 || parseFloat(sendAmount) > selectedAssetBalance;
+  const isSendButtonDisabled = status !== 'idle' || !sendAmount || !recipientAddress || !ethers.isAddress(recipientAddress) || parseFloat(sendAmount) <= 0 || parseFloat(sendAmount) > selectedAssetBalance;
 
   return (
     <PrivateRoute>
@@ -289,12 +289,14 @@ export default function SendReceivePage() {
                     <CheckCircle className="h-12 w-12 text-green-500" />
                     <h3 className="text-lg font-semibold">Transaction Sent!</h3>
                     <p className="text-muted-foreground">You have successfully sent {sendAmount} {sendAsset}.</p>
+                    <Button onClick={resetSendState}>Send Another Transaction</Button>
                 </div>
             ) : status === 'error' ? (
                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-64">
                     <XCircle className="h-12 w-12 text-destructive" />
                     <h3 className="text-lg font-semibold">Transaction Failed</h3>
                     <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
+                    <Button variant="outline" onClick={resetSendState}>Try Again</Button>
                 </div>
             ) : null}
           </CardContent>
@@ -327,5 +329,4 @@ export default function SendReceivePage() {
     </PrivateRoute>
   );
 }
-
     

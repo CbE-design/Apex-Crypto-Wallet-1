@@ -95,6 +95,7 @@ export default function SwapPage() {
     const temp = fromAsset;
     setFromAsset(toAsset);
     setToAsset(temp);
+    setFromAmount(''); // Reset amount on flip
   };
   
   const handleSwap = async () => {
@@ -145,24 +146,22 @@ export default function SwapPage() {
             
             const sellTxLogRef = doc(collection(fromWalletRef, 'transactions'));
             transaction.set(sellTxLogRef, {
-                userId: user.uid, // Denormalize userId for security rules
+                userId: user.uid,
                 type: 'Sell',
                 amount: amountNum,
                 price: fromAssetPrice,
                 timestamp: serverTimestamp(),
-                valueUSD: amountNum * fromAssetPrice,
                 status: 'Completed',
                 notes: `Swap to ${toAsset}`
             });
             
             const buyTxLogRef = doc(collection(toWalletRef, 'transactions'));
             transaction.set(buyTxLogRef, {
-                userId: user.uid, // Denormalize userId for security rules
+                userId: user.uid,
                 type: 'Buy',
                 amount: toAmountNum,
                 price: toAssetPrice,
                 timestamp: serverTimestamp(),
-                valueUSD: amountNum * fromAssetPrice, // Value of swap is the same
                 status: 'Completed',
                 notes: `Swap from ${fromAsset}`
             });
@@ -175,6 +174,7 @@ export default function SwapPage() {
         console.error("Swap failed:", error);
         setStatus('failed');
         setErrorMessage(error.message || 'An unknown error occurred during the swap.');
+        toast({ title: 'Swap Failed', description: error.message || 'An unknown error occurred during the swap.', variant: 'destructive'});
     }
   }
 
@@ -191,7 +191,7 @@ export default function SwapPage() {
     switch(status) {
         case 'processing':
             return (
-                <div className="flex flex-col items-center justify-center text-center space-y-4 h-56">
+                <div className="flex flex-col items-center justify-center text-center space-y-4 h-96">
                     <Loader2 className="h-12 w-12 animate-spin text-primary" />
                     <h3 className="text-lg font-semibold capitalize">Processing Swap...</h3>
                     <p className="text-muted-foreground">Please wait while the transaction is processed.</p>
@@ -199,7 +199,7 @@ export default function SwapPage() {
             );
         case 'success':
             return (
-                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-56">
+                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-96">
                     <CheckCircle className="h-12 w-12 text-green-500" />
                     <h3 className="text-lg font-semibold">Swap Successful!</h3>
                     <p className="text-muted-foreground">You have successfully swapped {fromAmount} {fromAsset} for {toAmount} {toAsset}.</p>
@@ -208,7 +208,7 @@ export default function SwapPage() {
             );
         case 'failed':
              return (
-                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-56">
+                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-96">
                     <XCircle className="h-12 w-12 text-destructive" />
                     <h3 className="text-lg font-semibold">Swap Failed</h3>
                     <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
@@ -221,7 +221,7 @@ export default function SwapPage() {
   }
   
   const renderSwapForm = () => (
-    <>
+    <div className="space-y-4">
         <div className="space-y-2">
             <Label htmlFor="from-asset">From</Label>
             <div className="flex gap-2">
@@ -231,7 +231,7 @@ export default function SwapPage() {
                     </SelectTrigger>
                     <SelectContent>
                         {allAssets.map(asset => (
-                        <SelectItem key={asset.symbol} value={asset.symbol}>
+                        <SelectItem key={asset.symbol} value={asset.symbol} disabled={!userWallets?.some(w => w.currency === asset.symbol && w.balance > 0)}>
                             <div className="flex items-center gap-2">
                                 <CryptoIcon name={asset.name} className="h-5 w-5" />
                                 {asset.symbol}
@@ -335,7 +335,7 @@ export default function SwapPage() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-    </>
+    </div>
   );
 
   return (
@@ -354,5 +354,4 @@ export default function SwapPage() {
     </PrivateRoute>
   );
 }
-
     
