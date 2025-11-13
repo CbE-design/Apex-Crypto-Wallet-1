@@ -23,11 +23,12 @@ export interface MarketCoin {
 export interface Transaction {
   id: string;
   type: 'Buy' | 'Sell';
-  asset: string;
   amount: number;
-  valueUSD: number;
-  date: string;
+  price: number;
   status: 'Completed' | 'Pending' | 'Failed';
+  notes?: string;
+  sender?: string;
+  recipient?: string;
 }
 
 export interface PriceAlert {
@@ -91,3 +92,5 @@ export interface Currency {
     symbol: string;
     name: string;
 }
+
+    

@@ -34,6 +34,8 @@ interface Transaction {
     timestamp: Timestamp;
     status: 'Completed' | 'Pending' | 'Failed';
     notes?: string;
+    sender?: string;
+    recipient?: string;
 }
 
 export function TransactionHistory() {
@@ -109,6 +111,7 @@ export function TransactionHistory() {
             ) : transactions && transactions.length > 0 ? (
               transactions.map((tx) => {
                 const valueInSelectedCurrency = (tx.amount * (tx.price > 0 ? tx.price : ethPrice)) * currency.rate;
+                const isSender = tx.sender?.toLowerCase() === user?.providerData[0]?.uid.toLowerCase();
 
                 return (
                     <TableRow key={tx.id}>
@@ -118,6 +121,9 @@ export function TransactionHistory() {
                         tx.type === 'Buy' ? 'text-green-400' : 'text-red-400'
                         )}>
                         {tx.type}
+                        </div>
+                         <div className="text-xs text-muted-foreground font-mono break-all">
+                            {tx.type === 'Buy' ? `from: ${tx.sender?.substring(0,10)}...` : `to: ${tx.recipient?.substring(0,10)}...`}
                         </div>
                     </TableCell>
                     <TableCell>
@@ -149,3 +155,5 @@ export function TransactionHistory() {
     </Card>
   )
 }
+
+    
