@@ -42,12 +42,13 @@ export default function DirectSendPage() {
     const { 
         register, 
         handleSubmit, 
-        formState: { errors },
+        formState: { errors, isValid },
         watch,
         reset
     } = useForm<SendFormValues>({
         resolver: zodResolver(sendSchema),
-        defaultValues: { recipientAddress: '', amount: '' }
+        defaultValues: { recipientAddress: '', amount: '' },
+        mode: 'onChange',
     });
 
     const formValues = watch();
@@ -150,68 +151,70 @@ export default function DirectSendPage() {
                     <CardDescription>The amount will be debited from your admin wallet and sent to the recipient.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {status === 'idle' && (
-                        <form onSubmit={handleSubmit(handleConfirmSend)} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="recipientAddress">Recipient Wallet Address</Label>
-                                <Input 
-                                    id="recipientAddress" 
-                                    placeholder="0x..."
-                                    {...register('recipientAddress')}
-                                    disabled={isLoading}
-                                />
-                                {errors.recipientAddress && <p className="text-sm text-destructive">{errors.recipientAddress.message}</p>}
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="amount">Amount (ETH)</Label>
-                                <Input
-                                    id="amount"
-                                    type="number"
-                                    placeholder="0.00"
-                                    {...register('amount')}
-                                    disabled={isLoading}
-                                    step="any"
-                                />
-                                {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
-                            </div>
+                    <form onSubmit={handleSubmit(handleConfirmSend)}>
+                        {status === 'idle' && (
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="recipientAddress">Recipient Wallet Address</Label>
+                                    <Input 
+                                        id="recipientAddress" 
+                                        placeholder="0x..."
+                                        {...register('recipientAddress')}
+                                        disabled={isLoading}
+                                    />
+                                    {errors.recipientAddress && <p className="text-sm text-destructive">{errors.recipientAddress.message}</p>}
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="amount">Amount (ETH)</Label>
+                                    <Input
+                                        id="amount"
+                                        type="number"
+                                        placeholder="0.00"
+                                        {...register('amount')}
+                                        disabled={isLoading}
+                                        step="any"
+                                    />
+                                    {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
+                                </div>
 
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button className="w-full" disabled={isLoading || !formValues.recipientAddress || !formValues.amount}>
-                                        <Send className="mr-2" /> Review & Send
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Confirm Transaction</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            You are about to send {formValues.amount} ETH. This action cannot be undone.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <div className="space-y-4 py-4 text-sm">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-muted-foreground">Asset</span>
-                                            <span className="font-medium flex items-center gap-2">
-                                                <CryptoIcon name="Ethereum" />
-                                                {formValues.amount} ETH
-                                            </span>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button className="w-full" disabled={isLoading || !isValid}>
+                                            <Send className="mr-2" /> Review & Send
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Confirm Transaction</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                You are about to send {formValues.amount || '0.00'} ETH. This action cannot be undone.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <div className="space-y-4 py-4 text-sm">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-muted-foreground">Asset</span>
+                                                <span className="font-medium flex items-center gap-2">
+                                                    <CryptoIcon name="Ethereum" />
+                                                    {formValues.amount || '0.00'} ETH
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-muted-foreground">Recipient</span>
+                                                <span className="font-mono break-all text-right ml-4">{formValues.recipientAddress || '0x...'}</span>
+                                            </div>
                                         </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-muted-foreground">Recipient</span>
-                                            <span className="font-mono break-all text-right ml-4">{formValues.recipientAddress}</span>
-                                        </div>
-                                    </div>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleSubmit(handleConfirmSend)} disabled={isLoading}>
-                                            {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Send className="mr-2" />}
-                                            Confirm & Send
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </form>
-                    )}
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction type="submit" disabled={isLoading}>
+                                                {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Send className="mr-2" />}
+                                                Confirm & Send
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                        )}
+                    </form>
                     
                     {status === 'sending' && (
                         <div className="flex flex-col items-center justify-center text-center space-y-4 h-48">
@@ -225,7 +228,7 @@ export default function DirectSendPage() {
                             <CheckCircle className="h-12 w-12 text-green-500" />
                             <h3 className="text-lg font-semibold">Transaction Successful!</h3>
                             <p className="text-muted-foreground">
-                                Sent {lastTransaction.amount} ETH to <span className="font-mono text-primary">{lastTransaction.recipient}</span>.
+                                Sent {lastTransaction.amount} ETH to <span className="font-mono text-primary break-all">{lastTransaction.recipient}</span>.
                             </p>
                             <Button onClick={() => setStatus('idle')}>Send Another Transaction</Button>
                         </div>
