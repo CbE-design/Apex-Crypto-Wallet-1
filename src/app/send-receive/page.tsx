@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -38,7 +38,6 @@ export default function SendReceivePage() {
   const firestore = useFirestore();
   const sendAsset = 'ETH';
 
-  const [isLoading, setIsLoading] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
 
   const userAddress = wallet?.address || '...';
@@ -54,7 +53,7 @@ export default function SendReceivePage() {
   const { 
       register, 
       handleSubmit, 
-      formState: { errors, isValid },
+      formState: { errors, isValid, isSubmitting },
       watch,
       reset
   } = useForm<SendFormValues>({
@@ -86,8 +85,6 @@ export default function SendReceivePage() {
         toast({ title: "Insufficient Funds", description: `Your balance of ${selectedAssetBalance.toFixed(4)} ETH is not enough.`, variant: "destructive"});
         return;
     }
-
-    setIsLoading(true);
     
     try {
         await runTransaction(firestore, async (transaction) => {
@@ -148,8 +145,6 @@ export default function SendReceivePage() {
           description: error.message || 'Could not complete the transaction.',
           variant: 'destructive',
         });
-    } finally {
-        setIsLoading(false);
     }
   };
 
@@ -200,7 +195,6 @@ export default function SendReceivePage() {
                             id="recipientAddress"
                             placeholder="0x..."
                             {...register('recipientAddress')}
-                            disabled={isLoading}
                         />
                         {errors.recipientAddress && <p className="text-sm text-destructive">{errors.recipientAddress.message}</p>}
                     </div>
@@ -212,7 +206,6 @@ export default function SendReceivePage() {
                             placeholder="0.00"
                             step="any"
                             {...register('amount')}
-                            disabled={isLoading}
                         />
                         {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
                         <p className="text-xs text-muted-foreground mt-1 h-4">
@@ -222,8 +215,8 @@ export default function SendReceivePage() {
 
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button type="button" className="w-full" disabled={!isValid || isLoading}>
-                                {isLoading ? (
+                            <Button type="button" className="w-full" disabled={!isValid || isSubmitting}>
+                                {isSubmitting ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                         Sending...
