@@ -11,6 +11,7 @@ import { doc, serverTimestamp, DocumentData, getDoc, setDoc, writeBatch, updateD
 import { portfolioAssets } from '@/lib/data';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 interface Wallet {
   address: string;
@@ -41,11 +42,13 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const WALLET_STORAGE_KEY_PREFIX = 'apex-wallet-';
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+const ADMIN_WALLET_ADDRESS = (process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0x').toLowerCase();
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
+  const router = useRouter();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -64,13 +67,15 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setWallet(walletData);
     if (walletData && firebaseUser?.uid) {
       localStorage.setItem(`${WALLET_STORAGE_KEY_PREFIX}${firebaseUser.uid}`, JSON.stringify(walletData));
-      const adminAddress = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0x';
-      setIsAdmin(walletData.address.toLowerCase() === adminAddress.toLowerCase());
+      const isAdminUser = walletData.address.toLowerCase() === ADMIN_WALLET_ADDRESS;
+      setIsAdmin(isAdminUser);
+      return isAdminUser;
     } else {
       if (firebaseUser?.uid) {
         localStorage.removeItem(`${WALLET_STORAGE_KEY_PREFIX}${firebaseUser.uid}`);
       }
       setIsAdmin(false);
+      return false;
     }
   }, []);
 
@@ -116,28 +121,34 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
 
   useEffect(() => {
-    setIsInitializing(true);
-    if (user && !wallet) { // User is logged in to Firebase, but wallet not in state
-      const storedWalletJson = localStorage.getItem(`${WALLET_STORAGE_KEY_PREFIX}${user.uid}`);
-      if (storedWalletJson) {
-        try {
-          const storedWallet = JSON.parse(storedWalletJson);
-          if (storedWallet.privateKey) {
-             const walletInstance = new ethers.Wallet(storedWallet.privateKey);
-             setWalletAndAdmin(
-                { address: walletInstance.address, privateKey: walletInstance.privateKey },
-                user
-             );
-          }
-        } catch (e) {
-          console.error("Failed to parse stored wallet.", e);
-          if(auth) signOut(auth);
+    let active = true;
+
+    async function initializeWallet() {
+        if (user && !wallet) {
+            const storedWalletJson = localStorage.getItem(`${WALLET_STORAGE_KEY_PREFIX}${user.uid}`);
+            if (storedWalletJson) {
+                try {
+                    const storedWallet = JSON.parse(storedWalletJson);
+                    if (storedWallet.privateKey) {
+                        const walletInstance = new ethers.Wallet(storedWallet.privateKey);
+                        if(active) {
+                            setWalletAndAdmin({ address: walletInstance.address, privateKey: walletInstance.privateKey }, user);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to parse stored wallet.", e);
+                    if (auth) signOut(auth);
+                }
+            }
+        } else if (!user) {
+            if(active) setWalletAndAdmin(null, null);
         }
-      }
-    } else if (!user) {
-        setWalletAndAdmin(null, null);
+        if(active) setIsInitializing(false);
     }
-    setIsInitializing(false);
+    
+    initializeWallet();
+
+    return () => { active = false; }
   }, [user, auth, wallet, setWalletAndAdmin]);
 
    // Handles requesting notification permission and saving FCM token
@@ -167,22 +178,24 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
        }
     };
     
-    // Only run this logic after the user is fully loaded and logged in
     if (!loading && user && firestore) {
         requestPermissionAndGetToken();
     }
 
-    // Set up foreground message handling
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-        const messaging = getMessaging();
-        const unsubscribe = onMessage(messaging, (payload) => {
-            console.log('Foreground message received.', payload);
-            toast({
-                title: payload.notification?.title,
-                description: payload.notification?.body,
+        try {
+            const messaging = getMessaging();
+            const unsubscribe = onMessage(messaging, (payload) => {
+                console.log('Foreground message received.', payload);
+                toast({
+                    title: payload.notification?.title,
+                    description: payload.notification?.body,
+                });
             });
-        });
-        return () => unsubscribe();
+            return () => unsubscribe();
+        } catch (error) {
+            console.error('Firebase Messaging not available.', error);
+        }
     }
 
   }, [user, firestore, loading, toast]);
@@ -200,6 +213,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const confirmAndCreateWallet = useCallback(async (mnemonic: string) => {
     if (!auth) throw new Error("Auth service not available");
     
+    setIsInitializing(true);
     const newWallet = ethers.Wallet.fromPhrase(mnemonic);
     const userCredential = await initiateAnonymousSignIn(auth);
     
@@ -208,6 +222,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     } else {
       throw new Error("Failed to sign in anonymously.");
     }
+    setIsInitializing(false);
   }, [auth, setupUserAndWalletDocuments]);
 
   const importWallet = useCallback(async (mnemonic: string) => {
@@ -215,6 +230,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("Auth or Firestore service not available");
     }
     
+    setIsInitializing(true);
     try {
       const sanitizedMnemonic = mnemonic.trim().replace(/\s+/g, ' ');
       const importedWallet = ethers.Wallet.fromPhrase(sanitizedMnemonic);
@@ -230,8 +246,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const userDoc = querySnapshot.docs[0];
       const userId = userDoc.id;
 
-      // We are signing in anonymously for simplicity. 
-      // In a real app, you would have a more robust custom auth system.
       const userCredential = await initiateAnonymousSignIn(auth, userId);
       const firebaseUser = userCredential.user;
 
@@ -240,7 +254,15 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           address: importedWallet.address,
           privateKey: importedWallet.privateKey,
         };
-        setWalletAndAdmin(walletData, firebaseUser);
+        const isAdminUser = setWalletAndAdmin(walletData, firebaseUser);
+        
+        toast({ title: 'Wallet Imported!', description: 'You have successfully logged in.' });
+        if(isAdminUser) {
+            router.push('/admin');
+        } else {
+            router.push('/');
+        }
+
       } else {
         throw new Error("Failed to authenticate user.");
       }
@@ -250,9 +272,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       if (e.message.includes('invalid mnemonic')) {
           throw new Error("Invalid seed phrase. Please check and try again.");
       }
-      throw e; // Re-throw other errors
+      throw e;
+    } finally {
+        setIsInitializing(false);
     }
-  }, [auth, firestore, setWalletAndAdmin]);
+  }, [auth, firestore, setWalletAndAdmin, toast, router]);
 
 
   const disconnectWallet = useCallback(() => {
@@ -264,13 +288,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
          }
          setWallet(null);
          setIsAdmin(false);
+         router.push('/login');
       });
     }
-  }, [auth]);
+  }, [auth, router]);
 
   if (isUserLoading || isInitializing) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen w-full">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
     );
