@@ -121,6 +121,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     let active = true;
 
     async function initializeWallet() {
