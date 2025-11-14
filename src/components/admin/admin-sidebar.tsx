@@ -37,6 +37,14 @@ export function AdminSidebar() {
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
+           <SidebarMenuItem>
+            <SidebarMenuButton href="/admin/notification-center" asChild>
+              <a href="/admin/notification-center">
+                <Bell />
+                Notification Center
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>

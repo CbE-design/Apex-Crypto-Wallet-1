@@ -9,7 +9,8 @@ import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signInWithCustomToken, signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, serverTimestamp, DocumentData, getDoc, setDoc, writeBatch, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { portfolioAssets } from '@/lib/data';
-import { getMessaging, getToken } from 'firebase/messaging';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { useToast } from '@/hooks/use-toast';
 
 interface Wallet {
   address: string;
@@ -48,6 +49,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const { toast } = useToast();
 
   const userDocRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -138,25 +140,52 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setIsInitializing(false);
   }, [user, auth, wallet, setWalletAndAdmin]);
 
+   // Handles requesting notification permission and saving FCM token
    useEffect(() => {
-    const handleTokenRefresh = async () => {
-      if ('Notification' in window && VAPID_KEY && user && firestore && userProfile && userProfile.walletAddress === wallet?.address) {
-        if (Notification.permission === 'granted') {
-          try {
-            const messaging = getMessaging();
-            const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
-            if (currentToken && currentToken !== userProfile.fcmToken) {
-              const userRef = doc(firestore, 'users', user.uid);
-              await updateDoc(userRef, { fcmToken: currentToken });
-            }
-          } catch (err) {
-            console.error('An error occurred while retrieving token. ', err);
-          }
-        }
-      }
+    const requestPermissionAndGetToken = async () => {
+       if ('Notification' in window && VAPID_KEY && user && firestore) {
+           try {
+               const permission = await Notification.requestPermission();
+               if (permission === 'granted') {
+                   const messaging = getMessaging();
+                   const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+                   if (currentToken) {
+                        const userRef = doc(firestore, 'users', user.uid);
+                        const userDoc = await getDoc(userRef);
+                        if (userDoc.exists() && userDoc.data()?.fcmToken !== currentToken) {
+                            await updateDoc(userRef, { fcmToken: currentToken });
+                        }
+                   } else {
+                       console.log('No registration token available. Request permission to generate one.');
+                   }
+               } else {
+                   console.log('Unable to get permission to notify.');
+               }
+           } catch (err) {
+               console.error('An error occurred while retrieving token or permission. ', err);
+           }
+       }
     };
-    handleTokenRefresh();
-  }, [user, firestore, wallet, userProfile]);
+    
+    // Only run this logic after the user is fully loaded and logged in
+    if (!loading && user && firestore) {
+        requestPermissionAndGetToken();
+    }
+
+    // Set up foreground message handling
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        const messaging = getMessaging();
+        const unsubscribe = onMessage(messaging, (payload) => {
+            console.log('Foreground message received.', payload);
+            toast({
+                title: payload.notification?.title,
+                description: payload.notification?.body,
+            });
+        });
+        return () => unsubscribe();
+    }
+
+  }, [user, firestore, loading, toast]);
 
 
   const createWallet = useCallback(async (): Promise<string> => {
