@@ -121,7 +121,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {
+        setIsInitializing(false);
+        return;
+    }
 
     let active = true;
 
@@ -155,8 +158,13 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
    // Handles requesting notification permission and saving FCM token
    useEffect(() => {
+    // This entire effect should only run on the client.
+    if (typeof window === 'undefined' || loading || !user || !firestore) {
+        return;
+    }
+
     const requestPermissionAndGetToken = async () => {
-       if ('Notification' in window && VAPID_KEY && user && firestore) {
+       if ('Notification' in window && 'serviceWorker' in navigator && VAPID_KEY) {
            try {
                const permission = await Notification.requestPermission();
                if (permission === 'granted') {
@@ -180,24 +188,20 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
        }
     };
     
-    if (!loading && user && firestore) {
-        requestPermissionAndGetToken();
-    }
+    requestPermissionAndGetToken();
 
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-        try {
-            const messaging = getMessaging();
-            const unsubscribe = onMessage(messaging, (payload) => {
-                console.log('Foreground message received.', payload);
-                toast({
-                    title: payload.notification?.title,
-                    description: payload.notification?.body,
-                });
+    try {
+        const messaging = getMessaging();
+        const unsubscribe = onMessage(messaging, (payload) => {
+            console.log('Foreground message received.', payload);
+            toast({
+                title: payload.notification?.title,
+                description: payload.notification?.body,
             });
-            return () => unsubscribe();
-        } catch (error) {
-            console.error('Firebase Messaging not available.', error);
-        }
+        });
+        return () => unsubscribe();
+    } catch (error) {
+        console.error('Firebase Messaging not available in this context.', error);
     }
 
   }, [user, firestore, loading, toast]);
@@ -317,3 +321,5 @@ export const useWallet = () => {
   }
   return context;
 };
+
+    
