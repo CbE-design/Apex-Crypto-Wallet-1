@@ -1,4 +1,3 @@
-
 import {
   SidebarContent,
   SidebarHeader,
@@ -7,7 +6,7 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, Settings, ShieldAlert, Bell, DollarSign } from "lucide-react";
+import { LayoutDashboard, Users, Settings, ShieldAlert, Bell, DollarSign, Mail } from "lucide-react";
 
 export function AdminSidebar() {
 
@@ -42,6 +41,14 @@ export function AdminSidebar() {
               <a href="/admin/notification-center">
                 <Bell />
                 Notification Center
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+           <SidebarMenuItem>
+            <SidebarMenuButton href="/admin/email-marketing" asChild>
+              <a href="/admin/email-marketing">
+                <Mail />
+                Email Marketing
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
