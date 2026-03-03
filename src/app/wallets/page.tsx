@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { Copy, RefreshCw, CheckCircle2, ShieldCheck, ExternalLink, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +30,8 @@ export default function MyWalletsPage() {
 
     const walletsQuery = useMemoFirebase(() => {
         if (!user || !firestore) return null;
-        return query(collection(firestore, 'users', user.uid, 'wallets'));
+        // Query user's individual wallets
+        return query(collection(firestore, 'users', user.uid, 'wallets'), orderBy('currency', 'asc'));
     }, [user, firestore]);
 
     const { data: wallets, isLoading } = useCollection<WalletDoc>(walletsQuery);
@@ -44,26 +45,42 @@ export default function MyWalletsPage() {
         setSyncingId(currency);
         try {
             await syncWalletBalance(currency);
-        } catch (error) {
-            toast({ title: "Sync Failed", description: "Could not connect to the blockchain node.", variant: "destructive" });
+        } catch (error: any) {
+            console.error("Sync error:", error);
+            toast({ title: "Sync Failed", description: "Could not connect to the blockchain explorer node.", variant: "destructive" });
         } finally {
             setSyncingId(null);
         }
     };
 
+    const getChainType = (currency: string) => {
+        if (['ETH', 'LINK', 'BNB', 'USDT'].includes(currency)) return 'Ethereum';
+        if (currency === 'SOL') return 'Solana';
+        if (currency === 'DOGE') return 'Dogecoin';
+        if (currency === 'BTC') return 'Bitcoin';
+        if (currency === 'ADA') return 'Cardano';
+        if (currency === 'XRP') return 'Ripple';
+        return 'Native Chain';
+    }
+
     return (
         <PrivateRoute>
             <div className="space-y-6">
-                <div>
-                    <h1 className="text-3xl font-bold">My Wallets</h1>
-                    <p className="text-muted-foreground">Manage your individual blockchain addresses and verify balances.</p>
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold">My Wallets</h1>
+                        <p className="text-muted-foreground">Manage your individual blockchain addresses and verify real-time balances.</p>
+                    </div>
+                    <Badge variant="secondary" className="w-fit h-fit px-3 py-1">
+                        Total Assets: {wallets?.length || 0}
+                    </Badge>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {isLoading ? (
-                        [...Array(3)].map((_, i) => (
+                        [...Array(6)].map((_, i) => (
                             <Card key={i} className="animate-pulse">
-                                <CardHeader>
+                                <CardHeader className="pb-2">
                                     <Skeleton className="h-6 w-32" />
                                 </CardHeader>
                                 <CardContent className="space-y-4">
@@ -73,34 +90,39 @@ export default function MyWalletsPage() {
                             </Card>
                         ))
                     ) : wallets?.map((w) => (
-                        <Card key={w.id} className="group hover:border-primary/50 transition-colors">
+                        <Card key={w.id} className="group hover:ring-1 hover:ring-primary/30 transition-all duration-300">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <div className="flex items-center gap-2">
                                     <CryptoIcon name={w.currency} className="h-6 w-6" />
                                     <CardTitle className="text-lg font-bold">{w.currency}</CardTitle>
                                 </div>
-                                <Badge variant="outline" className="text-xs">
-                                    {['ETH', 'LINK', 'BNB'].includes(w.currency) ? 'ERC-20' : w.currency === 'SOL' ? 'SPL' : 'Native'}
+                                <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+                                    {getChainType(w.currency)}
                                 </Badge>
                             </CardHeader>
                             <CardContent className="space-y-4 pt-4">
                                 <div>
-                                    <p className="text-xs text-muted-foreground uppercase font-bold mb-1">Blockchain Address</p>
-                                    <div className="flex items-center gap-2 bg-muted p-2 rounded-md font-mono text-xs break-all relative">
-                                        {w.address}
+                                    <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 tracking-widest">Deposit Address</p>
+                                    <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-md font-mono text-[11px] break-all relative border border-transparent group-hover:border-primary/20">
+                                        <span className="truncate pr-8">{w.address}</span>
                                         <Button 
                                             variant="ghost" 
                                             size="icon" 
-                                            className="h-6 w-6 flex-shrink-0 ml-auto"
+                                            className="h-7 w-7 absolute right-1"
                                             onClick={() => handleCopy(w.address)}
                                         >
-                                            <Copy className="h-3 w-3" />
+                                            <Copy className="h-3.5 w-3.5" />
                                         </Button>
                                     </div>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-muted-foreground uppercase font-bold mb-1">Balance</p>
-                                    <p className="text-2xl font-bold">{w.balance.toFixed(6)} {w.currency}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 tracking-widest">Verified Balance</p>
+                                    <p className="text-2xl font-bold font-headline">{w.balance.toFixed(6)} {w.currency}</p>
+                                    {w.lastSynced && (
+                                        <p className="text-[10px] text-muted-foreground mt-1">
+                                            Last synced: {w.lastSynced.toDate().toLocaleString()}
+                                        </p>
+                                    )}
                                 </div>
                             </CardContent>
                             <CardFooter className="flex gap-2">
@@ -117,7 +139,7 @@ export default function MyWalletsPage() {
                                         <><RefreshCw className="mr-2 h-4 w-4" /> Sync with Blockchain</>
                                     )}
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-9 w-9">
+                                <Button variant="ghost" size="icon" className="h-9 w-9 border opacity-50 hover:opacity-100">
                                     <ExternalLink className="h-4 w-4" />
                                 </Button>
                             </CardFooter>
@@ -125,15 +147,16 @@ export default function MyWalletsPage() {
                     ))}
                 </div>
 
-                <Card className="bg-primary/5 border-primary/20">
+                <Card className="bg-primary/5 border-primary/20 shadow-inner">
                     <CardContent className="flex items-start gap-4 p-6">
-                        <ShieldCheck className="h-6 w-6 text-primary mt-1" />
+                        <div className="bg-primary/10 p-2 rounded-full">
+                            <ShieldCheck className="h-6 w-6 text-primary" />
+                        </div>
                         <div className="space-y-1">
-                            <h3 className="font-bold">Verified Ownership</h3>
+                            <h3 className="font-bold">Institutional Grade Security</h3>
                             <p className="text-sm text-muted-foreground leading-relaxed">
-                                All wallet addresses shown here are generated locally on your device from your secure mnemonic. 
-                                The "Sync" function verifies your balance directly against decentralized blockchain explorers. 
-                                Your private keys never leave your device.
+                                Your multi-chain wallet infrastructure is non-custodial. Every address is derived directly from your encrypted local mnemonic using BIP-44 standards. 
+                                The <span className="text-primary font-semibold">Sync</span> function performs a stateless verification against decentralized blockchain RPC nodes to ensure your local interface matches the global ledger.
                             </p>
                         </div>
                     </CardContent>

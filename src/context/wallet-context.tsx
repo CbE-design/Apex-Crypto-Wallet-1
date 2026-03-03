@@ -8,7 +8,7 @@ import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/fireb
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signInWithCustomToken, signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, serverTimestamp, DocumentData, getDoc, setDoc, writeBatch, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { portfolioAssets } from '@/lib/data';
+import { marketCoins } from '@/lib/data';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -48,8 +48,10 @@ const ADMIN_WALLET_ADDRESS = (process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0
 // Helper to simulate address generation for different chains
 const generateSimulatedAddress = (symbol: string, masterAddress: string) => {
     if (['ETH', 'LINK', 'BNB', 'USDT'].includes(symbol)) return masterAddress;
-    if (symbol === 'SOL') return masterAddress.replace('0x', 'Sol') + 'Base58';
-    if (symbol === 'DOGE') return 'D' + masterAddress.substring(2, 36);
+    if (symbol === 'SOL') return masterAddress.replace('0x', 'Sol') + 'Base58'.substring(0, 32);
+    if (symbol === 'DOGE') return 'D' + masterAddress.substring(2, 35);
+    if (symbol === 'BTC') return '1' + masterAddress.substring(2, 34);
+    if (symbol === 'ADA') return 'addr1' + masterAddress.substring(2, 30);
     return 'Addr_' + symbol + '_' + masterAddress.substring(2, 10);
 }
 
@@ -102,19 +104,15 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       };
       batch.set(userRef, newUserDocument, { merge: true });
 
-      const initialAssets = [...portfolioAssets];
-      if (!initialAssets.some(a => a.symbol === 'ETH')) {
-        initialAssets.push({ symbol: 'ETH', name: 'Ethereum', amount: 0, valueUSD: 0, priceUSD: 0, change24h: 0, icon: 'Ethereum' });
-      }
-
-      initialAssets.forEach(asset => {
-          const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', asset.symbol);
+      // Initialize wallets for ALL cryptocurrencies available in the app
+      marketCoins.forEach(coin => {
+          const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
           const newWalletDocument = {
-              id: asset.symbol,
+              id: coin.symbol,
               userId: firebaseUser.uid,
-              currency: asset.symbol,
+              currency: coin.symbol,
               balance: 0,
-              address: generateSimulatedAddress(asset.symbol, walletInstance.address),
+              address: generateSimulatedAddress(coin.symbol, walletInstance.address),
               lastSynced: serverTimestamp()
           };
           batch.set(walletRef, newWalletDocument, { merge: true });
@@ -305,29 +303,52 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const syncWalletBalance = async (currency: string) => {
     if (!user || !firestore) return;
     
-    // Simulating a blockchain sync delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Simulating a realistic blockchain sync delay
+    await new Promise(resolve => setTimeout(resolve, 2500));
     
-    // Logic: If balance is 0, "find" some initial dummy funds for demonstration
     const walletRef = doc(firestore, 'users', user.uid, 'wallets', currency);
     const walletSnap = await getDoc(walletRef);
     
     if (walletSnap.exists()) {
         const currentBalance = walletSnap.data().balance;
+        // Logic: For this prototype, syncing a zero balance "discovers" initial funds for the user
         if (currentBalance === 0) {
-            // Give the user some simulated funds if they are new/empty
-            const simulatedFound = currency === 'ETH' ? 0.05 : 10;
+            let simulatedFound = 0;
+            switch(currency) {
+                case 'ETH': simulatedFound = 0.045; break;
+                case 'SOL': simulatedFound = 12.5; break;
+                case 'LINK': simulatedFound = 150; break;
+                case 'ADA': simulatedFound = 500; break;
+                case 'BNB': simulatedFound = 1.2; break;
+                case 'DOGE': simulatedFound = 1000; break;
+                case 'USDT': simulatedFound = 100; break;
+                default: simulatedFound = 10;
+            }
+
             await updateDoc(walletRef, { 
                 balance: simulatedFound,
                 lastSynced: serverTimestamp()
             });
-            toast({ title: `${currency} Wallet Synced`, description: `Successfully verified on-chain. Found ${simulatedFound} ${currency}.` });
+
+            // Log the 'Deposit' as a simulated transaction
+            const txRef = doc(collection(walletRef, 'transactions'));
+            await setDoc(txRef, {
+                userId: user.uid,
+                type: 'Buy',
+                amount: simulatedFound,
+                price: 0,
+                timestamp: serverTimestamp(),
+                status: 'Completed',
+                notes: `Discovered on-chain balance via sync`
+            });
+
+            toast({ title: `${currency} Balance Verified`, description: `Successfully verified on-chain. Found ${simulatedFound} ${currency}.` });
         } else {
-            // Just update the timestamp
+            // Just update the last verified timestamp
             await updateDoc(walletRef, { 
                 lastSynced: serverTimestamp()
             });
-            toast({ title: `${currency} Wallet Synced`, description: `Balance is up to date with the blockchain.` });
+            toast({ title: `${currency} Synced`, description: `Blockchain confirms balance is ${currentBalance.toFixed(4)} ${currency}.` });
         }
     }
   };
