@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -68,7 +69,10 @@ export default function SendReceivePage() {
     if (wallet?.address) {
       QRCode.toDataURL(wallet.address, { errorCorrectionLevel: 'H', width: 200 })
         .then(setQrCodeDataUrl)
-        .catch(err => console.error('Failed to generate QR code', err));
+        .catch(err => {
+            console.error('Failed to generate QR code', err);
+            setQrCodeDataUrl('');
+        });
     }
   }, [wallet?.address]);
 
@@ -266,7 +270,9 @@ export default function SendReceivePage() {
                         {qrCodeDataUrl ? (
                             <Image src={qrCodeDataUrl} alt="Wallet QR Code" width={200} height={200} />
                         ) : (
-                            <div className="w-[200px] h-[200px] bg-muted animate-pulse rounded-md" />
+                            <div className="w-[200px] h-[200px] bg-muted animate-pulse rounded-md flex items-center justify-center">
+                                <Loader2 className="animate-spin text-muted-foreground" />
+                            </div>
                         )}
                     </div>
                     <p className="text-sm text-center text-muted-foreground">Your primary wallet address:</p>

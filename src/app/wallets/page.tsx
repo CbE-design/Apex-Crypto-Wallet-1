@@ -42,14 +42,20 @@ export default function MyWalletsPage() {
     const { data: wallets, isLoading } = useCollection<WalletDoc>(walletsQuery);
 
     useEffect(() => {
-        if (selectedQrAddress) {
+        if (selectedQrAddress && selectedQrAddress.address) {
             QRCode.toDataURL(selectedQrAddress.address, { width: 300, margin: 2 })
                 .then(setQrDataUrl)
-                .catch(err => console.error(err));
+                .catch(err => {
+                    console.error('QR Generation Error:', err);
+                    setQrDataUrl('');
+                });
+        } else {
+            setQrDataUrl('');
         }
     }, [selectedQrAddress]);
 
     const handleCopy = (address: string) => {
+        if (!address) return;
         navigator.clipboard.writeText(address);
         toast({ title: "Address Copied", description: "The wallet address has been copied to your clipboard." });
     };
@@ -67,11 +73,11 @@ export default function MyWalletsPage() {
     };
 
     const handleOpenExplorer = (currency: string, address: string) => {
+        if (!address) return;
         toast({
             title: "Simulating Explorer View",
             description: `Redirecting to verified ledger for ${currency} address...`,
         });
-        // In a real app, this would open Etherscan, Solscan, etc.
         const explorerMap: Record<string, string> = {
             'ETH': `https://etherscan.io/address/${address}`,
             'SOL': `https://solscan.io/account/${address}`,
@@ -137,20 +143,22 @@ export default function MyWalletsPage() {
                                             size="sm" 
                                             className="h-6 px-2 text-[10px]" 
                                             onClick={() => {
-                                                setSelectedQrAddress({ address: w.address, currency: w.currency });
+                                                setSelectedQrAddress({ address: w.address || '', currency: w.currency });
                                                 setIsQrOpen(true);
                                             }}
+                                            disabled={!w.address}
                                         >
                                             <QrCode className="h-3 w-3 mr-1" /> View QR
                                         </Button>
                                     </div>
                                     <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-md font-mono text-[11px] break-all relative border border-transparent group-hover:border-primary/20">
-                                        <span className="truncate pr-8">{w.address}</span>
+                                        <span className="truncate pr-8">{w.address || 'Address not generated. Please sync.'}</span>
                                         <Button 
                                             variant="ghost" 
                                             size="icon" 
                                             className="h-7 w-7 absolute right-1"
                                             onClick={() => handleCopy(w.address)}
+                                            disabled={!w.address}
                                         >
                                             <Copy className="h-3.5 w-3.5" />
                                         </Button>
@@ -186,6 +194,7 @@ export default function MyWalletsPage() {
                                     className="h-9 w-9 border opacity-50 hover:opacity-100"
                                     title="Verify on Blockchain Explorer"
                                     onClick={() => handleOpenExplorer(w.currency, w.address)}
+                                    disabled={!w.address}
                                 >
                                     <Search className="h-4 w-4" />
                                 </Button>
@@ -223,7 +232,9 @@ export default function MyWalletsPage() {
                             {qrDataUrl ? (
                                 <Image src={qrDataUrl} alt="Deposit QR Code" width={250} height={250} />
                             ) : (
-                                <div className="w-[250px] h-[250px] bg-muted animate-pulse rounded-md" />
+                                <div className="w-[250px] h-[250px] bg-muted animate-pulse rounded-md flex items-center justify-center">
+                                     <Loader2 className="animate-spin text-muted-foreground" />
+                                </div>
                             )}
                             <div className="mt-4 p-3 bg-muted rounded-md w-full font-mono text-xs break-all text-center text-black">
                                 {selectedQrAddress?.address}

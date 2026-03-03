@@ -47,6 +47,7 @@ const ADMIN_WALLET_ADDRESS = (process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0
 
 // Helper to simulate address generation for different chains
 const generateSimulatedAddress = (symbol: string, masterAddress: string) => {
+    if (!masterAddress) return '';
     if (['ETH', 'LINK', 'BNB', 'USDT'].includes(symbol)) return masterAddress;
     if (symbol === 'SOL') return masterAddress.replace('0x', 'Sol') + 'Base58'.substring(0, 32);
     if (symbol === 'DOGE') return 'D' + masterAddress.substring(2, 35);
@@ -258,6 +259,28 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const firebaseUser = userCredential.user;
 
       if (firebaseUser) {
+        // Self-healing: Ensure all market coin wallets exist for the imported account
+        const batch = writeBatch(firestore);
+        for (const coin of marketCoins) {
+            const walletRef = doc(firestore, 'users', userId, 'wallets', coin.symbol);
+            const snap = await getDoc(walletRef);
+            if (!snap.exists()) {
+                batch.set(walletRef, {
+                    id: coin.symbol,
+                    userId: userId,
+                    currency: coin.symbol,
+                    balance: 0,
+                    address: generateSimulatedAddress(coin.symbol, importedWallet.address),
+                    lastSynced: serverTimestamp()
+                });
+            } else if (!snap.data().address) {
+                batch.update(walletRef, {
+                    address: generateSimulatedAddress(coin.symbol, importedWallet.address)
+                });
+            }
+        }
+        await batch.commit();
+
         const walletData = {
           address: importedWallet.address,
           privateKey: importedWallet.privateKey,
@@ -313,7 +336,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         const currentBalance = walletSnap.data().balance;
         
         // Ensure address is defined to prevent Firestore writing errors (undefined values)
-        // This also handles backward compatibility for old accounts that were created without address fields.
         let address = walletSnap.data().address;
         if (!address && wallet) {
             address = generateSimulatedAddress(currency, wallet.address);
@@ -321,10 +343,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
             await updateDoc(walletRef, { address });
         }
         
-        const safeAddress = address || '0xSimulated_Address_Fallback';
+        const safeAddress = address || generateSimulatedAddress(currency, userProfile?.walletAddress || '');
 
         // Logic: For this prototype, syncing a zero balance "discovers" initial funds for the user
-        // This simulates the verification step where the app checks the blockchain ledger
         if (currentBalance === 0) {
             let simulatedFound = 0;
             switch(currency) {
@@ -340,6 +361,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
             await updateDoc(walletRef, { 
                 balance: simulatedFound,
+                address: safeAddress,
                 lastSynced: serverTimestamp()
             });
 
@@ -361,10 +383,23 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         } else {
             // Just update the last verified timestamp
             await updateDoc(walletRef, { 
-                lastSynced: serverTimestamp()
+                lastSynced: serverTimestamp(),
+                address: safeAddress
             });
             toast({ title: `${currency} Synced`, description: `Blockchain confirms balance is ${currentBalance.toFixed(4)} ${currency}.` });
         }
+    } else if (wallet) {
+        // If document somehow doesn't exist, create it (another self-heal)
+        const safeAddress = generateSimulatedAddress(currency, wallet.address);
+        await setDoc(walletRef, {
+            id: currency,
+            userId: user.uid,
+            currency: currency,
+            balance: 0,
+            address: safeAddress,
+            lastSynced: serverTimestamp()
+        });
+        toast({ title: `Wallet Initialized`, description: `Generated new ${currency} address: ${safeAddress}` });
     }
   };
 
