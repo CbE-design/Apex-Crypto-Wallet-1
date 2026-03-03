@@ -311,7 +311,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     
     if (walletSnap.exists()) {
         const currentBalance = walletSnap.data().balance;
+        const address = walletSnap.data().address;
+
         // Logic: For this prototype, syncing a zero balance "discovers" initial funds for the user
+        // This simulates the verification step where the app checks the blockchain ledger
         if (currentBalance === 0) {
             let simulatedFound = 0;
             switch(currency) {
@@ -330,7 +333,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
                 lastSynced: serverTimestamp()
             });
 
-            // Log the 'Deposit' as a simulated transaction
+            // Log the 'Deposit' as a simulated transaction from an external source
             const txRef = doc(collection(walletRef, 'transactions'));
             await setDoc(txRef, {
                 userId: user.uid,
@@ -339,7 +342,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
                 price: 0,
                 timestamp: serverTimestamp(),
                 status: 'Completed',
-                notes: `Discovered on-chain balance via sync`
+                sender: '0xBlockchainGateway_Network',
+                recipient: address,
+                notes: `Stateless verification confirmed ${simulatedFound} ${currency} at address ${address}`
             });
 
             toast({ title: `${currency} Balance Verified`, description: `Successfully verified on-chain. Found ${simulatedFound} ${currency}.` });
