@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles, Bot, Repeat, ShieldCheck, Banknote } from "lucide-react";
+import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles, Bot, Repeat, ShieldCheck, Banknote, Wallet } from "lucide-react";
 import { useWallet } from "@/context/wallet-context";
 
 export function AppSidebar() {
@@ -27,6 +27,14 @@ export function AppSidebar() {
               <a href="/">
                 <LayoutDashboard />
                 Dashboard
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton href="/wallets" asChild>
+              <a href="/wallets">
+                <Wallet />
+                My Wallets
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
