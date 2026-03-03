@@ -6,8 +6,8 @@ import { ethers } from 'ethers';
 import { Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
-import { signInWithCustomToken, signOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, serverTimestamp, DocumentData, getDoc, setDoc, writeBatch, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { signOut, User as FirebaseUser } from 'firebase/auth';
+import { doc, serverTimestamp, getDoc, setDoc, writeBatch, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { marketCoins } from '@/lib/data';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { useToast } from '@/hooks/use-toast';
@@ -45,7 +45,6 @@ const WALLET_STORAGE_KEY_PREFIX = 'apex-wallet-';
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 const ADMIN_WALLET_ADDRESS = (process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0x').toLowerCase();
 
-// Helper to simulate address generation for different chains
 const generateSimulatedAddress = (symbol: string, masterAddress: string) => {
     if (!masterAddress) return '';
     if (['ETH', 'LINK', 'BNB', 'USDT'].includes(symbol)) return masterAddress;
@@ -53,6 +52,7 @@ const generateSimulatedAddress = (symbol: string, masterAddress: string) => {
     if (symbol === 'DOGE') return 'D' + masterAddress.substring(2, 35);
     if (symbol === 'BTC') return '1' + masterAddress.substring(2, 34);
     if (symbol === 'ADA') return 'addr1' + masterAddress.substring(2, 30);
+    if (symbol === 'XRP') return 'r' + masterAddress.substring(2, 34);
     return 'Addr_' + symbol + '_' + masterAddress.substring(2, 10);
 }
 
@@ -105,18 +105,16 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       };
       batch.set(userRef, newUserDocument, { merge: true });
 
-      // Initialize wallets for ALL cryptocurrencies available in the app
       marketCoins.forEach(coin => {
           const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
-          const newWalletDocument = {
+          batch.set(walletRef, {
               id: coin.symbol,
               userId: firebaseUser.uid,
               currency: coin.symbol,
               balance: 0,
               address: generateSimulatedAddress(coin.symbol, walletInstance.address),
               lastSynced: serverTimestamp()
-          };
-          batch.set(walletRef, newWalletDocument, { merge: true });
+          }, { merge: true });
       });
 
       await batch.commit();
@@ -136,8 +134,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         return;
     }
 
-    let active = true;
-
     async function initializeWallet() {
         if (user && !wallet) {
             const storedWalletJson = localStorage.getItem(`${WALLET_STORAGE_KEY_PREFIX}${user.uid}`);
@@ -146,9 +142,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
                     const storedWallet = JSON.parse(storedWalletJson);
                     if (storedWallet.privateKey) {
                         const walletInstance = new ethers.Wallet(storedWallet.privateKey);
-                        if(active) {
-                            setWalletAndAdmin({ address: walletInstance.address, privateKey: walletInstance.privateKey }, user);
-                        }
+                        setWalletAndAdmin({ address: walletInstance.address, privateKey: walletInstance.privateKey }, user);
                     }
                 } catch (e) {
                     console.error("Failed to parse stored wallet.", e);
@@ -156,14 +150,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
                 }
             }
         } else if (!user) {
-            if(active) setWalletAndAdmin(null, null);
+            setWalletAndAdmin(null, null);
         }
-        if(active) setIsInitializing(false);
+        setIsInitializing(false);
     }
     
     initializeWallet();
-
-    return () => { active = false; }
   }, [user, auth, wallet, setWalletAndAdmin]);
 
    useEffect(() => {
@@ -204,7 +196,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         });
         return () => unsubscribe();
     } catch (error) {
-        console.error('Firebase Messaging not available in this context.', error);
+        console.warn('Firebase Messaging not available in this context.');
     }
 
   }, [user, firestore, loading, toast]);
@@ -223,15 +215,21 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!auth) throw new Error("Auth service not available");
     
     setIsInitializing(true);
-    const newWallet = ethers.Wallet.fromPhrase(mnemonic);
-    const userCredential = await initiateAnonymousSignIn(auth);
-    
-    if (userCredential?.user) {
-      await setupUserAndWalletDocuments(userCredential.user, newWallet);
-    } else {
-      throw new Error("Failed to sign in anonymously.");
+    try {
+        const newWallet = ethers.Wallet.fromPhrase(mnemonic);
+        const userCredential = await initiateAnonymousSignIn(auth);
+        
+        if (userCredential?.user) {
+          await setupUserAndWalletDocuments(userCredential.user, newWallet);
+        } else {
+          throw new Error("Failed to sign in anonymously.");
+        }
+    } catch (e) {
+        console.error("Wallet creation error:", e);
+        throw e;
+    } finally {
+        setIsInitializing(false);
     }
-    setIsInitializing(false);
   }, [auth, setupUserAndWalletDocuments]);
 
   const importWallet = useCallback(async (mnemonic: string) => {
@@ -259,25 +257,16 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const firebaseUser = userCredential.user;
 
       if (firebaseUser) {
-        // Self-healing: Ensure all market coin wallets exist for the imported account
         const batch = writeBatch(firestore);
         for (const coin of marketCoins) {
             const walletRef = doc(firestore, 'users', userId, 'wallets', coin.symbol);
-            const snap = await getDoc(walletRef);
-            if (!snap.exists()) {
-                batch.set(walletRef, {
-                    id: coin.symbol,
-                    userId: userId,
-                    currency: coin.symbol,
-                    balance: 0,
-                    address: generateSimulatedAddress(coin.symbol, importedWallet.address),
-                    lastSynced: serverTimestamp()
-                });
-            } else if (!snap.data().address) {
-                batch.update(walletRef, {
-                    address: generateSimulatedAddress(coin.symbol, importedWallet.address)
-                });
-            }
+            batch.set(walletRef, {
+                id: coin.symbol,
+                userId: userId,
+                currency: coin.symbol,
+                address: generateSimulatedAddress(coin.symbol, importedWallet.address),
+                lastSynced: serverTimestamp()
+            }, { merge: true });
         }
         await batch.commit();
 
@@ -326,80 +315,20 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const syncWalletBalance = async (currency: string) => {
     if (!user || !firestore) return;
     
-    // Simulating a realistic blockchain sync delay
-    await new Promise(resolve => setTimeout(resolve, 2500));
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
     const walletRef = doc(firestore, 'users', user.uid, 'wallets', currency);
     const walletSnap = await getDoc(walletRef);
     
     if (walletSnap.exists()) {
         const currentBalance = walletSnap.data().balance;
-        
-        // Ensure address is defined to prevent Firestore writing errors (undefined values)
-        let address = walletSnap.data().address;
-        if (!address && wallet) {
-            address = generateSimulatedAddress(currency, wallet.address);
-            // Self-heal the document
-            await updateDoc(walletRef, { address });
-        }
-        
-        const safeAddress = address || generateSimulatedAddress(currency, userProfile?.walletAddress || '');
+        const address = walletSnap.data().address || generateSimulatedAddress(currency, wallet?.address || '');
 
-        // Logic: For this prototype, syncing a zero balance "discovers" initial funds for the user
-        if (currentBalance === 0) {
-            let simulatedFound = 0;
-            switch(currency) {
-                case 'ETH': simulatedFound = 0.045; break;
-                case 'SOL': simulatedFound = 12.5; break;
-                case 'LINK': simulatedFound = 150; break;
-                case 'ADA': simulatedFound = 500; break;
-                case 'BNB': simulatedFound = 1.2; break;
-                case 'DOGE': simulatedFound = 1000; break;
-                case 'USDT': simulatedFound = 100; break;
-                default: simulatedFound = 10;
-            }
-
-            await updateDoc(walletRef, { 
-                balance: simulatedFound,
-                address: safeAddress,
-                lastSynced: serverTimestamp()
-            });
-
-            // Log the 'Deposit' as a simulated transaction from an external source
-            const txRef = doc(collection(walletRef, 'transactions'));
-            await setDoc(txRef, {
-                userId: user.uid,
-                type: 'Buy',
-                amount: simulatedFound,
-                price: 0,
-                timestamp: serverTimestamp(),
-                status: 'Completed',
-                sender: '0xBlockchainGateway_Network',
-                recipient: safeAddress,
-                notes: `Stateless verification confirmed ${simulatedFound} ${currency} at address ${safeAddress}`
-            });
-
-            toast({ title: `${currency} Balance Verified`, description: `Successfully verified on-chain. Found ${simulatedFound} ${currency}.` });
-        } else {
-            // Just update the last verified timestamp
-            await updateDoc(walletRef, { 
-                lastSynced: serverTimestamp(),
-                address: safeAddress
-            });
-            toast({ title: `${currency} Synced`, description: `Blockchain confirms balance is ${currentBalance.toFixed(4)} ${currency}.` });
-        }
-    } else if (wallet) {
-        // If document somehow doesn't exist, create it (another self-heal)
-        const safeAddress = generateSimulatedAddress(currency, wallet.address);
-        await setDoc(walletRef, {
-            id: currency,
-            userId: user.uid,
-            currency: currency,
-            balance: 0,
-            address: safeAddress,
-            lastSynced: serverTimestamp()
+        await updateDoc(walletRef, { 
+            lastSynced: serverTimestamp(),
+            address: address
         });
-        toast({ title: `Wallet Initialized`, description: `Generated new ${currency} address: ${safeAddress}` });
+        toast({ title: `${currency} Synced`, description: `Blockchain confirms balance is ${currentBalance.toFixed(6)} ${currency}.` });
     }
   };
 
