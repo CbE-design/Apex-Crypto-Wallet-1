@@ -1,4 +1,6 @@
 
+'use client';
+
 import {
   SidebarContent,
   SidebarHeader,
@@ -7,7 +9,7 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles, Bot, Repeat, ShieldCheck } from "lucide-react";
+import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles, Bot, Repeat, ShieldCheck, Banknote } from "lucide-react";
 import { useWallet } from "@/context/wallet-context";
 
 export function AppSidebar() {
@@ -49,6 +51,14 @@ export function AppSidebar() {
               <a href="/swap">
                 <Repeat />
                 Swap
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+           <SidebarMenuItem>
+            <SidebarMenuButton href="/cash-out" asChild>
+              <a href="/cash-out">
+                <Banknote />
+                Cash Out
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>

@@ -22,7 +22,7 @@ export interface MarketCoin {
 
 export interface Transaction {
   id: string;
-  type: 'Buy' | 'Sell';
+  type: 'Buy' | 'Sell' | 'Withdrawal';
   amount: number;
   price: number;
   status: 'Completed' | 'Pending' | 'Failed';
@@ -92,5 +92,3 @@ export interface Currency {
     symbol: string;
     name: string;
 }
-
-    
