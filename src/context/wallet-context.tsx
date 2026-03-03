@@ -311,7 +311,17 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     
     if (walletSnap.exists()) {
         const currentBalance = walletSnap.data().balance;
-        const address = walletSnap.data().address;
+        
+        // Ensure address is defined to prevent Firestore writing errors (undefined values)
+        // This also handles backward compatibility for old accounts that were created without address fields.
+        let address = walletSnap.data().address;
+        if (!address && wallet) {
+            address = generateSimulatedAddress(currency, wallet.address);
+            // Self-heal the document
+            await updateDoc(walletRef, { address });
+        }
+        
+        const safeAddress = address || '0xSimulated_Address_Fallback';
 
         // Logic: For this prototype, syncing a zero balance "discovers" initial funds for the user
         // This simulates the verification step where the app checks the blockchain ledger
@@ -343,8 +353,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
                 timestamp: serverTimestamp(),
                 status: 'Completed',
                 sender: '0xBlockchainGateway_Network',
-                recipient: address,
-                notes: `Stateless verification confirmed ${simulatedFound} ${currency} at address ${address}`
+                recipient: safeAddress,
+                notes: `Stateless verification confirmed ${simulatedFound} ${currency} at address ${safeAddress}`
             });
 
             toast({ title: `${currency} Balance Verified`, description: `Successfully verified on-chain. Found ${simulatedFound} ${currency}.` });
