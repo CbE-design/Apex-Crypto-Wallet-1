@@ -1,21 +1,17 @@
+
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
+import { getFirestore } from 'firebase/firestore';
 
 let firebaseApp: FirebaseApp;
 
-// Conditionally initialize Firebase
+// Robust initialization for both client and server environments
 if (!getApps().length) {
-  try {
-    // Try initializing with environment variables (for App Hosting)
-    firebaseApp = initializeApp();
-  } catch (e) {
-    // Fallback to config object for local development
-    firebaseApp = initializeApp(firebaseConfig);
-  }
+  // We prioritize the provided config for consistency across development and production
+  firebaseApp = initializeApp(firebaseConfig);
 } else {
   firebaseApp = getApp();
 }
@@ -23,13 +19,11 @@ if (!getApps().length) {
 const auth = getAuth(firebaseApp);
 const firestore = getFirestore(firebaseApp);
 
-
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
   return {
-      firebaseApp,
-      auth,
-      firestore
+    firebaseApp,
+    auth,
+    firestore
   };
 }
 

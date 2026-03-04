@@ -9,7 +9,6 @@ import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, serverTimestamp, getDoc, setDoc, writeBatch, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { marketCoins } from '@/lib/data';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -166,6 +165,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     const requestPermissionAndGetToken = async () => {
        if ('Notification' in window && 'serviceWorker' in navigator && VAPID_KEY) {
            try {
+               const { getMessaging, getToken, onMessage } = await import('firebase/messaging');
                const permission = await Notification.requestPermission();
                if (permission === 'granted') {
                    const messaging = getMessaging();
@@ -177,27 +177,27 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
                             await updateDoc(userRef, { fcmToken: currentToken });
                         }
                    }
+                   
+                   const unsubscribe = onMessage(messaging, (payload) => {
+                        toast({
+                            title: payload.notification?.title,
+                            description: payload.notification?.body,
+                        });
+                    });
+                    return unsubscribe;
                }
            } catch (err) {
-               console.error('An error occurred while retrieving token or permission. ', err);
+               console.warn('Firebase Messaging registration skipped or failed.', err);
            }
        }
     };
     
-    requestPermissionAndGetToken();
-
-    try {
-        const messaging = getMessaging();
-        const unsubscribe = onMessage(messaging, (payload) => {
-            toast({
-                title: payload.notification?.title,
-                description: payload.notification?.body,
-            });
+    let unsubscribePromise = requestPermissionAndGetToken();
+    return () => {
+        unsubscribePromise.then(unsubscribe => {
+            if (typeof unsubscribe === 'function') unsubscribe();
         });
-        return () => unsubscribe();
-    } catch (error) {
-        console.warn('Firebase Messaging not available in this context.');
-    }
+    };
 
   }, [user, firestore, loading, toast]);
 
@@ -253,6 +253,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const userDoc = querySnapshot.docs[0];
       const userId = userDoc.id;
 
+      // Signing in with the existing UID to maintain account continuity
       const userCredential = await initiateAnonymousSignIn(auth, userId);
       const firebaseUser = userCredential.user;
 
