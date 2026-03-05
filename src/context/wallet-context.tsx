@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
@@ -253,7 +252,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const userDoc = querySnapshot.docs[0];
       const userId = userDoc.id;
 
-      // Signing in with the existing UID to maintain account continuity
       const userCredential = await initiateAnonymousSignIn(auth, userId);
       const firebaseUser = userCredential.user;
 

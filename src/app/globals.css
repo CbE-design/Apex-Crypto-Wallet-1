@@ -76,6 +76,9 @@
   }
   body {
     @apply bg-background text-foreground font-medium;
+    overflow: hidden; /* Prevent body scrolling for Android feel */
+    height: 100dvh;
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
@@ -109,4 +112,20 @@ main > * {
     100% {
         transform: translate(-50%, -50%) rotate(360deg);
     }
+}
+
+/* Touch feedback for Android */
+.btn-touch:active {
+    transform: scale(0.96);
+    transition: transform 0.1s ease-out;
+}
+
+.scroll-container {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overscroll-behavior-y: contain;
+}
+
+.scroll-container::-webkit-scrollbar {
+    display: none;
 }

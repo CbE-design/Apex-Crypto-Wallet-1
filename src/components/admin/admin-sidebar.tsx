@@ -6,7 +6,7 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, Settings, ShieldAlert, Bell, DollarSign, Mail } from "lucide-react";
+import { LayoutDashboard, Settings, ShieldAlert, Bell, DollarSign, Mail } from "lucide-react";
 import Link from "next/link";
 
 export function AdminSidebar() {

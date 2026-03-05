@@ -1,10 +1,10 @@
-
 'use client';
 
 import { usePathname } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/sidebar';
 import { Header } from '@/components/header';
+import { MobileNav } from '@/components/mobile-nav';
 
 export default function AppContent({
   children,
@@ -16,28 +16,25 @@ export default function AppContent({
   const isPublicPage = pathname === '/login';
 
   if (isPublicPage) {
-    return <>{children}</>;
+    return <div className="h-full overflow-y-auto">{children}</div>;
   }
 
-  // The admin layout is now handled by src/app/admin/layout.tsx
-  // This component will wrap all pages, including admin pages.
   const isAdminPage = pathname.startsWith('/admin');
 
   return (
-     <SidebarProvider>
-        <div className="flex h-full bg-transparent">
-            {isAdminPage ? null : (
-                <Sidebar>
+     <SidebarProvider defaultOpen={true}>
+        <div className="flex h-svh w-full bg-background overflow-hidden">
+            {!isAdminPage && (
+                <Sidebar collapsible="icon" className="hidden md:flex">
                     <AppSidebar />
                 </Sidebar>
             )}
-            <SidebarInset>
-            <div className="flex flex-col h-full">
-                {!isAdminPage && <Header />}
-                <main className={`flex-1 overflow-y-auto ${!isAdminPage ? 'p-4 md:p-6 lg:p-8 aurora-bg' : ''}`}>
+            <SidebarInset className="flex flex-col h-full overflow-hidden">
+                <Header />
+                <main className={`flex-1 overflow-y-auto scroll-container aurora-bg ${!isAdminPage ? 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8' : 'p-4'}`}>
                     {children}
                 </main>
-            </div>
+                {!isAdminPage && <MobileNav />}
             </SidebarInset>
         </div>
     </SidebarProvider>
