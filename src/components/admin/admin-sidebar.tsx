@@ -7,13 +7,14 @@ import {
   SidebarFooter
 } from "@/components/ui/sidebar";
 import { LayoutDashboard, Users, Settings, ShieldAlert, Bell, DollarSign, Mail } from "lucide-react";
+import Link from "next/link";
 
 export function AdminSidebar() {
   return (
     <>
       <SidebarHeader>
-        <div className="flex items-center gap-2">
-            <ShieldAlert className="text-primary" />
+        <div className="flex items-center gap-2 px-2 py-4">
+            <ShieldAlert className="text-primary h-6 w-6" />
             <h2 className="text-xl font-semibold text-primary">Admin Panel</h2>
         </div>
       </SidebarHeader>
@@ -21,34 +22,34 @@ export function AdminSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/admin">
+              <Link href="/admin">
                 <LayoutDashboard />
                 <span>Dashboard</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
            <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/admin/direct-send">
+              <Link href="/admin/direct-send">
                 <DollarSign />
                 <span>Direct Send</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
            <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/admin/notification-center">
+              <Link href="/admin/notification-center">
                 <Bell />
                 <span>Notification Center</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
            <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/admin/email-marketing">
+              <Link href="/admin/email-marketing">
                 <Mail />
                 <span>Email Marketing</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -56,9 +57,11 @@ export function AdminSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Settings">
-              <Settings />
-              <span>Settings</span>
+            <SidebarMenuButton tooltip="Settings" asChild>
+              <Link href="/settings">
+                <Settings />
+                <span>Settings</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

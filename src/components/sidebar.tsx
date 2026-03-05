@@ -8,8 +8,9 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { Coins, Image, LayoutDashboard, Send, Settings, Sparkles, Bot, Repeat, ShieldCheck, Banknote, Wallet } from "lucide-react";
+import { LayoutDashboard, Send, Settings, Sparkles, Bot, Repeat, ShieldCheck, Banknote, Wallet, Image as ImageIcon } from "lucide-react";
 import { useWallet } from "@/context/wallet-context";
+import Link from "next/link";
 
 export function AppSidebar() {
   const { isAdmin } = useWallet();
@@ -17,82 +18,87 @@ export function AppSidebar() {
   return (
     <>
       <SidebarHeader>
-        <h2 className="text-xl font-semibold text-primary">Apex Wallet</h2>
+        <div className="flex items-center gap-2 px-2 py-4">
+          <div className="bg-primary p-1.5 rounded-lg">
+            <Wallet className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <h2 className="text-xl font-bold text-primary">Apex Wallet</h2>
+        </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/">
+              <Link href="/">
                 <LayoutDashboard />
                 <span>Dashboard</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/wallets">
+              <Link href="/wallets">
                 <Wallet />
                 <span>My Wallets</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
            <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/ai-assistant">
+              <Link href="/ai-assistant">
                 <Bot />
                 <span>AI Assistant</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/send-receive">
+              <Link href="/send-receive">
                 <Send />
                 <span>Send & Receive</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/swap">
+              <Link href="/swap">
                 <Repeat />
                 <span>Swap</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
            <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/cash-out">
+              <Link href="/cash-out">
                 <Banknote />
                 <span>Cash Out</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           {isAdmin && (
             <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                    <a href="/admin">
+                    <Link href="/admin">
                         <ShieldCheck />
                         <span>Admin Panel</span>
-                    </a>
+                    </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>
           )}
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/coming-soon">
+              <Link href="/coming-soon">
                 <Sparkles />
                 <span>Staking</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/coming-soon">
-                <Image />
+              <Link href="/coming-soon">
+                <ImageIcon />
                 <span>NFTs</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -101,10 +107,10 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-                <a href="/settings">
+                <Link href="/settings">
                     <Settings />
                     <span>Settings</span>
-                </a>
+                </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
