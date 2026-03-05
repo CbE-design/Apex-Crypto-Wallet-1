@@ -76,7 +76,7 @@
   }
   body {
     @apply bg-background text-foreground font-medium;
-    overflow: hidden; /* Lock the viewport */
+    overflow: hidden;
     height: 100dvh;
     -webkit-tap-highlight-color: transparent;
     touch-action: none;
@@ -85,40 +85,20 @@
 
 .aurora-bg {
     position: relative;
-    overflow: hidden;
+    overflow-x: hidden;
 }
 
 .aurora-bg::before {
     content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 150%;
-    height: 150%;
-    background-image: radial-gradient(circle, hsl(var(--primary) / 0.1) 0%, transparent 40%),
-                      radial-gradient(circle, hsl(var(--accent) / 0.05) 50%, transparent 80%);
-    animation: aurora 20s infinite linear;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: radial-gradient(circle at 50% 50%, hsl(var(--primary) / 0.08) 0%, transparent 50%),
+                      radial-gradient(circle at 20% 80%, hsl(var(--accent) / 0.05) 0%, transparent 40%);
+    pointer-events: none;
     z-index: 0;
-}
-
-main > * {
-  z-index: 1;
-}
-
-@keyframes aurora {
-    0% {
-        transform: translate(-50%, -50%) rotate(0deg);
-    }
-    100% {
-        transform: translate(-50%, -50%) rotate(360deg);
-    }
-}
-
-/* Touch feedback for Android */
-.btn-touch:active {
-    transform: scale(0.96);
-    transition: transform 0.1s ease-out;
 }
 
 .scroll-container {
@@ -130,4 +110,9 @@ main > * {
 
 .scroll-container::-webkit-scrollbar {
     display: none;
+}
+
+.btn-touch:active {
+    transform: scale(0.96);
+    transition: transform 0.1s ease-out;
 }
