@@ -76,9 +76,10 @@
   }
   body {
     @apply bg-background text-foreground font-medium;
-    overflow: hidden; /* Prevent body scrolling for Android feel */
+    overflow: hidden; /* Lock the viewport */
     height: 100dvh;
     -webkit-tap-highlight-color: transparent;
+    touch-action: none;
   }
 }
 
@@ -124,6 +125,7 @@ main > * {
     scrollbar-width: none;
     -ms-overflow-style: none;
     overscroll-behavior-y: contain;
+    touch-action: pan-y;
 }
 
 .scroll-container::-webkit-scrollbar {

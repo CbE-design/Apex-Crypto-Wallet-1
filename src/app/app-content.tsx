@@ -23,7 +23,7 @@ export default function AppContent({
 
   return (
      <SidebarProvider defaultOpen={true}>
-        <div className="flex h-svh w-full bg-background overflow-hidden">
+        <div className="flex flex-col h-svh w-full bg-background overflow-hidden">
             {!isAdminPage && (
                 <Sidebar collapsible="icon" className="hidden md:flex">
                     <AppSidebar />
@@ -31,7 +31,7 @@ export default function AppContent({
             )}
             <SidebarInset className="flex flex-col h-full overflow-hidden">
                 <Header />
-                <main className={`flex-1 overflow-y-auto scroll-container aurora-bg ${!isAdminPage ? 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8' : 'p-4'}`}>
+                <main className={`flex-1 overflow-y-auto scroll-container aurora-bg ${!isAdminPage ? 'p-4 md:p-6 lg:p-8 pb-4' : 'p-4'}`}>
                     {children}
                 </main>
                 {!isAdminPage && <MobileNav />}
