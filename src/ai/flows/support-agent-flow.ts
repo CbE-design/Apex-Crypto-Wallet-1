@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -10,7 +9,6 @@
  */
 
 import {ai} from '@/ai/genkit';
-import { googleAI } from '@genkit-ai/google-genai';
 import { SupportAgentInputSchema, type SupportAgentInput, SupportAgentOutputSchema, type SupportAgentOutput } from '@/lib/types';
 
 
@@ -22,7 +20,7 @@ export async function supportAgent(
 
 const prompt = ai.definePrompt({
   name: 'supportAgentPrompt',
-  model: googleAI.model('gemini-1.5-pro-latest'),
+  model: 'googleai/gemini-1.5-pro',
   input: {schema: SupportAgentInputSchema},
   output: {schema: SupportAgentOutputSchema},
   prompt: `You are a friendly, helpful, and knowledgeable AI customer support agent for "Apex Crypto Wallet", a modern cryptocurrency wallet application.
