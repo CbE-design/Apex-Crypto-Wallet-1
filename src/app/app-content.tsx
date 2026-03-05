@@ -5,7 +5,6 @@ import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/sidebar';
 import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
-import { cn } from '@/lib/utils';
 
 export default function AppContent({
   children,
@@ -13,17 +12,16 @@ export default function AppContent({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-
   const isPublicPage = pathname === '/login';
 
   if (isPublicPage) {
-    return <div className="h-full overflow-y-auto">{children}</div>;
+    return <div className="h-svh w-full overflow-y-auto">{children}</div>;
   }
 
   const isAdminPage = pathname.startsWith('/admin');
 
   return (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={true} className="h-svh w-full overflow-hidden">
       <div className="flex flex-col h-svh w-full bg-background overflow-hidden">
         <div className="flex flex-1 overflow-hidden relative">
           {!isAdminPage && (
