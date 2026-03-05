@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -23,7 +22,7 @@ export function AppSidebar() {
       <SidebarContent className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton href="/" asChild>
+            <SidebarMenuButton asChild>
               <a href="/">
                 <LayoutDashboard />
                 Dashboard
@@ -31,7 +30,7 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="/wallets" asChild>
+            <SidebarMenuButton asChild>
               <a href="/wallets">
                 <Wallet />
                 My Wallets
@@ -39,7 +38,7 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
            <SidebarMenuItem>
-            <SidebarMenuButton href="/ai-assistant" asChild>
+            <SidebarMenuButton asChild>
               <a href="/ai-assistant">
                 <Bot />
                 AI Assistant
@@ -47,7 +46,7 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="/send-receive" asChild>
+            <SidebarMenuButton asChild>
               <a href="/send-receive">
                 <Send />
                 Send & Receive
@@ -55,7 +54,7 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="/swap" asChild>
+            <SidebarMenuButton asChild>
               <a href="/swap">
                 <Repeat />
                 Swap
@@ -63,7 +62,7 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
            <SidebarMenuItem>
-            <SidebarMenuButton href="/cash-out" asChild>
+            <SidebarMenuButton asChild>
               <a href="/cash-out">
                 <Banknote />
                 Cash Out
@@ -72,7 +71,7 @@ export function AppSidebar() {
           </SidebarMenuItem>
           {isAdmin && (
             <SidebarMenuItem>
-                <SidebarMenuButton href="/admin" asChild>
+                <SidebarMenuButton asChild>
                     <a href="/admin">
                         <ShieldCheck />
                         Admin Panel
@@ -81,7 +80,7 @@ export function AppSidebar() {
             </SidebarMenuItem>
           )}
           <SidebarMenuItem>
-            <SidebarMenuButton href="/coming-soon" asChild>
+            <SidebarMenuButton asChild>
               <a href="/coming-soon">
                 <Sparkles />
                 Staking
@@ -89,7 +88,7 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="/coming-soon" asChild>
+            <SidebarMenuButton asChild>
               <a href="/coming-soon">
                 <Image />
                 NFTs
@@ -101,7 +100,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton href="/settings" asChild>
+            <SidebarMenuButton asChild>
                 <a href="/settings">
                     <Settings />
                     Settings

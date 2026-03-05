@@ -21,7 +21,7 @@ export function AdminSidebar() {
       <SidebarContent className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton href="/admin" asChild>
+            <SidebarMenuButton asChild>
               <a href="/admin">
                 <LayoutDashboard />
                 Dashboard
@@ -29,7 +29,7 @@ export function AdminSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
            <SidebarMenuItem>
-            <SidebarMenuButton href="/admin/direct-send" asChild>
+            <SidebarMenuButton asChild>
               <a href="/admin/direct-send">
                 <DollarSign />
                 Direct Send
@@ -37,7 +37,7 @@ export function AdminSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
            <SidebarMenuItem>
-            <SidebarMenuButton href="/admin/notification-center" asChild>
+            <SidebarMenuButton asChild>
               <a href="/admin/notification-center">
                 <Bell />
                 Notification Center
@@ -45,7 +45,7 @@ export function AdminSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
            <SidebarMenuItem>
-            <SidebarMenuButton href="/admin/email-marketing" asChild>
+            <SidebarMenuButton asChild>
               <a href="/admin/email-marketing">
                 <Mail />
                 Email Marketing
@@ -57,7 +57,7 @@ export function AdminSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#" tooltip="Settings">
+            <SidebarMenuButton tooltip="Settings">
               <Settings />
               Settings
             </SidebarMenuButton>
