@@ -9,7 +9,6 @@ import {
 import { LayoutDashboard, Users, Settings, ShieldAlert, Bell, DollarSign, Mail } from "lucide-react";
 
 export function AdminSidebar() {
-
   return (
     <>
       <SidebarHeader>
@@ -24,7 +23,7 @@ export function AdminSidebar() {
             <SidebarMenuButton asChild>
               <a href="/admin">
                 <LayoutDashboard />
-                Dashboard
+                <span>Dashboard</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -32,7 +31,7 @@ export function AdminSidebar() {
             <SidebarMenuButton asChild>
               <a href="/admin/direct-send">
                 <DollarSign />
-                Direct Send
+                <span>Direct Send</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -40,7 +39,7 @@ export function AdminSidebar() {
             <SidebarMenuButton asChild>
               <a href="/admin/notification-center">
                 <Bell />
-                Notification Center
+                <span>Notification Center</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -48,7 +47,7 @@ export function AdminSidebar() {
             <SidebarMenuButton asChild>
               <a href="/admin/email-marketing">
                 <Mail />
-                Email Marketing
+                <span>Email Marketing</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -59,7 +58,7 @@ export function AdminSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Settings">
               <Settings />
-              Settings
+              <span>Settings</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

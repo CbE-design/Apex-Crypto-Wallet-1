@@ -25,7 +25,7 @@ export function AppSidebar() {
             <SidebarMenuButton asChild>
               <a href="/">
                 <LayoutDashboard />
-                Dashboard
+                <span>Dashboard</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -33,7 +33,7 @@ export function AppSidebar() {
             <SidebarMenuButton asChild>
               <a href="/wallets">
                 <Wallet />
-                My Wallets
+                <span>My Wallets</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -41,7 +41,7 @@ export function AppSidebar() {
             <SidebarMenuButton asChild>
               <a href="/ai-assistant">
                 <Bot />
-                AI Assistant
+                <span>AI Assistant</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -49,7 +49,7 @@ export function AppSidebar() {
             <SidebarMenuButton asChild>
               <a href="/send-receive">
                 <Send />
-                Send & Receive
+                <span>Send & Receive</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -57,7 +57,7 @@ export function AppSidebar() {
             <SidebarMenuButton asChild>
               <a href="/swap">
                 <Repeat />
-                Swap
+                <span>Swap</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -65,7 +65,7 @@ export function AppSidebar() {
             <SidebarMenuButton asChild>
               <a href="/cash-out">
                 <Banknote />
-                Cash Out
+                <span>Cash Out</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -74,7 +74,7 @@ export function AppSidebar() {
                 <SidebarMenuButton asChild>
                     <a href="/admin">
                         <ShieldCheck />
-                        Admin Panel
+                        <span>Admin Panel</span>
                     </a>
                 </SidebarMenuButton>
             </SidebarMenuItem>
@@ -83,7 +83,7 @@ export function AppSidebar() {
             <SidebarMenuButton asChild>
               <a href="/coming-soon">
                 <Sparkles />
-                Staking
+                <span>Staking</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -91,7 +91,7 @@ export function AppSidebar() {
             <SidebarMenuButton asChild>
               <a href="/coming-soon">
                 <Image />
-                NFTs
+                <span>NFTs</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -103,7 +103,7 @@ export function AppSidebar() {
             <SidebarMenuButton asChild>
                 <a href="/settings">
                     <Settings />
-                    Settings
+                    <span>Settings</span>
                 </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
