@@ -22,21 +22,25 @@ export default function AppContent({
   const isAdminPage = pathname.startsWith('/admin');
 
   return (
-     <SidebarProvider defaultOpen={true}>
-        <div className="flex flex-col h-svh w-full bg-background overflow-hidden">
-            {!isAdminPage && (
-                <Sidebar collapsible="icon" className="hidden md:flex">
-                    <AppSidebar />
-                </Sidebar>
-            )}
-            <SidebarInset className="flex flex-col h-full overflow-hidden">
-                <Header />
-                <main className={`flex-1 overflow-y-auto scroll-container aurora-bg ${!isAdminPage ? 'p-4 md:p-6 lg:p-8 pb-4' : 'p-4'}`}>
-                    {children}
-                </main>
-                {!isAdminPage && <MobileNav />}
-            </SidebarInset>
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex flex-col h-svh w-full bg-background overflow-hidden">
+        <div className="flex flex-1 overflow-hidden">
+          {!isAdminPage && (
+            <Sidebar collapsible="icon" className="hidden md:flex">
+              <AppSidebar />
+            </Sidebar>
+          )}
+          <SidebarInset className="flex flex-col h-full w-full overflow-hidden">
+            <Header />
+            <main className="flex-1 overflow-y-auto scroll-container aurora-bg p-4 md:p-6 lg:p-8">
+              <div className="max-w-7xl mx-auto w-full pb-20 md:pb-0">
+                {children}
+              </div>
+            </main>
+          </SidebarInset>
         </div>
+        {!isAdminPage && <MobileNav />}
+      </div>
     </SidebarProvider>
   );
 }
