@@ -43,7 +43,7 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
-           <SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/ai-assistant">
                 <Bot />
@@ -67,7 +67,7 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
-           <SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/cash-out">
                 <Banknote />
