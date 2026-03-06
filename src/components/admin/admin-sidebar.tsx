@@ -57,7 +57,7 @@ export function AdminSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Settings" asChild>
+            <SidebarMenuButton asChild>
               <Link href="/settings">
                 <Settings />
                 <span>Settings</span>
