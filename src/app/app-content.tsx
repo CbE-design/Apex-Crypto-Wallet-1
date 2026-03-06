@@ -21,7 +21,7 @@ export default function AppContent({
   const isAdminPage = pathname.startsWith('/admin');
 
   return (
-    <SidebarProvider defaultOpen={true} className="h-svh w-full overflow-hidden">
+    <SidebarProvider defaultOpen={true} className="h-svh w-full overflow-hidden flex flex-col">
       <div className="flex flex-col h-svh w-full bg-background overflow-hidden">
         <div className="flex flex-1 overflow-hidden relative">
           {!isAdminPage && (
