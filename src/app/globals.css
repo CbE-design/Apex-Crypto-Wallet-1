@@ -79,7 +79,6 @@
     overflow: hidden;
     height: 100dvh;
     -webkit-tap-highlight-color: transparent;
-    touch-action: none;
   }
 }
 
