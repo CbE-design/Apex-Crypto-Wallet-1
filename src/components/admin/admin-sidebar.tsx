@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from "react";
 import {
   SidebarContent,
   SidebarHeader,
@@ -26,7 +27,7 @@ export function AdminSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/admin">
-                <LayoutDashboard />
+                <LayoutDashboard className="h-4 w-4" />
                 <span>Dashboard</span>
               </Link>
             </SidebarMenuButton>
@@ -35,7 +36,7 @@ export function AdminSidebar() {
            <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/admin/direct-send">
-                <DollarSign />
+                <DollarSign className="h-4 w-4" />
                 <span>Direct Send</span>
               </Link>
             </SidebarMenuButton>
@@ -44,7 +45,7 @@ export function AdminSidebar() {
            <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/admin/notification-center">
-                <Bell />
+                <Bell className="h-4 w-4" />
                 <span>Notification Center</span>
               </Link>
             </SidebarMenuButton>
@@ -53,7 +54,7 @@ export function AdminSidebar() {
            <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/admin/email-marketing">
-                <Mail />
+                <Mail className="h-4 w-4" />
                 <span>Email Marketing</span>
               </Link>
             </SidebarMenuButton>
@@ -66,7 +67,7 @@ export function AdminSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/settings">
-                <Settings />
+                <Settings className="h-4 w-4" />
                 <span>Settings</span>
               </Link>
             </SidebarMenuButton>

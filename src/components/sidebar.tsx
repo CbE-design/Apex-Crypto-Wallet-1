@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from "react";
 import {
   SidebarContent,
   SidebarHeader,
@@ -42,7 +43,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/">
-                <LayoutDashboard />
+                <LayoutDashboard className="h-4 w-4" />
                 <span>Dashboard</span>
               </Link>
             </SidebarMenuButton>
@@ -51,7 +52,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/wallets">
-                <Wallet />
+                <Wallet className="h-4 w-4" />
                 <span>My Wallets</span>
               </Link>
             </SidebarMenuButton>
@@ -60,7 +61,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/ai-assistant">
-                <Bot />
+                <Bot className="h-4 w-4" />
                 <span>AI Assistant</span>
               </Link>
             </SidebarMenuButton>
@@ -69,7 +70,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/send-receive">
-                <Send />
+                <Send className="h-4 w-4" />
                 <span>Send & Receive</span>
               </Link>
             </SidebarMenuButton>
@@ -78,7 +79,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/swap">
-                <Repeat />
+                <Repeat className="h-4 w-4" />
                 <span>Swap</span>
               </Link>
             </SidebarMenuButton>
@@ -87,7 +88,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/cash-out">
-                <Banknote />
+                <Banknote className="h-4 w-4" />
                 <span>Cash Out</span>
               </Link>
             </SidebarMenuButton>
@@ -97,7 +98,7 @@ export function AppSidebar() {
             <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                     <Link href="/admin">
-                        <ShieldCheck />
+                        <ShieldCheck className="h-4 w-4" />
                         <span>Admin Panel</span>
                     </Link>
                 </SidebarMenuButton>
@@ -107,7 +108,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/coming-soon">
-                <Sparkles />
+                <Sparkles className="h-4 w-4" />
                 <span>Staking</span>
               </Link>
             </SidebarMenuButton>
@@ -116,7 +117,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/coming-soon">
-                <ImageIcon />
+                <ImageIcon className="h-4 w-4" />
                 <span>NFTs</span>
               </Link>
             </SidebarMenuButton>
@@ -129,7 +130,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
                 <Link href="/settings">
-                    <Settings />
+                    <Settings className="h-4 w-4" />
                     <span>Settings</span>
                 </Link>
             </SidebarMenuButton>

@@ -32,10 +32,11 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
+      allowedOrigins: [
+        "*.cloudworkstations.dev",
+        "localhost:9002"
+      ],
     },
-    allowedDevOrigins: [
-      "6000-firebase-studio-1758666620875.cluster-cbeiita7rbe7iuwhvjs5zww2i4.cloudworkstations.dev"
-    ],
   },
 };
 

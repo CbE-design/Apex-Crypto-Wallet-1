@@ -28,7 +28,7 @@ export default function AppContent({
           <Header />
         </div>
 
-        {/* Scrollable Central Section */}
+        {/* Central Section */}
         <div className="flex flex-1 overflow-hidden">
           {!isAdminPage && (
             <Sidebar collapsible="icon" className="hidden md:flex">
@@ -37,6 +37,7 @@ export default function AppContent({
           )}
 
           <SidebarInset className="flex flex-col h-full w-full overflow-hidden">
+            {/* Scrollable Content Section */}
             <main className="flex-1 overflow-y-auto scroll-container aurora-bg p-4 md:p-6 lg:p-8">
               <div className="max-w-7xl mx-auto w-full">
                 {children}
