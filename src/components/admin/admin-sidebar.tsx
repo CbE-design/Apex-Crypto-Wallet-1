@@ -20,6 +20,7 @@ export function AdminSidebar() {
             <h2 className="text-xl font-semibold text-primary">Admin Panel</h2>
         </div>
       </SidebarHeader>
+      
       <SidebarContent className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -30,6 +31,7 @@ export function AdminSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          
            <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/admin/direct-send">
@@ -38,6 +40,7 @@ export function AdminSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          
            <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/admin/notification-center">
@@ -46,6 +49,7 @@ export function AdminSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          
            <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/admin/email-marketing">
@@ -56,6 +60,7 @@ export function AdminSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
+      
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>

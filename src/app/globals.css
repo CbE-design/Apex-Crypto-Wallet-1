@@ -74,10 +74,11 @@
   * {
     @apply border-border;
   }
+  html, body {
+    @apply h-full overflow-hidden;
+  }
   body {
-    @apply bg-background text-foreground font-medium;
-    overflow: hidden;
-    height: 100dvh;
+    @apply bg-background text-foreground font-medium antialiased;
     -webkit-tap-highlight-color: transparent;
   }
 }

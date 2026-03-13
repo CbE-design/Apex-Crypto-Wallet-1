@@ -8,7 +8,18 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Send, Settings, Sparkles, Bot, Repeat, ShieldCheck, Banknote, Wallet, Image as ImageIcon } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  Send, 
+  Settings, 
+  Sparkles, 
+  Bot, 
+  Repeat, 
+  ShieldCheck, 
+  Banknote, 
+  Wallet, 
+  Image as ImageIcon 
+} from "lucide-react";
 import { useWallet } from "@/context/wallet-context";
 import Link from "next/link";
 
@@ -25,6 +36,7 @@ export function AppSidebar() {
           <h2 className="text-xl font-bold text-primary">Apex Wallet</h2>
         </div>
       </SidebarHeader>
+      
       <SidebarContent className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -35,6 +47,7 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/wallets">
@@ -43,6 +56,7 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/ai-assistant">
@@ -51,6 +65,7 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/send-receive">
@@ -59,6 +74,7 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/swap">
@@ -67,6 +83,7 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/cash-out">
@@ -75,6 +92,7 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          
           {isAdmin && (
             <SidebarMenuItem>
                 <SidebarMenuButton asChild>
@@ -85,6 +103,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
             </SidebarMenuItem>
           )}
+          
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/coming-soon">
@@ -93,6 +112,7 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link href="/coming-soon">
@@ -103,6 +123,7 @@ export function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
+      
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>

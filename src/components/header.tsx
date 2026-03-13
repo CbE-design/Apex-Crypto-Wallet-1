@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Bell, UserCircle, LogOut } from 'lucide-react';
@@ -24,10 +23,10 @@ export function Header() {
   const truncatedAddress = wallet?.address ? `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}` : '';
 
   return (
-    <header className="flex items-center justify-between p-4 border-b bg-background shadow-sm sticky top-0 z-10">
+    <header className="flex-none flex items-center justify-between p-4 border-b bg-background shadow-sm z-50 h-16">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="md:hidden" />
-        <h1 className="text-xl md:text-2xl font-bold text-primary">Apex Crypto Wallet</h1>
+        <h1 className="text-lg md:text-xl font-bold text-primary truncate max-w-[150px] md:max-w-none">Apex Wallet</h1>
       </div>
       <div className="flex items-center gap-2 md:gap-4">
         <SupportChatPopover />
@@ -42,7 +41,7 @@ export function Header() {
                 <DropdownMenuLabel>My Wallet</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem disabled>
-                    <span className="font-mono">{truncatedAddress}</span>
+                    <span className="font-mono text-[10px]">{truncatedAddress}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={onDisconnect}>
                     <LogOut className="mr-2 h-4 w-4" />
