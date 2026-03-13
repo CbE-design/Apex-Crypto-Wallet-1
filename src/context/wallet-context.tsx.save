@@ -1,6 +1,10 @@
-'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+'use client';
+^R
+^/222
+
+
+'use cliimport React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -219,7 +223,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         const userCredential = await initiateAnonymousSignIn(auth);
         
         if (userCredential?.user) {
-          await setupUserAndWalletDocuments(userCredential.user, newWallet as any);
+          await setupUserAndWalletDocuments(userCredential.user, newWallet);
         } else {
           throw new Error("Failed to sign in anonymously.");
         }

@@ -1,8 +1,6 @@
-
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -33,9 +31,11 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: '2mb', // Default is 1mb, increase for larger payloads if needed
+      bodySizeLimit: '2mb',
     },
-    allowedDevOrigins: ["6000-firebase-studio-1758666620875.cluster-cbeiita7rbe7iuwhvjs5zww2i4.cloudworkstations.dev"]
+    allowedDevOrigins: [
+      "6000-firebase-studio-1758666620875.cluster-cbeiita7rbe7iuwhvjs5zww2i4.cloudworkstations.dev"
+    ],
   },
 };
 

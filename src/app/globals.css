@@ -10,13 +10,13 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 217 89% 61%; /* #4285F4 */
+    --primary: 217 89% 61%;
     --primary-foreground: 0 0% 100%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
-    --accent: 183 100% 74%; /* #7DF9FF */
+    --accent: 183 100% 74%;
     --accent-foreground: 224 71% 4%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
@@ -24,11 +24,6 @@
     --input: 240 3.7% 15.9%;
     --ring: 217 89% 61%;
     --radius: 0.5rem;
-    --chart-1: 217 89% 61%;
-    --chart-2: 183 100% 74%;
-    --chart-3: 48 96% 50%;
-    --chart-4: 24 96% 50%;
-    --chart-5: 0 96% 50%;
     --sidebar-background: 240 10% 3.9%;
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 217 89% 61%;
@@ -40,19 +35,19 @@
   }
 
   .light {
-    --background: 0 0% 96%; /* #F5F5F5 */
+    --background: 0 0% 96%;
     --foreground: 224 71% 4%;
     --card: 0 0% 100%;
     --card-foreground: 224 71% 4%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 71% 4%;
-    --primary: 217 89% 61%; /* #4285F4 */
+    --primary: 217 89% 61%;
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 224 71% 4%;
     --muted: 0 0% 96.1%;
     --muted-foreground: 224 71% 45%;
-    --accent: 183 100% 74%; /* #7DF9FF */
+    --accent: 183 100% 74%;
     --accent-foreground: 224 71% 4%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -75,7 +70,7 @@
     @apply border-border;
   }
   html, body {
-    @apply h-full overflow-hidden;
+    @apply h-[100dvh] w-full overflow-hidden overscroll-none;
   }
   body {
     @apply bg-background text-foreground font-medium antialiased;
@@ -85,12 +80,11 @@
 
 .aurora-bg {
     position: relative;
-    overflow-x: hidden;
 }
 
 .aurora-bg::before {
     content: '';
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
@@ -105,7 +99,6 @@
     scrollbar-width: none;
     -ms-overflow-style: none;
     overscroll-behavior-y: contain;
-    touch-action: pan-y;
 }
 
 .scroll-container::-webkit-scrollbar {
