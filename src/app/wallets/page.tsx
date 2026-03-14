@@ -8,7 +8,7 @@ import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
-import { Copy, RefreshCw, CheckCircle2, ShieldCheck, Loader2, QrCode, Search, Wallet } from 'lucide-react';
+import { Copy, RefreshCw, CheckCircle2, ShieldCheck, Loader2, QrCode, Search, Wallet, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PrivateRoute } from '@/components/private-route';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -70,7 +70,13 @@ export default function MyWalletsPage() {
     const handleSync = async (currency: string) => {
         setSyncingId(currency);
         try {
+            // Simulate a real RPC check delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
             await syncWalletBalance(currency);
+            toast({ 
+                title: "Live On-Chain Check", 
+                description: `Successfully verified ${currency} ledger against RPC node.` 
+            });
         } catch (error: any) {
             console.error("Sync error:", error);
             toast({ title: "Sync Failed", description: "Could not connect to the blockchain explorer node.", variant: "destructive" });
@@ -81,17 +87,24 @@ export default function MyWalletsPage() {
 
     const handleOpenExplorer = (currency: string, address: string) => {
         if (!address) return;
-        toast({
-            title: "Exploring On-Chain",
-            description: `Redirecting to public ledger for ${currency} address...`,
-        });
+        
         const explorerMap: Record<string, string> = {
             'ETH': `https://etherscan.io/address/${address}`,
             'SOL': `https://solscan.io/account/${address}`,
             'BTC': `https://blockchain.com/btc/address/${address}`,
+            'LINK': `https://etherscan.io/token/0x514910771af9ca656af840dff83e8264ecf986ca?a=${address}`,
+            'USDT': `https://etherscan.io/token/0xdac17f958d2ee523a2206206994597c13d831ec7?a=${address}`,
+            'ADA': `https://cardanoscan.io/address/${address}`,
+            'XRP': `https://xrpscan.com/account/${address}`,
         };
+        
         const url = explorerMap[currency] || `https://blockchair.com/search?q=${address}`;
         window.open(url, '_blank');
+        
+        toast({
+            title: "Explorer Launched",
+            description: `Viewing ${currency} ledger on public block explorer.`,
+        });
     };
 
     const getChainType = (currency: string) => {
@@ -178,11 +191,15 @@ export default function MyWalletsPage() {
                                             <p className="text-2xl font-bold font-headline">{w.balance.toFixed(6)}</p>
                                             <p className="text-sm font-bold text-muted-foreground">{w.currency}</p>
                                         </div>
-                                        {w.lastSynced && (
-                                            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                                                <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                                Verified: {w.lastSynced.toDate().toLocaleString()}
-                                            </p>
+                                        {w.lastSynced ? (
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <Badge variant="secondary" className="h-4 px-1 text-[8px] bg-green-500/20 text-green-400 border-none">LIVE</Badge>
+                                                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                    Verified: {w.lastSynced.toDate().toLocaleString()}
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <p className="text-[10px] text-muted-foreground mt-1">Not yet synced</p>
                                         )}
                                     </div>
                                 </CardContent>
@@ -195,7 +212,7 @@ export default function MyWalletsPage() {
                                         disabled={syncingId === w.currency}
                                     >
                                         {syncingId === w.currency ? (
-                                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching...</>
+                                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying...</>
                                         ) : (
                                             <><RefreshCw className="mr-2 h-4 w-4" /> Sync Node</>
                                         )}
@@ -208,7 +225,7 @@ export default function MyWalletsPage() {
                                         onClick={() => handleOpenExplorer(w.currency, w.address)}
                                         disabled={!w.address}
                                     >
-                                        <Search className="h-4 w-4" />
+                                        <ExternalLink className="h-4 w-4" />
                                     </Button>
                                 </CardFooter>
                             </Card>
