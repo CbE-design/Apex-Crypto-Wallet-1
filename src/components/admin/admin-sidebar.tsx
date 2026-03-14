@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from "react";
@@ -11,8 +12,18 @@ import {
 } from "@/components/ui/sidebar";
 import { LayoutDashboard, Settings, ShieldAlert, Bell, DollarSign, Mail } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export function AdminSidebar() {
+  const pathname = usePathname();
+
+  const adminItems = [
+    { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/admin/direct-send", label: "Direct Send", icon: DollarSign },
+    { href: "/admin/notification-center", label: "Notification Center", icon: Bell },
+    { href: "/admin/email-marketing", label: "Email Marketing", icon: Mail },
+  ];
+
   return (
     <>
       <SidebarHeader>
@@ -24,48 +35,23 @@ export function AdminSidebar() {
       
       <SidebarContent className="p-2">
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link href="/admin">
-                <LayoutDashboard className="h-4 w-4" />
-                <span>Dashboard</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          
-           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link href="/admin/direct-send">
-                <DollarSign className="h-4 w-4" />
-                <span>Direct Send</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          
-           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link href="/admin/notification-center">
-                <Bell className="h-4 w-4" />
-                <span>Notification Center</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          
-           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link href="/admin/email-marketing">
-                <Mail className="h-4 w-4" />
-                <span>Email Marketing</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          {adminItems.map((item) => (
+            <SidebarMenuItem key={item.href}>
+              <SidebarMenuButton asChild isActive={pathname === item.href}>
+                <Link href={item.href}>
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
         </SidebarMenu>
       </SidebarContent>
       
       <SidebarFooter className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
+            <SidebarMenuButton asChild isActive={pathname === "/settings"}>
               <Link href="/settings">
                 <Settings className="h-4 w-4" />
                 <span>Settings</span>

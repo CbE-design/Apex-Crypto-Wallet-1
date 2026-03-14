@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -34,7 +35,9 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '2mb',
       allowedOrigins: [
         "*.cloudworkstations.dev",
-        "localhost:9002"
+        "localhost:9002",
+        "*.firebaseapp.com",
+        "*.web.app"
       ],
     },
   },

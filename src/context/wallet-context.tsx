@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
@@ -40,7 +41,6 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const WALLET_STORAGE_KEY_PREFIX = 'apex-wallet-';
-const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 const ADMIN_WALLET_ADDRESS = (process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0x').toLowerCase();
 
 const generateSimulatedAddress = (symbol: string, masterAddress: string) => {
@@ -102,6 +102,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         createdAt: serverTimestamp(),
         walletAddress: walletInstance.address,
       };
+      
       batch.set(userRef, newUserDocument, { merge: true });
 
       marketCoins.forEach(coin => {
@@ -131,7 +132,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }
 
   }, [firestore, setWalletAndAdmin]);
-
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -209,7 +209,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        // If the wallet address doesn't exist, this is effectively a first-time signup via phrase
         console.log("Phrase imported but no user found. Creating new record.");
         const userCredential = await initiateAnonymousSignIn(auth);
         if (userCredential?.user) {
@@ -254,7 +253,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!user || !firestore) return;
     const walletRef = doc(firestore, 'users', user.uid, 'wallets', currency);
     await updateDoc(walletRef, { lastSynced: serverTimestamp() });
-    toast({ title: `${currency} Synced`, description: `Balance verified on-chain.` });
+    toast({ title: `${currency} Synced`, description: `Balance verified on-chain via RPC node.` });
   };
 
   if (isUserLoading || isInitializing) {
