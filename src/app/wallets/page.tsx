@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import QRCode from 'qrcode';
 import Image from 'next/image';
+import Link from 'next/link';
 
 interface WalletDoc {
     id: string;
@@ -71,16 +72,8 @@ export default function MyWalletsPage() {
     const handleSync = async (currency: string) => {
         setSyncingId(currency);
         
-        const steps = currency === 'ADA' 
-            ? [
-                'Connecting to Cardano Shelley Node...',
-                'Fetching Current Epoch Data...',
-                'Verifying Stake Key Association...',
-                'Confirming Multi-Sig Ledger State...',
-                'Finalizing ADA Wallet Sync...'
-              ]
-            : [
-                'Connecting to RPC Node...',
+        const steps = [
+                'Connecting to Private RPC Node...',
                 'Fetching Block Headers...',
                 'Validating State Proofs...',
                 'Verifying Balance Integrity...',
@@ -90,7 +83,7 @@ export default function MyWalletsPage() {
         try {
             for (const step of steps) {
                 setSyncStep(step);
-                await new Promise(resolve => setTimeout(resolve, 600));
+                await new Promise(resolve => setTimeout(resolve, 5000));
             }
             await syncWalletBalance(currency);
             toast({ 
@@ -104,22 +97,6 @@ export default function MyWalletsPage() {
             setSyncingId(null);
             setSyncStep('');
         }
-    };
-
-    const handleOpenExplorer = (currency: string, address: string) => {
-        if (!address) return;
-        
-        const explorerMap: Record<string, string> = {
-            'ETH': `https://etherscan.io/address/${address}`,
-            'SOL': `https://solscan.io/account/${address}`,
-            'BTC': `https://blockchain.com/btc/address/${address}`,
-            'LINK': `https://etherscan.io/token/0x514910771af9ca656af840dff83e8264ecf986ca?a=${address}`,
-            'USDT': `https://etherscan.io/token/0xdac17f958d2ee523a2206206994597c13d831ec7?a=${address}`,
-            'ADA': `https://cardanoscan.io/address/${address}`,
-        };
-        
-        const url = explorerMap[currency] || `https://blockchair.com/search?q=${address}`;
-        window.open(url, '_blank');
     };
 
     const getChainType = (currency: string) => {
@@ -140,7 +117,7 @@ export default function MyWalletsPage() {
                     </div>
                     <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-lg border">
                         <Activity className="h-4 w-4 text-green-400 animate-pulse" />
-                        <span className="text-xs font-bold uppercase tracking-widest">Network Status: <span className="text-green-400">Optimal</span></span>
+                        <span className="text-xs font-bold uppercase tracking-widest text-foreground">Node Status: <span className="text-green-400">Synced</span></span>
                     </div>
                 </div>
 
@@ -200,7 +177,7 @@ export default function MyWalletsPage() {
                                         </div>
                                     </div>
                                     <div>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 tracking-widest">Real-Time Balance</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 tracking-widest">Balance</p>
                                         <div className="flex items-baseline gap-2">
                                             <p className="text-2xl font-bold">{w.balance.toFixed(6)}</p>
                                             <p className="text-sm font-bold text-muted-foreground">{w.currency}</p>
@@ -208,11 +185,8 @@ export default function MyWalletsPage() {
                                         {w.lastSynced && (
                                             <div className="flex items-center gap-2 mt-1">
                                                 <Badge variant="secondary" className="h-4 px-1 text-[8px] bg-green-500/20 text-green-400 border-none flex items-center gap-1">
-                                                    <Server className="h-2 w-2" /> VERIFIED
+                                                    <Server className="h-2 w-2" /> VERIFIED BY APEX
                                                 </Badge>
-                                                <p className="text-[10px] text-muted-foreground font-mono">
-                                                    SLOT: {Math.floor(Date.now() / 12000).toString().slice(-6)}
-                                                </p>
                                             </div>
                                         )}
                                     </div>
@@ -231,16 +205,17 @@ export default function MyWalletsPage() {
                                             <><RefreshCw className="mr-2 h-3 w-3" /> Verify Node</>
                                         )}
                                     </Button>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-8 w-8 border border-border hover:border-primary/50"
-                                        onClick={() => handleOpenExplorer(w.currency, w.address)}
-                                        disabled={!w.address}
-                                        title="View on Explorer"
-                                    >
-                                        <ExternalLink className="h-4 w-4" />
-                                    </Button>
+                                    <Link href={`/explorer/${w.address}`} passHref className="block">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8 border border-border hover:border-primary/50"
+                                            disabled={!w.address}
+                                            title="View on Explorer"
+                                        >
+                                            <ExternalLink className="h-4 w-4" />
+                                        </Button>
+                                    </Link>
                                 </CardFooter>
                             </Card>
                         ))
@@ -251,7 +226,7 @@ export default function MyWalletsPage() {
                             </div>
                             <h3 className="text-xl font-bold">No Wallets Found</h3>
                             <p className="text-muted-foreground max-w-sm mx-auto">
-                                Your private ledger addresses will appear here once they are registered on our node.
+                                Your private ledger addresses will appear here once they are registered.
                             </p>
                             <Button variant="outline" onClick={() => window.location.reload()}>
                                 <RefreshCw className="mr-2 h-4 w-4" /> Refresh Node
