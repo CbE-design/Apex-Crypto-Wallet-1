@@ -127,12 +127,12 @@ export default function MyWalletsPage() {
             <div className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold">My Wallets</h1>
-                        <p className="text-muted-foreground">Manage your private ledger addresses and real-time node verifications.</p>
+                        <h1 className="text-3xl font-bold">My Assets</h1>
+                        <p className="text-muted-foreground">Secure your holdings on the Apex Private Ledger with real-time node synchronization.</p>
                     </div>
                     <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-lg border border-white/5">
                         <Activity className="h-4 w-4 text-green-400 animate-pulse" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-foreground">Node Status: <span className="text-green-400">Synced</span></span>
+                        <span className="text-xs font-bold uppercase tracking-widest text-foreground">Status: <span className="text-green-400">Live</span></span>
                     </div>
                 </div>
 
@@ -164,7 +164,7 @@ export default function MyWalletsPage() {
                                 <CardContent className="space-y-4 pt-4">
                                     <div>
                                         <div className="flex justify-between items-center mb-1">
-                                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Identity Address</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Public Address</p>
                                             <Button 
                                                 variant="ghost" 
                                                 size="sm" 
@@ -192,7 +192,7 @@ export default function MyWalletsPage() {
                                         </div>
                                     </div>
                                     <div>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 tracking-widest">Balance</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 tracking-widest">Available Balance</p>
                                         <div className="flex items-baseline gap-2">
                                             <p className="text-2xl font-bold">{w.balance.toFixed(6)}</p>
                                             <p className="text-sm font-bold text-muted-foreground">{w.currency}</p>
@@ -200,7 +200,7 @@ export default function MyWalletsPage() {
                                         {w.lastSynced && (
                                             <div className="flex items-center gap-2 mt-1">
                                                 <Badge variant="secondary" className="h-4 px-1 text-[8px] bg-green-500/20 text-green-400 border-none flex items-center gap-1">
-                                                    <Server className="h-2 w-2" /> VERIFIED BY APEX
+                                                    <Server className="h-2 w-2" /> VERIFIED ON LEDGER
                                                 </Badge>
                                             </div>
                                         )}
@@ -217,7 +217,7 @@ export default function MyWalletsPage() {
                                         {syncingId === w.currency ? (
                                             <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> {syncStep.substring(0, 15)}...</>
                                         ) : (
-                                            <><RefreshCw className="mr-2 h-3 w-3" /> Verify Node</>
+                                            <><RefreshCw className="mr-2 h-3 w-3" /> Sync Node</>
                                         )}
                                     </Button>
                                     <Link href={`/explorer/${w.address}`} passHref>
@@ -231,13 +231,13 @@ export default function MyWalletsPage() {
                                             <Database className="h-4 w-4" />
                                         </Button>
                                     </Link>
-                                    <Link href={getExplorerLink(w.address, w.currency)} passHref target="_blank">
+                                    <Link href={getExplorerLink(w.address, w.currency)} passHref target="_blank" rel="noopener noreferrer">
                                         <Button 
                                             variant="ghost" 
                                             size="icon" 
                                             className="h-8 w-8 border border-border hover:border-primary/50"
                                             disabled={!w.address}
-                                            title="View Public Explorer"
+                                            title="View External Explorer"
                                         >
                                             <ExternalLink className="h-4 w-4" />
                                         </Button>
@@ -250,12 +250,12 @@ export default function MyWalletsPage() {
                             <div className="bg-muted p-4 rounded-full w-fit mx-auto">
                                 <Wallet className="h-12 w-12 text-muted-foreground" />
                             </div>
-                            <h3 className="text-xl font-bold">No Wallets Found</h3>
+                            <h3 className="text-xl font-bold">Initialization Required</h3>
                             <p className="text-muted-foreground max-w-sm mx-auto">
-                                Your private ledger addresses will appear here once they are registered.
+                                We are preparing your secure identity addresses on the Apex Private Ledger.
                             </p>
                             <Button variant="outline" onClick={() => window.location.reload()}>
-                                <RefreshCw className="mr-2 h-4 w-4" /> Refresh Node
+                                <RefreshCw className="mr-2 h-4 w-4" /> Refresh Connection
                             </Button>
                         </div>
                     )}
@@ -266,10 +266,10 @@ export default function MyWalletsPage() {
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2">
                                 <CryptoIcon name={selectedQrAddress?.currency || ''} className="h-5 w-5" />
-                                {selectedQrAddress?.currency} Identity Address
+                                {selectedQrAddress?.currency} Deposit Address
                             </DialogTitle>
                             <DialogDescription>
-                                Share this address to receive funds on the Apex Private Ledger.
+                                Share this address to receive funds directly into your Apex Wallet.
                             </DialogDescription>
                         </DialogHeader>
                         <div className="flex flex-col items-center justify-center p-8 bg-white rounded-xl border-4 my-4 shadow-inner">
@@ -296,7 +296,7 @@ export default function MyWalletsPage() {
                                     <Copy className="h-4 w-4 mr-2" /> Copy Address
                                 </Button>
                                 <Badge variant="secondary" className="h-10 px-4">
-                                    <Database className="h-3 w-3 mr-2" /> Private Node
+                                    <Database className="h-3 w-3 mr-2" /> Private Ledger
                                 </Badge>
                             </div>
                         </DialogFooter>

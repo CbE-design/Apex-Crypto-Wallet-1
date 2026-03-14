@@ -13,9 +13,9 @@ service cloud.firestore {
     }
     
     /**
-     * @description Collection Group Rules for Explorer.
-     * These MUST be at the top level to support collectionGroup() queries.
-     * We allow global read access to simulate a transparent public ledger.
+     * @description Collection Group Rules for Background Ledger Verification.
+     * These MUST be at the top level to support collectionGroup() queries
+     * which the Block Explorer uses to verify identities globally.
      */
     match /{path=**}/wallets/{walletId} {
       allow read: if true;
