@@ -33,6 +33,7 @@ import { getLivePrices } from '@/services/crypto-service';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useDoc, useMemoFirebase } from '@/firebase';
+import { Badge } from '@/components/ui/badge';
 
 // Schemas for Industrial Banking
 const bankSchema = z.object({
@@ -489,4 +490,3 @@ export default function CashOutPage() {
     </PrivateRoute>
   );
 }
-    
