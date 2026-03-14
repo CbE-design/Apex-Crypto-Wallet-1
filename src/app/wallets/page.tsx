@@ -8,7 +8,7 @@ import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
-import { Copy, RefreshCw, ShieldCheck, Loader2, QrCode, Wallet, ExternalLink, Activity, Server, Database } from 'lucide-react';
+import { Copy, RefreshCw, ShieldCheck, Loader2, QrCode, Wallet, ExternalLink, Activity, Server, Database, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PrivateRoute } from '@/components/private-route';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -72,24 +72,18 @@ export default function MyWalletsPage() {
     const handleSync = async (currency: string) => {
         setSyncingId(currency);
         
-        const steps = currency === 'ADA' ? [
-                'Connecting to Cardano Node...',
-                'Fetching Epoch Data...',
-                'Validating Slot Leaders...',
-                'Verifying Stake Credentials...',
-                'Finalizing Ouroboros Sync...'
-              ] : [
-                'Connecting to Private RPC Node...',
-                'Fetching Block Headers...',
-                'Validating State Proofs...',
-                'Verifying Balance Integrity...',
-                'Finalizing On-Chain Sync...'
-              ];
+        const steps = [
+            'Connecting to Private RPC Node...',
+            'Fetching Block Headers...',
+            'Validating State Proofs...',
+            'Verifying Balance Integrity...',
+            'Finalizing On-Chain Sync...'
+        ];
 
         try {
             for (const step of steps) {
                 setSyncStep(step);
-                await new Promise(resolve => setTimeout(resolve, 1200));
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
             await syncWalletBalance(currency);
             toast({ 
@@ -125,7 +119,7 @@ export default function MyWalletsPage() {
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-bold">My Wallets</h1>
-                        <p className="text-muted-foreground">Manage your on-chain deposit addresses and real-time private ledgers.</p>
+                        <p className="text-muted-foreground">Manage your private ledger addresses and real-time node verifications.</p>
                     </div>
                     <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-lg border border-white/5">
                         <Activity className="h-4 w-4 text-green-400 animate-pulse" />
@@ -217,17 +211,6 @@ export default function MyWalletsPage() {
                                             <><RefreshCw className="mr-2 h-3 w-3" /> Verify Node</>
                                         )}
                                     </Button>
-                                    <Link href={getExplorerLink(w.address, w.currency)} passHref target="_blank">
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="h-8 w-8 border border-border hover:border-primary/50"
-                                            disabled={!w.address}
-                                            title="View on Explorer"
-                                        >
-                                            <ExternalLink className="h-4 w-4" />
-                                        </Button>
-                                    </Link>
                                     <Link href={`/explorer/${w.address}`} passHref>
                                         <Button 
                                             variant="ghost" 
@@ -237,6 +220,17 @@ export default function MyWalletsPage() {
                                             title="View on Apex Ledger"
                                         >
                                             <Database className="h-4 w-4" />
+                                        </Button>
+                                    </Link>
+                                    <Link href={getExplorerLink(w.address, w.currency)} passHref target="_blank">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8 border border-border hover:border-primary/50"
+                                            disabled={!w.address}
+                                            title="View Public Explorer"
+                                        >
+                                            <ExternalLink className="h-4 w-4" />
                                         </Button>
                                     </Link>
                                 </CardFooter>

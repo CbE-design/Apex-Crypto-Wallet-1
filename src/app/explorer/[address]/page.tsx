@@ -7,7 +7,7 @@ import { collectionGroup, query, where, getDocs, collection } from 'firebase/fir
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShieldCheck, Activity, Database, Server, Clock, Box } from 'lucide-react';
+import { ShieldCheck, Activity, Database, Server, Clock, Box, Hash, ExternalLink } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -85,17 +85,22 @@ export default function ExplorerPage() {
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-20">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
                 <div className="space-y-1">
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <Database className="text-primary h-6 w-6" />
-                        Apex Explorer
+                        Apex Block Explorer
                     </h1>
-                    <p className="text-xs font-mono text-muted-foreground break-all">{address}</p>
+                    <div className="flex items-center gap-2">
+                        <p className="text-xs font-mono text-muted-foreground break-all">{address}</p>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => navigator.clipboard.writeText(address as string)}>
+                            <Hash className="h-3 w-3" />
+                        </Button>
+                    </div>
                 </div>
-                <Badge variant={isVerified ? "default" : "destructive"} className="h-8 px-4 flex items-center gap-2">
+                <Badge variant={isVerified ? "default" : "destructive"} className="h-8 px-4 flex items-center gap-2 bg-primary/20 text-primary border-primary/50">
                     {isVerified ? (
-                        <><ShieldCheck className="h-4 w-4" /> VERIFIED ON APEX LEDGER</>
+                        <><ShieldCheck className="h-4 w-4" /> VERIFIED ON PRIVATE LEDGER</>
                     ) : (
                         "UNREGISTERED ADDRESS"
                     )}
@@ -103,7 +108,7 @@ export default function ExplorerPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-2">
+                <Card className="md:col-span-2 bg-card/50 backdrop-blur-sm">
                     <CardHeader>
                         <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                             <Box className="h-4 w-4" /> Ledger Overview
@@ -119,7 +124,7 @@ export default function ExplorerPage() {
                                             <span className="font-bold text-sm">{w.currency} Balance</span>
                                         </div>
                                         <div className="text-2xl font-black">{w.balance?.toFixed(6) || "0.000000"}</div>
-                                        <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-tighter">Status: Confirmed</div>
+                                        <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-tighter">Status: Finalized</div>
                                     </div>
                                 ))}
                             </div>
@@ -132,41 +137,41 @@ export default function ExplorerPage() {
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="bg-card/50 backdrop-blur-sm">
                     <CardHeader>
-                        <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">Network Stats</CardTitle>
+                        <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">Private Node Stats</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex justify-between items-center text-xs">
                             <span className="text-muted-foreground">Network</span>
-                            <span className="font-bold">Apex Private Node</span>
+                            <span className="font-bold">Apex RPC Core</span>
                         </div>
                         <div className="flex justify-between items-center text-xs">
                             <span className="text-muted-foreground">Latency</span>
-                            <span className="font-bold text-green-400">12ms</span>
+                            <span className="font-bold text-green-400">8ms</span>
                         </div>
                         <div className="flex justify-between items-center text-xs">
                             <span className="text-muted-foreground">Last Block</span>
-                            <span className="font-mono">{Math.floor(Date.now() / 15000).toString().slice(-6)}</span>
+                            <span className="font-mono text-primary">{Math.floor(Date.now() / 15000).toString().slice(-8)}</span>
                         </div>
                         <div className="flex justify-between items-center text-xs pt-4 border-t border-white/5">
                             <span className="text-muted-foreground">Identity Age</span>
-                            <span className="font-bold">{wallets[0]?.lastSynced ? 'Registered' : 'New'}</span>
+                            <span className="font-bold">{isVerified ? 'Synchronized' : 'N/A'}</span>
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-            <Card>
+            <Card className="bg-card/50 backdrop-blur-sm">
                 <CardHeader>
                     <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <Clock className="h-4 w-4" /> Verified Transactions
+                        <Clock className="h-4 w-4" /> Verified Ledger History
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="px-0">
                     <Table>
                         <TableHeader>
-                            <TableRow className="border-white/5">
+                            <TableRow className="border-white/5 bg-muted/20">
                                 <TableHead className="text-[10px] uppercase font-bold">Tx Hash</TableHead>
                                 <TableHead className="text-[10px] uppercase font-bold">Method</TableHead>
                                 <TableHead className="text-[10px] uppercase font-bold">Amount</TableHead>
@@ -175,9 +180,9 @@ export default function ExplorerPage() {
                         </TableHeader>
                         <TableBody>
                             {transactions.length > 0 ? transactions.map((tx) => (
-                                <TableRow key={tx.id} className="border-white/5">
+                                <TableRow key={tx.id} className="border-white/5 hover:bg-white/5 transition-colors group">
                                     <TableCell className="font-mono text-[10px] text-primary">
-                                        0x{tx.id.substring(0, 12)}...
+                                        0x{tx.id.substring(0, 16)}...
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="secondary" className="text-[9px] uppercase font-bold py-0 h-5">
@@ -196,7 +201,7 @@ export default function ExplorerPage() {
                             )) : (
                                 <TableRow>
                                     <TableCell colSpan={4} className="h-24 text-center text-muted-foreground text-xs italic">
-                                        No recent activity detected on the private ledger.
+                                        No recent activity detected on the private ledger node.
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -207,8 +212,8 @@ export default function ExplorerPage() {
 
             <div className="text-center">
                 <Link href="/wallets">
-                    <Button variant="outline" size="sm">
-                        Back to My Wallets
+                    <Button variant="outline" size="sm" className="gap-2">
+                        <Database className="h-4 w-4" /> Back to My Wallets
                     </Button>
                 </Link>
             </div>
