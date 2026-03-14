@@ -23,7 +23,9 @@ import {
   ArrowRight, 
   AlertCircle,
   FileCheck2,
-  Lock
+  Lock,
+  Flag,
+  Landmark
 } from 'lucide-react';
 import { PrivateRoute } from '@/components/private-route';
 import { useWallet } from '@/context/wallet-context';
@@ -32,15 +34,29 @@ import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, runTransaction, collection, serverTimestamp } from 'firebase/firestore';
 import { getLivePrices } from '@/services/crypto-service';
 import { cn } from '@/lib/utils';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const bankSchema = z.object({
+  method: z.enum(['local_sa', 'international']),
   accountName: z.string().min(2, "Account holder name is required"),
   bankName: z.string().min(2, "Bank name is required"),
-  iban: z.string().min(15, "Valid IBAN is required for international transfers"),
-  swiftBic: z.string().min(8, "Valid SWIFT/BIC code is required"),
+  // Local SA fields
+  accountNumber: z.string().optional(),
+  branchCode: z.string().length(6, "Branch code must be 6 digits").optional(),
+  // International fields
+  iban: z.string().min(15, "Valid IBAN is required").optional(),
+  swiftBic: z.string().min(8, "Valid SWIFT/BIC code is required").optional(),
   amount: z.string().refine(val => parseFloat(val) > 0, {
     message: "Amount must be greater than zero",
   }),
+}).refine((data) => {
+  if (data.method === 'local_sa') {
+    return !!data.accountNumber && !!data.branchCode;
+  }
+  return !!data.iban && !!data.swiftBic;
+}, {
+  message: "Please fill in all required banking details for the selected method",
+  path: ["accountNumber"],
 });
 
 const walletSchema = z.object({
@@ -78,7 +94,7 @@ export default function CashOutPage() {
 
   const bankForm = useForm<BankFormValues>({
     resolver: zodResolver(bankSchema),
-    defaultValues: { accountName: '', bankName: '', iban: '', swiftBic: '', amount: '' },
+    defaultValues: { method: 'local_sa', accountName: '', bankName: '', accountNumber: '', branchCode: '', iban: '', swiftBic: '', amount: '' },
     mode: 'onChange',
   });
 
@@ -87,6 +103,8 @@ export default function CashOutPage() {
     defaultValues: { externalAddress: '', amount: '' },
     mode: 'onChange',
   });
+
+  const watchMethod = bankForm.watch('method');
 
   const startVerification = (data: any, method: 'bank' | 'wallet') => {
     setActiveMethod(method);
@@ -142,6 +160,18 @@ export default function CashOutPage() {
         });
 
         const txRef = doc(collection(ethWalletRef!, 'transactions'));
+        
+        let notes = "";
+        if (activeMethod === 'bank') {
+            if (pendingData.method === 'local_sa') {
+                notes = `Local EFT to ${pendingData.bankName} (Acc: ${pendingData.accountNumber?.slice(-4)}...)`;
+            } else {
+                notes = `International SWIFT to ${pendingData.bankName} (IBAN: ${pendingData.iban?.slice(0, 4)}...)`;
+            }
+        } else {
+            notes = `Direct Wallet Withdrawal to ${pendingData.externalAddress}`;
+        }
+
         transaction.set(txRef, {
           userId: user.uid,
           type: 'Withdrawal',
@@ -150,14 +180,12 @@ export default function CashOutPage() {
           timestamp: serverTimestamp(),
           status: 'Completed',
           method: activeMethod,
-          notes: activeMethod === 'bank' 
-            ? `International Bank Transfer to ${pendingData.bankName} (IBAN: ${pendingData.iban.substring(0, 4)}...)`
-            : `Direct Wallet Withdrawal to ${pendingData.externalAddress}`
+          notes: notes
         });
       });
 
       setStep('success');
-      toast({ title: "Ledger Finalized", description: "Funds successfully dispatched." });
+      toast({ title: "Ledger Finalized", description: "Funds successfully dispatched via secure protocol." });
     } catch (error: any) {
       console.error("Withdrawal execution failed:", error);
       setStep('input');
@@ -171,10 +199,10 @@ export default function CashOutPage() {
 
   const renderSecurityTerminal = () => {
     const steps = [
-      { id: 25, label: 'Authenticating Identity' },
-      { id: 50, label: 'Compliance AML Scanning' },
-      { id: 75, label: 'International SWIFT Validation' },
-      { id: 100, label: 'Preparing Ledger Entry' },
+      { id: 25, label: 'Authenticating Apex Identity' },
+      { id: 50, label: 'Global Compliance AML Scanning' },
+      { id: 75, label: watchMethod === 'local_sa' ? 'Clearing House Verification' : 'International SWIFT Validation' },
+      { id: 100, label: 'Finalizing Private Ledger Entry' },
     ];
     const currentLabel = steps.find(s => verificationProgress <= s.id)?.label || 'Processing';
 
@@ -221,13 +249,13 @@ export default function CashOutPage() {
         <h2 className="text-3xl font-black tracking-tighter">Funds Dispatched</h2>
         <p className="text-muted-foreground max-w-sm">
           Your withdrawal has been verified and executed on the Apex Private Ledger.
-          {activeMethod === 'bank' ? ' Estimated arrival: 1-2 business days.' : ' Transaction will be visible on-chain shortly.'}
+          {pendingData?.method === 'local_sa' ? ' Estimated arrival: Same day / Next day.' : ' Estimated arrival: 2-3 business days.'}
         </p>
       </div>
       <div className="w-full p-4 rounded-xl bg-muted/30 border border-white/5 space-y-3">
         <div className="flex justify-between text-xs">
-          <span className="text-muted-foreground uppercase font-bold">Ref ID</span>
-          <span className="font-mono text-primary">APEX-{Math.random().toString(36).substring(7).toUpperCase()}</span>
+          <span className="text-muted-foreground uppercase font-bold">Protocol</span>
+          <span className="font-mono text-primary uppercase">{pendingData?.method === 'local_sa' ? 'EFT / Clearing' : 'SWIFT / Wire'}</span>
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-muted-foreground uppercase font-bold">Status</span>
@@ -235,7 +263,7 @@ export default function CashOutPage() {
         </div>
       </div>
       <Button onClick={() => setStep('input')} className="w-full btn-premium">
-        Initiate Another Transfer
+        Initiate New Gateway Transfer
       </Button>
     </div>
   );
@@ -252,7 +280,7 @@ export default function CashOutPage() {
               <div>
                 <CardTitle className="text-xl font-black tracking-tight">CASH OUT GATEWAY</CardTitle>
                 <CardDescription className="text-[10px] uppercase font-bold tracking-widest text-primary/60">
-                  Industrial Secure Protocol v2.4
+                  Industrial Secure Protocol v2.5 • Multi-Region
                 </CardDescription>
               </div>
             </div>
@@ -274,44 +302,94 @@ export default function CashOutPage() {
                 <Tabs defaultValue="bank" className="w-full">
                   <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-xl">
                     <TabsTrigger value="bank" className="rounded-lg py-2 transition-all">
-                      <Building2 className="h-4 w-4 mr-2" /> Global Bank
+                      <Building2 className="h-4 w-4 mr-2" /> Bank Gateway
                     </TabsTrigger>
                     <TabsTrigger value="wallet" className="rounded-lg py-2 transition-all">
                       <Globe className="h-4 w-4 mr-2" /> Digital Asset
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="bank" className="pt-6 space-y-4">
+                  <TabsContent value="bank" className="pt-6 space-y-6">
+                    <div className="space-y-4">
+                        <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Select Banking Protocol</Label>
+                        <RadioGroup 
+                            defaultValue="local_sa" 
+                            className="grid grid-cols-2 gap-4"
+                            onValueChange={(val) => bankForm.setValue('method', val as any)}
+                        >
+                            <div className={cn(
+                                "relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
+                                watchMethod === 'local_sa' ? "bg-primary/10 border-primary ring-1 ring-primary" : "bg-muted/30 border-white/5 hover:border-white/10"
+                            )}>
+                                <div className="flex items-center gap-3">
+                                    <Flag className="h-4 w-4 text-primary" />
+                                    <div className="space-y-0.5">
+                                        <div className="text-xs font-bold">Local SA</div>
+                                        <div className="text-[9px] text-muted-foreground">EFT / Fast Clear</div>
+                                    </div>
+                                </div>
+                                <RadioGroupItem value="local_sa" className="sr-only" />
+                            </div>
+                            <div className={cn(
+                                "relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
+                                watchMethod === 'international' ? "bg-primary/10 border-primary ring-1 ring-primary" : "bg-muted/30 border-white/5 hover:border-white/10"
+                            )}>
+                                <div className="flex items-center gap-3">
+                                    <Globe className="h-4 w-4 text-primary" />
+                                    <div className="space-y-0.5">
+                                        <div className="text-xs font-bold">International</div>
+                                        <div className="text-[9px] text-muted-foreground">SWIFT / Wire</div>
+                                    </div>
+                                </div>
+                                <RadioGroupItem value="international" className="sr-only" />
+                            </div>
+                        </RadioGroup>
+                    </div>
+
                     <form onSubmit={bankForm.handleSubmit((d) => startVerification(d, 'bank'))} className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label className="text-[10px] uppercase font-bold text-muted-foreground">Account Holder</Label>
                           <Input className="bg-muted/30 border-white/10" placeholder="Full Legal Name" {...bankForm.register('accountName')} />
-                          {bankForm.formState.errors.accountName && <p className="text-[10px] text-destructive">{bankForm.formState.errors.accountName.message}</p>}
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-bold text-muted-foreground">Institution</Label>
-                          <Input className="bg-muted/30 border-white/10" placeholder="Bank Name" {...bankForm.register('bankName')} />
-                          {bankForm.formState.errors.bankName && <p className="text-[10px] text-destructive">{bankForm.formState.errors.bankName.message}</p>}
+                          <Label className="text-[10px] uppercase font-bold text-muted-foreground">Bank Name</Label>
+                          <Input className="bg-muted/30 border-white/10" placeholder="e.g. FNB, ABSA, Chase" {...bankForm.register('bankName')} />
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">International Bank Account Number (IBAN)</Label>
-                        <Input className="bg-muted/30 border-white/10 font-mono" placeholder="GB00 0000 0000 0000..." {...bankForm.register('iban')} />
-                        {bankForm.formState.errors.iban && <p className="text-[10px] text-destructive">{bankForm.formState.errors.iban.message}</p>}
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">SWIFT / BIC Code</Label>
-                        <Input className="bg-muted/30 border-white/10 font-mono" placeholder="XXXX XX XX" {...bankForm.register('swiftBic')} />
-                        {bankForm.formState.errors.swiftBic && <p className="text-[10px] text-destructive">{bankForm.formState.errors.swiftBic.message}</p>}
-                      </div>
+
+                      {watchMethod === 'local_sa' ? (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Account Number</Label>
+                                <Input className="bg-muted/30 border-white/10 font-mono" placeholder="10 digits..." {...bankForm.register('accountNumber')} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Branch Code</Label>
+                                <Input className="bg-muted/30 border-white/10 font-mono" placeholder="250655" {...bankForm.register('branchCode')} />
+                            </div>
+                        </div>
+                      ) : (
+                        <>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">IBAN / Account Number</Label>
+                                <Input className="bg-muted/30 border-white/10 font-mono" placeholder="International Format" {...bankForm.register('iban')} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">SWIFT / BIC Code</Label>
+                                <Input className="bg-muted/30 border-white/10 font-mono" placeholder="XXXX XX XX" {...bankForm.register('swiftBic')} />
+                            </div>
+                        </>
+                      )}
+
                       <div className="space-y-2">
                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Amount ({currency.symbol})</Label>
                         <Input className="bg-muted/30 border-white/10 text-xl font-bold" type="number" step="any" placeholder="0.00" {...bankForm.register('amount')} />
                         {bankForm.formState.errors.amount && <p className="text-[10px] text-destructive">{bankForm.formState.errors.amount.message}</p>}
                       </div>
+                      
                       <Button type="submit" className="w-full btn-premium py-6 mt-4">
-                        <Banknote className="mr-2 h-5 w-5" /> Initiate Secure Wire
+                        <ShieldCheck className="mr-2 h-5 w-5" /> Execute Secure Transfer
                       </Button>
                     </form>
                   </TabsContent>
@@ -321,15 +399,13 @@ export default function CashOutPage() {
                       <div className="space-y-2">
                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Destination Wallet (EVM)</Label>
                         <Input className="bg-muted/30 border-white/10 font-mono" placeholder="0x..." {...walletForm.register('externalAddress')} />
-                        {walletForm.formState.errors.externalAddress && <p className="text-[10px] text-destructive">{walletForm.formState.errors.externalAddress.message}</p>}
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Amount ({currency.symbol})</Label>
                         <Input className="bg-muted/30 border-white/10 text-xl font-bold" type="number" step="any" placeholder="0.00" {...walletForm.register('amount')} />
-                        {walletForm.formState.errors.amount && <p className="text-[10px] text-destructive">{walletForm.formState.errors.amount.message}</p>}
                       </div>
                       <Button type="submit" className="w-full btn-premium py-6 mt-4">
-                        <ShieldCheck className="mr-2 h-5 w-5" /> Execute Digital Transfer
+                        <Globe className="mr-2 h-5 w-5" /> Dispatch Digital Asset
                       </Button>
                     </form>
                   </TabsContent>
@@ -342,7 +418,7 @@ export default function CashOutPage() {
           </CardContent>
           <CardFooter className="bg-muted/20 border-t border-white/5 py-3 flex items-center justify-center gap-2">
             <Lock className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">End-to-End Encrypted Transfer Service</span>
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Secured by Apex Private Ledger & Global Banking Standards</span>
           </CardFooter>
         </Card>
       </div>
