@@ -16,9 +16,9 @@ import {
   Settings, 
   Bot, 
   Repeat, 
-  ShieldCheck, 
   Banknote, 
-  Wallet 
+  Wallet,
+  ShieldCheck
 } from "lucide-react";
 import { useWallet } from "@/context/wallet-context";
 import Link from "next/link";

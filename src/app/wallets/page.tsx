@@ -8,7 +8,7 @@ import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
-import { Copy, RefreshCw, ShieldCheck, Loader2, QrCode, Wallet, ExternalLink, Activity, Server, Database, Hash } from 'lucide-react';
+import { Copy, RefreshCw, Loader2, QrCode, Wallet, ExternalLink, Activity, Server, Database, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PrivateRoute } from '@/components/private-route';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -72,18 +72,27 @@ export default function MyWalletsPage() {
     const handleSync = async (currency: string) => {
         setSyncingId(currency);
         
-        const steps = [
-            'Connecting to Private RPC Node...',
-            'Fetching Block Headers...',
-            'Validating State Proofs...',
-            'Verifying Balance Integrity...',
+        const ethSteps = [
+            'Connecting to Ethereum RPC Node...',
+            'Fetching State Root...',
+            'Validating Merkle Proofs...',
             'Finalizing On-Chain Sync...'
         ];
+
+        const adaSteps = [
+            'Connecting to Cardano Shelley Node...',
+            'Fetching Epoch State...',
+            'Validating Slot Leaders...',
+            'Verifying UTXO Distribution...',
+            'Finalizing Ouroboros Sync...'
+        ];
+
+        const steps = currency === 'ADA' ? adaSteps : ethSteps;
 
         try {
             for (const step of steps) {
                 setSyncStep(step);
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 800));
             }
             await syncWalletBalance(currency);
             toast({ 
