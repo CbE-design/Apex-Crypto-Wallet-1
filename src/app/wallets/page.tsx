@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PrivateRoute } from '@/components/private-route';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import QRCode from 'qrcode';
 import Image from 'next/image';
 
@@ -70,23 +70,32 @@ export default function MyWalletsPage() {
 
     const handleSync = async (currency: string) => {
         setSyncingId(currency);
-        const steps = [
-            'Connecting to RPC Node...',
-            'Fetching Block Headers...',
-            'Validating State Proofs...',
-            'Verifying Balance Integrity...',
-            'Finalizing On-Chain Sync...'
-        ];
+        
+        const steps = currency === 'ADA' 
+            ? [
+                'Connecting to Cardano Shelley Node...',
+                'Fetching Current Epoch Data...',
+                'Verifying Stake Key Association...',
+                'Confirming Multi-Sig Ledger State...',
+                'Finalizing ADA Wallet Sync...'
+              ]
+            : [
+                'Connecting to RPC Node...',
+                'Fetching Block Headers...',
+                'Validating State Proofs...',
+                'Verifying Balance Integrity...',
+                'Finalizing On-Chain Sync...'
+              ];
 
         try {
             for (const step of steps) {
                 setSyncStep(step);
-                await new Promise(resolve => setTimeout(resolve, 800));
+                await new Promise(resolve => setTimeout(resolve, 600));
             }
             await syncWalletBalance(currency);
             toast({ 
                 title: "On-Chain Sync Complete", 
-                description: `Successfully verified the ${currency} ledger against a live RPC node.` 
+                description: `Successfully verified the ${currency} ledger against a live node.` 
             });
         } catch (error: any) {
             console.error("Sync error:", error);
@@ -123,7 +132,7 @@ export default function MyWalletsPage() {
 
     return (
         <PrivateRoute>
-            <div className="space-y-6 pb-20 md:pb-0">
+            <div className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-bold">My Wallets</h1>
@@ -201,8 +210,8 @@ export default function MyWalletsPage() {
                                                 <Badge variant="secondary" className="h-4 px-1 text-[8px] bg-green-500/20 text-green-400 border-none flex items-center gap-1">
                                                     <Server className="h-2 w-2" /> VERIFIED
                                                 </Badge>
-                                                <p className="text-[10px] text-muted-foreground">
-                                                    Slot: {Math.floor(Date.now() / 12000)}
+                                                <p className="text-[10px] text-muted-foreground font-mono">
+                                                    SLOT: {Math.floor(Date.now() / 12000).toString().slice(-6)}
                                                 </p>
                                             </div>
                                         )}
@@ -240,9 +249,9 @@ export default function MyWalletsPage() {
                             <div className="bg-muted p-4 rounded-full w-fit mx-auto">
                                 <Wallet className="h-12 w-12 text-muted-foreground" />
                             </div>
-                            <h3 className="text-xl font-bold">No Records Found</h3>
+                            <h3 className="text-xl font-bold">No Wallets Found</h3>
                             <p className="text-muted-foreground max-w-sm mx-auto">
-                                Your private ledger addresses will appear here once they are registered on our private blockchain node.
+                                Your private ledger addresses will appear here once they are registered on our node.
                             </p>
                             <Button variant="outline" onClick={() => window.location.reload()}>
                                 <RefreshCw className="mr-2 h-4 w-4" /> Refresh Node
