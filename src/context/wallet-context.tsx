@@ -7,7 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, serverTimestamp, getDoc, writeBatch, collection, query, where, getDocs, limit, updateDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, writeBatch, collection, query, where, getDocs, limit, updateDoc } from 'firebase/firestore';
 import { marketCoins } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -43,15 +43,20 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 const WALLET_STORAGE_KEY_PREFIX = 'apex-wallet-';
 const ADMIN_WALLET_ADDRESS = (process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0x').toLowerCase();
 
-const generateSimulatedAddress = (symbol: string, masterAddress: string) => {
-    if (!masterAddress) return '';
-    if (['ETH', 'LINK', 'BNB', 'USDT'].includes(symbol)) return masterAddress;
-    if (symbol === 'SOL') return masterAddress.replace('0x', 'Sol') + 'Base58'.substring(0, 32);
-    if (symbol === 'DOGE') return 'D' + masterAddress.substring(2, 35);
-    if (symbol === 'BTC') return '1' + masterAddress.substring(2, 34);
-    if (symbol === 'ADA') return 'addr1' + masterAddress.substring(2, 30);
-    if (symbol === 'XRP') return 'r' + masterAddress.substring(2, 34);
-    return 'Addr_' + symbol + '_' + masterAddress.substring(2, 10);
+/**
+ * PRODUCTION NOTE: For multi-chain registration, use proper BIP-44 derivation:
+ * - ETH: m/44'/60'/0'/0/0
+ * - ADA: m/1852'/1815'/0'/0/0
+ * - SOL: m/44'/501'/0'/0'
+ */
+const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
+    if (!ethAddress) return '';
+    if (['ETH', 'LINK', 'BNB', 'USDT'].includes(symbol)) return ethAddress;
+    // Simulated BIP-44 derivations for prototype
+    if (symbol === 'SOL') return ethAddress.replace('0x', 'Sol') + 'Identity'.substring(0, 16);
+    if (symbol === 'ADA') return 'addr1' + ethAddress.substring(2, 42);
+    if (symbol === 'BTC') return '1' + ethAddress.substring(2, 35);
+    return 'Identity_' + symbol + '_' + ethAddress.substring(2, 12);
 }
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
@@ -92,13 +97,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const setupUserAndWalletDocuments = useCallback(async (firebaseUser: FirebaseUser, walletInstance: ethers.Wallet) => {
       if (!firestore) throw new Error("Firestore is not available.");
 
-      console.log("Setting up Firestore documents for user:", firebaseUser.uid);
       const batch = writeBatch(firestore);
-
       const userRef = doc(firestore, 'users', firebaseUser.uid);
+      
       const newUserDocument: UserProfile = {
         id: firebaseUser.uid,
-        email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.crypto`,
+        email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.io`,
         createdAt: serverTimestamp(),
         walletAddress: walletInstance.address,
       };
@@ -112,25 +116,18 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
               userId: firebaseUser.uid,
               currency: coin.symbol,
               balance: 0,
-              address: generateSimulatedAddress(coin.symbol, walletInstance.address),
+              address: deriveIdentityAddress(coin.symbol, walletInstance.address),
               lastSynced: serverTimestamp()
           }, { merge: true });
       });
 
-      try {
-        await batch.commit();
-        console.log("Firestore documents successfully committed.");
-        
-        const walletData = {
-          address: walletInstance.address,
-          privateKey: walletInstance.privateKey,
-        };
-        setWalletAndAdmin(walletData, firebaseUser);
-      } catch (err) {
-        console.error("Failed to commit Firestore documents:", err);
-        throw err;
-      }
-
+      await batch.commit();
+      
+      const walletData = {
+        address: walletInstance.address,
+        privateKey: walletInstance.privateKey,
+      };
+      setWalletAndAdmin(walletData, firebaseUser);
   }, [firestore, setWalletAndAdmin]);
 
   useEffect(() => {
@@ -150,44 +147,32 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
                         setWalletAndAdmin({ address: walletInstance.address, privateKey: walletInstance.privateKey }, user);
                     }
                 } catch (e) {
-                    console.error("Failed to parse stored wallet.", e);
+                    console.error("Wallet cache invalid.", e);
                     if (auth) signOut(auth);
                 }
             }
-        } else if (!user) {
-            setWalletAndAdmin(null, null);
         }
         setIsInitializing(false);
     }
-    
     initializeWallet();
   }, [user, auth, wallet, setWalletAndAdmin]);
 
   const createWallet = useCallback(async (): Promise<string> => {
     const newWallet = ethers.Wallet.createRandom();
-    const mnemonic = newWallet.mnemonic?.phrase;
-    if (!mnemonic) {
-      throw new Error("Failed to generate mnemonic");
-    }
-    return mnemonic;
+    return newWallet.mnemonic?.phrase || '';
   }, []);
 
   const confirmAndCreateWallet = useCallback(async (mnemonic: string) => {
-    if (!auth) throw new Error("Auth service not available");
-    
+    if (!auth) throw new Error("Auth missing");
     setIsInitializing(true);
     try {
-        console.log("Creating new wallet account...");
         const newWallet = ethers.Wallet.fromPhrase(mnemonic);
         const userCredential = await initiateAnonymousSignIn(auth);
-        
         if (userCredential?.user) {
           await setupUserAndWalletDocuments(userCredential.user, newWallet as any);
-        } else {
-          throw new Error("Failed to sign in anonymously.");
         }
     } catch (e) {
-        console.error("Wallet creation error:", e);
+        console.error("Setup error:", e);
         throw e;
     } finally {
         setIsInitializing(false);
@@ -195,55 +180,40 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, [auth, setupUserAndWalletDocuments]);
 
   const importWallet = useCallback(async (mnemonic: string) => {
-    if (!auth || !firestore) {
-      throw new Error("Auth or Firestore service not available");
-    }
-    
+    if (!auth || !firestore) throw new Error("Services missing");
     setIsInitializing(true);
     try {
-      const sanitizedMnemonic = mnemonic.trim().replace(/\s+/g, ' ');
-      const importedWallet = ethers.Wallet.fromPhrase(sanitizedMnemonic);
-      
+      const importedWallet = ethers.Wallet.fromPhrase(mnemonic.trim());
       const usersRef = collection(firestore, 'users');
       const q = query(usersRef, where("walletAddress", "==", importedWallet.address), limit(1));
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        console.log("Phrase imported but no user found. Creating new record.");
         const userCredential = await initiateAnonymousSignIn(auth);
         if (userCredential?.user) {
           await setupUserAndWalletDocuments(userCredential.user, importedWallet as any);
         }
       } else {
-        const userDoc = querySnapshot.docs[0];
-        const userId = userDoc.id;
+        const userId = querySnapshot.docs[0].id;
         const userCredential = await initiateAnonymousSignIn(auth, userId);
         if (userCredential.user) {
-          const walletData = { address: importedWallet.address, privateKey: importedWallet.privateKey };
-          setWalletAndAdmin(walletData, userCredential.user);
+          setWalletAndAdmin({ address: importedWallet.address, privateKey: importedWallet.privateKey }, userCredential.user);
         }
       }
-
-      toast({ title: 'Wallet Imported!', description: 'You have successfully logged in.' });
       router.push('/');
-
     } catch (e: any) {
-      console.error("Error importing wallet:", e);
-      throw new Error("Invalid seed phrase or login failure.");
+      throw new Error("Login failed.");
     } finally {
         setIsInitializing(false);
     }
-  }, [auth, firestore, setWalletAndAdmin, toast, router, setupUserAndWalletDocuments]);
+  }, [auth, firestore, setWalletAndAdmin, router, setupUserAndWalletDocuments]);
 
   const disconnectWallet = useCallback(() => {
     if (auth) {
       const uid = auth.currentUser?.uid;
       signOut(auth).then(() => {
-         if (uid) {
-            localStorage.removeItem(`${WALLET_STORAGE_KEY_PREFIX}${uid}`);
-         }
+         if (uid) localStorage.removeItem(`${WALLET_STORAGE_KEY_PREFIX}${uid}`);
          setWallet(null);
-         setIsAdmin(false);
          router.push('/login');
       });
     }
@@ -253,7 +223,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!user || !firestore) return;
     const walletRef = doc(firestore, 'users', user.uid, 'wallets', currency);
     await updateDoc(walletRef, { lastSynced: serverTimestamp() });
-    toast({ title: `${currency} Synced`, description: `Balance verified on-chain via RPC node.` });
   };
 
   if (isUserLoading || isInitializing) {
@@ -273,8 +242,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
 export const useWallet = () => {
   const context = useContext(WalletContext);
-  if (context === undefined) {
-    throw new Error('useWallet must be used within a WalletProvider');
-  }
+  if (context === undefined) throw new Error('useWallet missing');
   return context;
 };

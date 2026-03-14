@@ -73,24 +73,6 @@ export function AppSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
-          
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/coming-soon"}>
-              <Link href="/coming-soon">
-                <Sparkles className="h-4 w-4" />
-                <span>Staking</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/coming-soon"}>
-              <Link href="/coming-soon">
-                <ImageIcon className="h-4 w-4" />
-                <span>NFTs</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       

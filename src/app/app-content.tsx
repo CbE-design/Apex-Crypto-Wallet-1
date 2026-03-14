@@ -25,7 +25,7 @@ export default function AppContent({
     <SidebarProvider defaultOpen={true}>
       <div className="flex flex-col h-[100dvh] w-full bg-background overflow-hidden">
         {/* Fixed Standalone Top Header Border */}
-        <div className="flex-none z-50 border-b bg-background">
+        <div className="flex-none z-50 border-b bg-background shadow-sm">
           <Header />
         </div>
 
@@ -33,7 +33,7 @@ export default function AppContent({
         <div className="flex flex-1 overflow-hidden">
           {!isAdminPage && (
             <div className="hidden md:block">
-              <Sidebar collapsible="icon">
+              <Sidebar collapsible="icon" className="border-r">
                 <AppSidebar />
               </Sidebar>
             </div>
@@ -41,7 +41,7 @@ export default function AppContent({
 
           <SidebarInset className="flex flex-col h-full w-full overflow-hidden">
             {/* The ONLY scrollable container in the sandwich middle */}
-            <main className="flex-1 overflow-y-auto scroll-container aurora-bg p-4 md:p-6 lg:p-8 relative">
+            <main className="flex-1 overflow-y-auto aurora-bg p-4 md:p-6 lg:p-8 relative scroll-smooth">
               <div className="max-w-7xl mx-auto w-full pb-20 md:pb-0">
                 {children}
               </div>
@@ -51,7 +51,7 @@ export default function AppContent({
 
         {/* Fixed Standalone Bottom Nav Border (Mobile Only) */}
         {!isAdminPage && (
-          <div className="flex-none md:hidden z-50 border-t bg-background safe-bottom">
+          <div className="flex-none md:hidden z-50 border-t bg-background shadow-sm safe-bottom">
             <MobileNav />
           </div>
         )}
