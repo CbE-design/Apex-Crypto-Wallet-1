@@ -83,7 +83,7 @@ export default function MyWalletsPage() {
         try {
             for (const step of steps) {
                 setSyncStep(step);
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                await new Promise(resolve => setTimeout(resolve, 3000));
             }
             await syncWalletBalance(currency);
             toast({ 

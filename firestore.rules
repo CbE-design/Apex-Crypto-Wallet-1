@@ -1,19 +1,4 @@
 
-/**
- * @fileoverview Firestore Security Rules for Apex Crypto Wallet.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for all data, except for admins
- * who have broader read access for management purposes.
- *
- * Data Structure:
- * The data is organized hierarchically under the `users/{userId}` collection.
- *
- * Key Security Decisions:
- * - All data is private and accessible only to the owning user, or an admin.
- * - User listing is permitted for admins to facilitate user management.
- * - Data consistency is enforced using relational integrity checks where applicable.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -28,18 +13,27 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      // Admin status is determined by matching the user's UID
-      // with the one defined here. In a production app, this would ideally be a custom claim.
       return isSignedIn() && request.auth.uid == "eHo0ensfcbVB1ApTwAITiXug6sp2";
     }
     
     /**
-     * @description Enforces ownership for user profiles, but allows admins to read.
-     * @path /users/{userId}
+     * @description Collection Group rules for Explorer queries.
+     */
+    match /{path=**}/wallets/{walletId} {
+      allow list: if true;
+      allow get: if true;
+    }
+
+    match /{path=**}/transactions/{transactionId} {
+      allow list: if true;
+      allow get: if true;
+    }
+
+    /**
+     * @description Enforces ownership for user profiles.
      */
     match /users/{userId} {
       allow create: if isSignedIn() && isOwner(userId);
-      // A user can get their own document, or an admin can get any document.
       allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow update: if isSignedIn()
                     && isOwner(userId)
@@ -48,47 +42,34 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allow anyone to query the users collection to find a user by wallet address for login.
-     * This is required for the seed phrase login flow.
-     * @path /users
+     * @description Allow anyone to query the users collection to find a user by wallet address.
      */
     match /users {
         allow list: if true;
     }
 
-
     /**
-     * @description Enforces user-ownership for cryptocurrency wallets.
-     * Admins are allowed to read wallets and update balances for funding purposes.
-     * @path /users/{userId}/wallets/{walletId}
+     * @description Wallets subcollection rules.
      */
     match /users/{userId}/wallets/{walletId} {
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
       allow get, list: if isSignedIn() && (isOwner(userId) || isAdmin());
-      // A user can update their own wallet if the userId is not changed.
-      // An admin can update any user's wallet (e.g., for funding).
       allow update: if (isSignedIn() && isOwner(userId) && request.resource.data.userId == resource.data.userId) || (isSignedIn() && isAdmin());
       allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Enforces user-ownership for transaction history within a wallet.
-     * Admins can also write transaction logs when funding a user.
-     * A user can list their own transactions.
-     * @path /users/{userId}/wallets/{walletId}/transactions/{transactionId}
+     * @description Transactions subcollection rules.
      */
     match /users/{userId}/wallets/{walletId}/transactions/{transactionId} {
-      // Allow user to get their own transaction or admin to get any.
       allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
-      // Allow a user to list transactions from their own wallet.
-      allow list: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow write: if (isSignedIn() && isOwner(userId)) || (isSignedIn() && isAdmin());
     }
 
-     /**
-      * @description Enforces user-ownership for price alerts.
-      * @path /users/{userId}/price_alerts/{priceAlertId}
-      */
+    /**
+     * @description Price Alerts rules.
+     */
     match /users/{userId}/price_alerts/{priceAlertId} {
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
       allow get, list: if isSignedIn() && (isOwner(userId) || isAdmin());

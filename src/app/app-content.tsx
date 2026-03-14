@@ -24,7 +24,7 @@ export default function AppContent({
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex flex-col h-[100dvh] w-full bg-background overflow-hidden">
-        {/* Standalone Top Header Border */}
+        {/* Fixed Top Header Standalone Border */}
         <div className="flex-none z-[100] border-b bg-background/80 backdrop-blur-xl shadow-sm">
           <Header />
         </div>
@@ -48,7 +48,7 @@ export default function AppContent({
           </SidebarInset>
         </div>
 
-        {/* Standalone Bottom Nav Border (Mobile Only) */}
+        {/* Fixed Bottom Nav Standalone Border (Mobile Only) */}
         {!isAdminPage && (
           <div className="flex-none md:hidden z-[100] border-t border-white/5 bg-background/80 backdrop-blur-xl shadow-sm safe-bottom">
             <MobileNav />
