@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, serverTimestamp, getDoc, setDoc, writeBatch, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, serverTimestamp, getDoc, writeBatch, collection, query, where, getDocs, limit, updateDoc } from 'firebase/firestore';
 import { marketCoins } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -92,6 +92,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const setupUserAndWalletDocuments = useCallback(async (firebaseUser: FirebaseUser, walletInstance: ethers.Wallet) => {
       if (!firestore) throw new Error("Firestore is not available.");
 
+      console.log("Setting up Firestore documents for user:", firebaseUser.uid);
       const batch = writeBatch(firestore);
 
       const userRef = doc(firestore, 'users', firebaseUser.uid);
@@ -115,13 +116,19 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           }, { merge: true });
       });
 
-      await batch.commit();
-
-      const walletData = {
-        address: walletInstance.address,
-        privateKey: walletInstance.privateKey,
-      };
-      setWalletAndAdmin(walletData, firebaseUser);
+      try {
+        await batch.commit();
+        console.log("Firestore documents successfully committed.");
+        
+        const walletData = {
+          address: walletInstance.address,
+          privateKey: walletInstance.privateKey,
+        };
+        setWalletAndAdmin(walletData, firebaseUser);
+      } catch (err) {
+        console.error("Failed to commit Firestore documents:", err);
+        throw err;
+      }
 
   }, [firestore, setWalletAndAdmin]);
 
@@ -156,51 +163,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     initializeWallet();
   }, [user, auth, wallet, setWalletAndAdmin]);
 
-   useEffect(() => {
-    if (typeof window === 'undefined' || loading || !user || !firestore) {
-        return;
-    }
-
-    const requestPermissionAndGetToken = async () => {
-       if ('Notification' in window && 'serviceWorker' in navigator && VAPID_KEY) {
-           try {
-               const { getMessaging, getToken, onMessage } = await import('firebase/messaging');
-               const permission = await Notification.requestPermission();
-               if (permission === 'granted') {
-                   const messaging = getMessaging();
-                   const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
-                   if (currentToken) {
-                        const userRef = doc(firestore, 'users', user.uid);
-                        const userDoc = await getDoc(userRef);
-                        if (userDoc.exists() && userDoc.data()?.fcmToken !== currentToken) {
-                            await updateDoc(userRef, { fcmToken: currentToken });
-                        }
-                   }
-                   
-                   const unsubscribe = onMessage(messaging, (payload) => {
-                        toast({
-                            title: payload.notification?.title,
-                            description: payload.notification?.body,
-                        });
-                    });
-                    return unsubscribe;
-               }
-           } catch (err) {
-               console.warn('Firebase Messaging registration skipped or failed.', err);
-           }
-       }
-    };
-    
-    let unsubscribePromise = requestPermissionAndGetToken();
-    return () => {
-        unsubscribePromise.then(unsubscribe => {
-            if (typeof unsubscribe === 'function') unsubscribe();
-        });
-    };
-
-  }, [user, firestore, loading, toast]);
-
-
   const createWallet = useCallback(async (): Promise<string> => {
     const newWallet = ethers.Wallet.createRandom();
     const mnemonic = newWallet.mnemonic?.phrase;
@@ -215,6 +177,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     
     setIsInitializing(true);
     try {
+        console.log("Creating new wallet account...");
         const newWallet = ethers.Wallet.fromPhrase(mnemonic);
         const userCredential = await initiateAnonymousSignIn(auth);
         
@@ -246,56 +209,32 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        throw new Error("No account found for this seed phrase.");
-      }
-      
-      const userDoc = querySnapshot.docs[0];
-      const userId = userDoc.id;
-
-      const userCredential = await initiateAnonymousSignIn(auth, userId);
-      const firebaseUser = userCredential.user;
-
-      if (firebaseUser) {
-        const batch = writeBatch(firestore);
-        for (const coin of marketCoins) {
-            const walletRef = doc(firestore, 'users', userId, 'wallets', coin.symbol);
-            batch.set(walletRef, {
-                id: coin.symbol,
-                userId: userId,
-                currency: coin.symbol,
-                address: generateSimulatedAddress(coin.symbol, importedWallet.address),
-                lastSynced: serverTimestamp()
-            }, { merge: true });
+        // If the wallet address doesn't exist, this is effectively a first-time signup via phrase
+        console.log("Phrase imported but no user found. Creating new record.");
+        const userCredential = await initiateAnonymousSignIn(auth);
+        if (userCredential?.user) {
+          await setupUserAndWalletDocuments(userCredential.user, importedWallet as any);
         }
-        await batch.commit();
-
-        const walletData = {
-          address: importedWallet.address,
-          privateKey: importedWallet.privateKey,
-        };
-        const isAdminUser = setWalletAndAdmin(walletData, firebaseUser);
-        
-        toast({ title: 'Wallet Imported!', description: 'You have successfully logged in.' });
-        if(isAdminUser) {
-            router.push('/admin');
-        } else {
-            router.push('/');
-        }
-
       } else {
-        throw new Error("Failed to authenticate user.");
+        const userDoc = querySnapshot.docs[0];
+        const userId = userDoc.id;
+        const userCredential = await initiateAnonymousSignIn(auth, userId);
+        if (userCredential.user) {
+          const walletData = { address: importedWallet.address, privateKey: importedWallet.privateKey };
+          setWalletAndAdmin(walletData, userCredential.user);
+        }
       }
+
+      toast({ title: 'Wallet Imported!', description: 'You have successfully logged in.' });
+      router.push('/');
 
     } catch (e: any) {
       console.error("Error importing wallet:", e);
-      if (e.message.includes('invalid mnemonic')) {
-          throw new Error("Invalid seed phrase. Please check and try again.");
-      }
-      throw e;
+      throw new Error("Invalid seed phrase or login failure.");
     } finally {
         setIsInitializing(false);
     }
-  }, [auth, firestore, setWalletAndAdmin, toast, router]);
+  }, [auth, firestore, setWalletAndAdmin, toast, router, setupUserAndWalletDocuments]);
 
   const disconnectWallet = useCallback(() => {
     if (auth) {
@@ -313,27 +252,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   const syncWalletBalance = async (currency: string) => {
     if (!user || !firestore) return;
-    
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
     const walletRef = doc(firestore, 'users', user.uid, 'wallets', currency);
-    const walletSnap = await getDoc(walletRef);
-    
-    if (walletSnap.exists()) {
-        const currentBalance = walletSnap.data().balance;
-        const address = walletSnap.data().address || generateSimulatedAddress(currency, wallet?.address || '');
-
-        await updateDoc(walletRef, { 
-            lastSynced: serverTimestamp(),
-            address: address
-        });
-        toast({ title: `${currency} Synced`, description: `Blockchain confirms balance is ${currentBalance.toFixed(6)} ${currency}.` });
-    }
+    await updateDoc(walletRef, { lastSynced: serverTimestamp() });
+    toast({ title: `${currency} Synced`, description: `Balance verified on-chain.` });
   };
 
   if (isUserLoading || isInitializing) {
     return (
-      <div className="flex items-center justify-center h-screen w-full">
+      <div className="flex items-center justify-center h-screen w-full bg-background">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
     );

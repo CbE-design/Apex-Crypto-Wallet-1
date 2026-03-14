@@ -23,32 +23,34 @@ export default function AppContent({
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex flex-col h-[100dvh] w-full bg-background overflow-hidden">
-        {/* Fixed Top Header (Standalone Border) */}
+        {/* Fixed Standalone Top Header */}
         <div className="flex-none z-50">
           <Header />
         </div>
 
-        {/* Central Section */}
+        {/* Central Section (Scrollable Area) */}
         <div className="flex flex-1 overflow-hidden">
           {!isAdminPage && (
-            <Sidebar collapsible="icon" className="hidden md:flex">
-              <AppSidebar />
-            </Sidebar>
+            <div className="hidden md:block">
+              <Sidebar collapsible="icon">
+                <AppSidebar />
+              </Sidebar>
+            </div>
           )}
 
           <SidebarInset className="flex flex-col h-full w-full overflow-hidden">
-            {/* Scrollable Content Section */}
-            <main className="flex-1 overflow-y-auto scroll-container aurora-bg p-4 md:p-6 lg:p-8">
-              <div className="max-w-7xl mx-auto w-full">
+            {/* The ONLY scrollable container in the main view */}
+            <main className="flex-1 overflow-y-auto scroll-container aurora-bg p-4 md:p-6 lg:p-8 relative">
+              <div className="max-w-7xl mx-auto w-full pb-16 md:pb-0">
                 {children}
               </div>
             </main>
           </SidebarInset>
         </div>
 
-        {/* Fixed Bottom Nav (Standalone Border) */}
+        {/* Fixed Standalone Bottom Nav (Mobile Only) */}
         {!isAdminPage && (
-          <div className="flex-none md:hidden z-50">
+          <div className="flex-none md:hidden z-50 border-t bg-background">
             <MobileNav />
           </div>
         )}
