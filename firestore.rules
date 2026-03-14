@@ -9,56 +9,42 @@ service cloud.firestore {
     }
 
     function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-    
-    function isAdmin() {
-      return isSignedIn() && request.auth.uid == "eHo0ensfcbVB1ApTwAITiXug6sp2";
+      return request.auth != null && request.auth.uid == userId;
     }
     
     /**
-     * @description Collection Group rules for Explorer queries and public identity verification.
-     * We allow public read access to wallets and transactions to simulate a transparent public ledger.
+     * @description Public read access for wallets and transactions.
+     * This supports Collection Group queries for the Apex Explorer and 
+     * provides a transparent ledger experience.
      */
     match /{path=**}/wallets/{walletId} {
-      allow get, list: if true;
+      allow read: if true;
     }
 
     match /{path=**}/transactions/{transactionId} {
-      allow get, list: if true;
+      allow read: if true;
     }
 
     /**
-     * @description Enforces ownership for user profiles.
+     * @description Hierarchical rules for user-specific data.
      */
     match /users/{userId} {
-      allow create: if isSignedIn() && isOwner(userId);
-      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow list: if true; // Allowed to find users by walletAddress (QAP)
-      allow update: if isSignedIn()
-                    && isOwner(userId)
-                    && request.resource.data.id == resource.data.id;
-      allow delete: if isSignedIn() && isOwner(userId);
-    }
+      allow read: if true; // Allow lookup by walletAddress
+      allow write: if isOwner(userId);
 
-    /**
-     * @description Subcollection rules for personal data management.
-     */
-    match /users/{userId}/wallets/{walletId} {
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if (isSignedIn() && isOwner(userId)) || isAdmin();
-      allow delete: if isSignedIn() && isOwner(userId);
-    }
+      match /wallets/{walletId} {
+        allow read: if true;
+        allow write: if isOwner(userId);
 
-    match /users/{userId}/wallets/{walletId}/transactions/{transactionId} {
-      allow write: if (isSignedIn() && isOwner(userId)) || isAdmin();
-    }
+        match /transactions/{transactionId} {
+          allow read: if true;
+          allow write: if isOwner(userId);
+        }
+      }
 
-    match /users/{userId}/price_alerts/{priceAlertId} {
-      allow create: if isSignedIn() && isOwner(userId);
-      allow get, list: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      match /price_alerts/{alertId} {
+        allow read, write: if isOwner(userId);
+      }
     }
   }
 }
