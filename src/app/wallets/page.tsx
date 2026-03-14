@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { Copy, RefreshCw, Loader2, QrCode, Wallet, ExternalLink, Activity, Server, Database, Hash, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';

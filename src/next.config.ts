@@ -30,6 +30,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Explicitly allow development workstation origins for cross-origin HMR and server actions
+  allowedDevOrigins: [
+    "*.cloudworkstations.dev",
+    "*.firebaseapp.com",
+    "*.web.app",
+    "*.c9users.io"
+  ],
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
