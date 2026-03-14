@@ -8,7 +8,7 @@ import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
-import { Copy, RefreshCw, Loader2, QrCode, Wallet, ExternalLink, Activity, Server, Database, Hash } from 'lucide-react';
+import { Copy, RefreshCw, Loader2, QrCode, Wallet, ExternalLink, Activity, Server, Database, Hash, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PrivateRoute } from '@/components/private-route';
 import { Skeleton } from '@/components/ui/skeleton';
