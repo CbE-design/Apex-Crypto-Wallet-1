@@ -13,23 +13,24 @@ service cloud.firestore {
     }
     
     /**
-     * @description Public read access for wallets and transactions.
-     * This supports Collection Group queries for the Apex Explorer and 
-     * provides a transparent ledger experience.
+     * @description Collection Group Rules for Explorer.
+     * These must be at the top level to allow global queries.
      */
     match /{path=**}/wallets/{walletId} {
       allow read: if true;
+      allow write: if isSignedIn() && isOwner(get(/databases/$(database)/documents/users/$(request.auth.uid)).id);
     }
 
     match /{path=**}/transactions/{transactionId} {
       allow read: if true;
+      allow write: if isSignedIn();
     }
 
     /**
      * @description Hierarchical rules for user-specific data.
      */
     match /users/{userId} {
-      allow read: if true; // Allow lookup by walletAddress
+      allow read: if true; 
       allow write: if isOwner(userId);
 
       match /wallets/{walletId} {

@@ -2,16 +2,15 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { collectionGroup, query, where, getDocs, collection } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShieldCheck, Activity, Database, Hash, Server, ArrowLeftRight, Clock, Box } from 'lucide-react';
+import { ShieldCheck, Activity, Database, Server, Clock, Box } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -27,19 +26,36 @@ export default function ExplorerPage() {
             if (!firestore || !address) return;
             setIsLoading(true);
             try {
-                // Find all wallets matching this address
+                // Use Collection Group query to find the wallet document across all users
                 const walletsQuery = query(collectionGroup(firestore, 'wallets'), where('address', '==', address));
                 const walletSnap = await getDocs(walletsQuery);
-                const foundWallets = walletSnap.docs.map(doc => ({ ...doc.data(), id: doc.id, path: doc.ref.path }));
+                
+                if (walletSnap.empty) {
+                    setWallets([]);
+                    setTransactions([]);
+                    setIsLoading(false);
+                    return;
+                }
+
+                const foundWallets = walletSnap.docs.map(doc => ({ 
+                    ...doc.data(), 
+                    id: doc.id, 
+                    refPath: doc.ref.path 
+                }));
                 setWallets(foundWallets);
 
-                // Fetch transactions for these wallets
+                // Fetch transactions from the subcollection of the found wallet
                 const allTxs: any[] = [];
                 for (const w of foundWallets) {
-                    const txSnap = await getDocs(collection(firestore, w.path, 'transactions'));
+                    const txSnap = await getDocs(collection(firestore, w.refPath, 'transactions'));
                     txSnap.forEach(doc => allTxs.push({ ...doc.data(), id: doc.id }));
                 }
-                setTransactions(allTxs.sort((a, b) => b.timestamp?.toMillis() - a.timestamp?.toMillis()));
+                
+                setTransactions(allTxs.sort((a, b) => {
+                    const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : 0;
+                    const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : 0;
+                    return timeB - timeA;
+                }));
 
             } catch (error) {
                 console.error("Explorer fetch error:", error);
@@ -102,7 +118,7 @@ export default function ExplorerPage() {
                                             <CryptoIcon name={w.currency} className="h-5 w-5" />
                                             <span className="font-bold text-sm">{w.currency} Balance</span>
                                         </div>
-                                        <div className="text-2xl font-black">{w.balance.toFixed(6)}</div>
+                                        <div className="text-2xl font-black">{w.balance?.toFixed(6) || "0.000000"}</div>
                                         <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-tighter">Status: Confirmed</div>
                                     </div>
                                 ))}
@@ -169,7 +185,7 @@ export default function ExplorerPage() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="font-bold text-xs">
-                                        {tx.amount.toFixed(4)} ETH
+                                        {tx.amount?.toFixed(4) || "0.0000"} ETH
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1 text-[10px] text-green-400 font-bold">

@@ -102,7 +102,6 @@ export default function MyWalletsPage() {
     const getChainType = (currency: string) => {
         if (['ETH', 'LINK', 'BNB', 'USDT'].includes(currency)) return 'Ethereum';
         if (currency === 'SOL') return 'Solana';
-        if (currency === 'BTC') return 'Bitcoin';
         if (currency === 'ADA') return 'Cardano';
         return 'Native Chain';
     }
