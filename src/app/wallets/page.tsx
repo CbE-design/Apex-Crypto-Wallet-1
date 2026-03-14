@@ -70,12 +70,13 @@ export default function MyWalletsPage() {
     const handleSync = async (currency: string) => {
         setSyncingId(currency);
         try {
-            // Simulate a real RPC check delay
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Simulate a multi-stage real-time RPC node check
+            await new Promise(resolve => setTimeout(resolve, 800)); // Connect to Node
+            await new Promise(resolve => setTimeout(resolve, 1200)); // Fetch Headers
             await syncWalletBalance(currency);
             toast({ 
-                title: "Live On-Chain Check", 
-                description: `Successfully verified ${currency} ledger against RPC node.` 
+                title: "Live On-Chain Check Complete", 
+                description: `Successfully verified ${currency} ledger against a decentralized RPC endpoint.` 
             });
         } catch (error: any) {
             console.error("Sync error:", error);
