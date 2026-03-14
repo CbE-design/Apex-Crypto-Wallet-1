@@ -101,4 +101,14 @@
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  position: relative;
+  z-index: 1;
+}
+
+.fixed-border {
+    flex: none;
+    z-index: 50;
+    background-color: hsl(var(--background) / 0.8);
+    backdrop-filter: blur(12px);
+    border-color: hsl(var(--border));
 }

@@ -24,12 +24,12 @@ export default function AppContent({
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="locked-viewport bg-background">
-        {/* Standalone Fixed Header Border */}
-        <div className="flex-none z-[100] border-b bg-background/80 backdrop-blur-xl shadow-sm">
+        {/* Fixed Top Border (Header) */}
+        <div className="fixed-border border-b shadow-sm">
           <Header />
         </div>
 
-        {/* Independent Scroll Area (The Center Section) */}
+        {/* Independent Scroll Area (Center) */}
         <div className="flex flex-1 overflow-hidden relative">
           {!isAdminPage && (
             <div className="hidden md:block">
@@ -41,16 +41,16 @@ export default function AppContent({
 
           <SidebarInset className="flex flex-col h-full w-full overflow-hidden bg-transparent">
             <main className="independent-scroll aurora-bg p-4 md:p-6 lg:p-8 relative scroll-smooth">
-              <div className="max-w-7xl mx-auto w-full">
+              <div className="max-w-7xl mx-auto w-full pb-20 md:pb-0">
                 {children}
               </div>
             </main>
           </SidebarInset>
         </div>
 
-        {/* Standalone Fixed Bottom Nav Border (Mobile Only) */}
+        {/* Fixed Bottom Border (Mobile Navigation) */}
         {!isAdminPage && (
-          <div className="flex-none md:hidden z-[100] border-t border-white/5 bg-background/80 backdrop-blur-xl shadow-sm safe-bottom">
+          <div className="fixed-border border-t md:hidden shadow-sm safe-bottom">
             <MobileNav />
           </div>
         )}

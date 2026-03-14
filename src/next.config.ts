@@ -39,7 +39,8 @@ const nextConfig: NextConfig = {
         "*.firebaseapp.com",
         "*.web.app",
         "studio-8025635453-a4860.firebaseapp.com",
-        "studio-8025635453-a4860.web.app"
+        "studio-8025635453-a4860.web.app",
+        "0.0.0.0:9002"
       ],
     },
   },
