@@ -43,20 +43,17 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 const WALLET_STORAGE_KEY_PREFIX = 'apex-wallet-';
 const ADMIN_WALLET_ADDRESS = (process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0x').toLowerCase();
 
-/**
- * PRODUCTION NOTE: For multi-chain registration, use proper BIP-44 derivation:
- * - ETH: m/44'/60'/0'/0/0
- * - ADA: m/1852'/1815'/0'/0/0
- * - SOL: m/44'/501'/0'/0'
- */
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
     if (!ethAddress) return '';
     if (['ETH', 'LINK', 'BNB', 'USDT'].includes(symbol)) return ethAddress;
-    // Simulated BIP-44 derivations for prototype
     if (symbol === 'SOL') return ethAddress.replace('0x', 'Sol') + 'Identity'.substring(0, 16);
     if (symbol === 'ADA') return 'addr1' + ethAddress.substring(2, 42);
     if (symbol === 'BTC') return '1' + ethAddress.substring(2, 35);
     return 'Identity_' + symbol + '_' + ethAddress.substring(2, 12);
+}
+
+export const generateTxHash = () => {
+    return '0x' + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('');
 }
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {

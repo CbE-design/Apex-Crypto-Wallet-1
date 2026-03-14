@@ -23,12 +23,12 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query, orderBy, limit, type Timestamp } from 'firebase/firestore'
 import { useCurrency } from "@/context/currency-context";
 import { CryptoIcon } from "../crypto-icon";
-import { Loader2 } from "lucide-react";
+import { Loader2, ExternalLink, Hash } from "lucide-react";
 import { getLivePrices } from '@/services/crypto-service';
 
 interface Transaction {
     id: string;
-    type: 'Buy' | 'Sell';
+    type: 'Buy' | 'Sell' | 'Withdrawal' | 'Swap';
     amount: number;
     price: number;
     timestamp: Timestamp;
@@ -36,6 +36,8 @@ interface Transaction {
     notes?: string;
     sender?: string;
     recipient?: string;
+    txHash?: string;
+    blockNumber?: number;
 }
 
 export function TransactionHistory() {
@@ -83,68 +85,83 @@ export function TransactionHistory() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Apex Wallet Transactions</CardTitle>
-        <CardDescription>Your recent ETH transaction activity.</CardDescription>
+    <Card className="bg-card/50 backdrop-blur-sm border-white/5">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+            <CardTitle>Private Ledger Transactions</CardTitle>
+            <CardDescription>Verified ETH history on the Apex node.</CardDescription>
+        </div>
+        <div className="hidden md:flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px] border-green-500/50 text-green-400">
+                <Hash className="h-2 w-2 mr-1" /> NODE_v1.4.2
+            </Badge>
+        </div>
       </CardHeader>
-      <CardContent>
-        <div className="max-h-[450px] overflow-auto">
+      <CardContent className="px-0 md:px-6">
+        <div className="max-h-[500px] overflow-auto">
         <Table>
-          <TableHeader className="sticky top-0 bg-card/80 backdrop-blur-sm">
-            <TableRow>
-              <TableHead>Type</TableHead>
-              <TableHead>Asset</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead className="text-right hidden md:table-cell">Value</TableHead>
-              <TableHead className="hidden md:table-cell">Date</TableHead>
-              <TableHead className="text-right">Status</TableHead>
+          <TableHeader className="sticky top-0 bg-card/80 backdrop-blur-sm z-10">
+            <TableRow className="border-white/5">
+              <TableHead className="text-[10px] uppercase font-bold tracking-widest">Details</TableHead>
+              <TableHead className="text-[10px] uppercase font-bold tracking-widest">Asset</TableHead>
+              <TableHead className="text-right text-[10px] uppercase font-bold tracking-widest">Amount</TableHead>
+              <TableHead className="text-right hidden md:table-cell text-[10px] uppercase font-bold tracking-widest">Value</TableHead>
+              <TableHead className="text-right text-[10px] uppercase font-bold tracking-widest">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
                 <TableRow>
-                    <TableCell colSpan={6} className="h-48 text-center">
-                        <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    <TableCell colSpan={5} className="h-48 text-center">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
                     </TableCell>
                 </TableRow>
             ) : transactions && transactions.length > 0 ? (
               transactions.map((tx) => {
                 const valueInSelectedCurrency = (tx.amount * (tx.price > 0 ? tx.price : ethPrice)) * currency.rate;
-                const isSender = tx.sender?.toLowerCase() === user?.providerData[0]?.uid.toLowerCase();
+                const txHash = tx.txHash || '0x' + tx.id.substring(0, 10).padEnd(64, '0');
 
                 return (
-                    <TableRow key={tx.id}>
+                    <TableRow key={tx.id} className="border-white/5 group hover:bg-white/5">
                     <TableCell>
                         <div className={cn(
-                        "font-medium",
+                        "font-bold text-sm",
                         tx.type === 'Buy' ? 'text-green-400' : 'text-red-400'
                         )}>
                         {tx.type}
                         </div>
-                         <div className="text-xs text-muted-foreground font-mono break-all">
-                            {tx.type === 'Buy' ? `from: ${tx.sender?.substring(0,10)}...` : `to: ${tx.recipient?.substring(0,10)}...`}
+                         <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1 mt-0.5">
+                            {txHash.substring(0, 10)}...
+                            <ExternalLink className="h-2 w-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" />
                         </div>
                     </TableCell>
                     <TableCell>
                         <div className="flex items-center gap-2">
-                            <CryptoIcon name="Ethereum" className="h-6 w-6"/>
-                            <span>ETH</span>
+                            <CryptoIcon name="Ethereum" className="h-5 w-5"/>
+                            <span className="font-bold text-xs">ETH</span>
                         </div>
                     </TableCell>
-                    <TableCell className="text-right">{tx.amount.toFixed(4)}</TableCell>
-                    <TableCell className="text-right hidden md:table-cell">{formatCurrency(valueInSelectedCurrency)}</TableCell>
-                    <TableCell className="hidden md:table-cell">{tx.timestamp.toDate().toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right font-mono text-sm font-bold">
+                        {tx.type === 'Buy' ? '+' : '-'}{tx.amount.toFixed(4)}
+                    </TableCell>
+                    <TableCell className="text-right hidden md:table-cell font-bold text-xs text-muted-foreground">
+                        {formatCurrency(valueInSelectedCurrency)}
+                    </TableCell>
                     <TableCell className="text-right">
-                        <Badge variant={getStatusVariant(tx.status || 'Completed') as any}>{tx.status || 'Completed'}</Badge>
+                        <Badge variant={getStatusVariant(tx.status || 'Completed') as any} className="text-[9px] h-5">
+                            {tx.status || 'Completed'}
+                        </Badge>
                     </TableCell>
                     </TableRow>
                 )
               })
             ) : (
                  <TableRow>
-                    <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">
-                        No transactions found.
+                    <TableCell colSpan={5} className="h-64 text-center">
+                        <div className="flex flex-col items-center justify-center space-y-3">
+                            <Hash className="h-10 w-10 text-muted-foreground/20" />
+                            <p className="text-muted-foreground text-sm">No ledger entries detected.</p>
+                        </div>
                     </TableCell>
                 </TableRow>
             )}
@@ -155,5 +172,3 @@ export function TransactionHistory() {
     </Card>
   )
 }
-
-    

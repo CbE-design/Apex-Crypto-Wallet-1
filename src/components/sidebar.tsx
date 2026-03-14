@@ -40,11 +40,14 @@ export function AppSidebar() {
   return (
     <>
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-4">
-          <div className="bg-primary p-1.5 rounded-lg">
-            <Wallet className="h-6 w-6 text-primary-foreground" />
+        <div className="flex items-center gap-3 px-3 py-6">
+          <div className="bg-primary/20 p-2 rounded-xl border border-primary/30">
+            <Wallet className="h-6 w-6 text-primary" />
           </div>
-          <h2 className="text-xl font-bold text-primary">Apex Wallet</h2>
+          <div>
+            <h2 className="text-lg font-black tracking-tight text-foreground">APEX</h2>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Private Ledger</p>
+          </div>
         </div>
       </SidebarHeader>
       

@@ -27,9 +27,14 @@ export function AdminSidebar() {
   return (
     <>
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-4">
-            <ShieldAlert className="text-primary h-6 w-6" />
-            <h2 className="text-xl font-semibold text-primary">Admin Panel</h2>
+        <div className="flex items-center gap-3 px-3 py-6">
+            <div className="bg-destructive/20 p-2 rounded-xl border border-destructive/30">
+                <ShieldAlert className="text-destructive h-6 w-6" />
+            </div>
+            <div>
+                <h2 className="text-lg font-black tracking-tight text-destructive">ADMIN</h2>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Security Terminal</p>
+            </div>
         </div>
       </SidebarHeader>
       
