@@ -6,6 +6,7 @@ import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/sidebar';
 import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
+import { cn } from '@/lib/utils';
 
 export default function AppContent({
   children,
@@ -24,12 +25,12 @@ export default function AppContent({
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex flex-col h-[100dvh] w-full bg-background overflow-hidden">
-        {/* Fixed Top Header Standalone Border */}
+        {/* Standalone Fixed Header Border */}
         <div className="flex-none z-[100] border-b bg-background/80 backdrop-blur-xl shadow-sm">
           <Header />
         </div>
 
-        {/* Central Independent Scroll Area */}
+        {/* Independent Scroll Area (The Center Section) */}
         <div className="flex flex-1 overflow-hidden relative">
           {!isAdminPage && (
             <div className="hidden md:block">
@@ -48,7 +49,7 @@ export default function AppContent({
           </SidebarInset>
         </div>
 
-        {/* Fixed Bottom Nav Standalone Border (Mobile Only) */}
+        {/* Standalone Fixed Bottom Nav Border (Mobile Only) */}
         {!isAdminPage && (
           <div className="flex-none md:hidden z-[100] border-t border-white/5 bg-background/80 backdrop-blur-xl shadow-sm safe-bottom">
             <MobileNav />

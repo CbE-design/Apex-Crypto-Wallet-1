@@ -17,16 +17,15 @@ service cloud.firestore {
     }
     
     /**
-     * @description Collection Group rules for Explorer queries.
+     * @description Collection Group rules for Explorer queries and public identity verification.
+     * We allow public read access to wallets and transactions to simulate a transparent public ledger.
      */
     match /{path=**}/wallets/{walletId} {
-      allow list: if true;
-      allow get: if true;
+      allow get, list: if true;
     }
 
     match /{path=**}/transactions/{transactionId} {
-      allow list: if true;
-      allow get: if true;
+      allow get, list: if true;
     }
 
     /**
@@ -35,6 +34,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow create: if isSignedIn() && isOwner(userId);
       allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if true; // Allowed to find users by walletAddress (QAP)
       allow update: if isSignedIn()
                     && isOwner(userId)
                     && request.resource.data.id == resource.data.id;
@@ -42,40 +42,22 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allow anyone to query the users collection to find a user by wallet address.
-     */
-    match /users {
-        allow list: if true;
-    }
-
-    /**
-     * @description Wallets subcollection rules.
+     * @description Subcollection rules for personal data management.
      */
     match /users/{userId}/wallets/{walletId} {
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow get, list: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow update: if (isSignedIn() && isOwner(userId) && request.resource.data.userId == resource.data.userId) || (isSignedIn() && isAdmin());
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if (isSignedIn() && isOwner(userId)) || isAdmin();
       allow delete: if isSignedIn() && isOwner(userId);
     }
 
-    /**
-     * @description Transactions subcollection rules.
-     */
     match /users/{userId}/wallets/{walletId}/transactions/{transactionId} {
-      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow list: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow write: if (isSignedIn() && isOwner(userId)) || (isSignedIn() && isAdmin());
+      allow write: if (isSignedIn() && isOwner(userId)) || isAdmin();
     }
 
-    /**
-     * @description Price Alerts rules.
-     */
     match /users/{userId}/price_alerts/{priceAlertId} {
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow create: if isSignedIn() && isOwner(userId);
       allow get, list: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow update: if isSignedIn()
-                    && isOwner(userId)
-                    && request.resource.data.userId == resource.data.userId;
+      allow update: if isSignedIn() && isOwner(userId);
       allow delete: if isSignedIn() && isOwner(userId);
     }
   }

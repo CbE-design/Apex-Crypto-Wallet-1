@@ -14,9 +14,9 @@ import { PrivateRoute } from '@/components/private-route';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import QRCode from 'qrcode';
 import Image from 'next/image';
 import Link from 'next/link';
+import QRCode from 'qrcode';
 
 interface WalletDoc {
     id: string;
@@ -83,7 +83,7 @@ export default function MyWalletsPage() {
         try {
             for (const step of steps) {
                 setSyncStep(step);
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                await new Promise(resolve => setTimeout(resolve, 1500));
             }
             await syncWalletBalance(currency);
             toast({ 
@@ -205,7 +205,7 @@ export default function MyWalletsPage() {
                                             <><RefreshCw className="mr-2 h-3 w-3" /> Verify Node</>
                                         )}
                                     </Button>
-                                    <Link href={`/explorer/${w.address}`} passHref className="block">
+                                    <Link href={`/explorer/${w.address}`} passHref>
                                         <Button 
                                             variant="ghost" 
                                             size="icon" 
