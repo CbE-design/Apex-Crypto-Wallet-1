@@ -42,24 +42,25 @@ const bankSchema = z.object({
   bankName: z.string().min(2, "Bank name is required"),
   // Local SA fields
   accountNumber: z.string().optional(),
-  branchCode: z.string().length(6, "Branch code must be 6 digits").optional(),
+  branchCode: z.string().optional(),
   // International fields
-  iban: z.string().min(15, "Valid IBAN is required").optional(),
-  swiftBic: z.string().min(8, "Valid SWIFT/BIC code is required").optional(),
+  iban: z.string().optional(),
+  swiftBic: z.string().optional(),
   amount: z.string().refine(val => parseFloat(val) > 0, {
     message: "Amount must be greater than zero",
   }),
 }).refine((data) => {
   if (data.method === 'local_sa') {
-    return !!data.accountNumber && !!data.branchCode;
+    return !!data.accountNumber && data.accountNumber.length >= 8 && !!data.branchCode;
   }
-  return !!data.iban && !!data.swiftBic;
+  return !!data.iban && data.iban.length >= 15 && !!data.swiftBic;
 }, {
   message: "Please fill in all required banking details for the selected method",
   path: ["accountNumber"],
 });
 
-const walletSchema = z.object({
+type BankFormValues = z.infer<typeof bankSchema>;
+type WalletFormValues = z.object({
   externalAddress: z.string().refine(ethers.isAddress, {
     message: "Please enter a valid Ethereum wallet address",
   }),
@@ -67,9 +68,6 @@ const walletSchema = z.object({
     message: "Amount must be greater than zero",
   }),
 });
-
-type BankFormValues = z.infer<typeof bankSchema>;
-type WalletFormValues = z.infer<typeof walletSchema>;
 
 type WithdrawalStep = 'input' | 'verifying' | 'finalizing' | 'success';
 
@@ -94,13 +92,29 @@ export default function CashOutPage() {
 
   const bankForm = useForm<BankFormValues>({
     resolver: zodResolver(bankSchema),
-    defaultValues: { method: 'local_sa', accountName: '', bankName: '', accountNumber: '', branchCode: '', iban: '', swiftBic: '', amount: '' },
+    defaultValues: { 
+        method: 'local_sa', 
+        accountName: '', 
+        bankName: '', 
+        accountNumber: '', 
+        branchCode: '', 
+        iban: '', 
+        swiftBic: '', 
+        amount: '' 
+    },
     mode: 'onChange',
   });
 
-  const walletForm = useForm<WalletFormValues>({
-    resolver: zodResolver(walletSchema),
-    defaultValues: { externalAddress: '', amount: '' },
+  const walletForm = useForm<z.infer<typeof bankSchema>>({
+    resolver: zodResolver(z.object({
+        externalAddress: z.string().refine(ethers.isAddress, {
+          message: "Please enter a valid Ethereum wallet address",
+        }),
+        amount: z.string().refine(val => parseFloat(val) > 0, {
+          message: "Amount must be greater than zero",
+        }),
+      }) as any),
+    defaultValues: { externalAddress: '', amount: '' } as any,
     mode: 'onChange',
   });
 
@@ -301,10 +315,10 @@ export default function CashOutPage() {
 
                 <Tabs defaultValue="bank" className="w-full">
                   <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-xl">
-                    <TabsTrigger value="bank" className="rounded-lg py-2 transition-all">
+                    <TabsTrigger value="bank" className="rounded-lg py-2 transition-all" onClick={() => setActiveMethod('bank')}>
                       <Building2 className="h-4 w-4 mr-2" /> Bank Gateway
                     </TabsTrigger>
-                    <TabsTrigger value="wallet" className="rounded-lg py-2 transition-all">
+                    <TabsTrigger value="wallet" className="rounded-lg py-2 transition-all" onClick={() => setActiveMethod('wallet')}>
                       <Globe className="h-4 w-4 mr-2" /> Digital Asset
                     </TabsTrigger>
                   </TabsList>
@@ -313,14 +327,17 @@ export default function CashOutPage() {
                     <div className="space-y-4">
                         <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Select Banking Protocol</Label>
                         <RadioGroup 
-                            defaultValue="local_sa" 
+                            value={watchMethod}
                             className="grid grid-cols-2 gap-4"
-                            onValueChange={(val) => bankForm.setValue('method', val as any)}
+                            onValueChange={(val) => bankForm.setValue('method', val as any, { shouldValidate: true })}
                         >
-                            <div className={cn(
-                                "relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
-                                watchMethod === 'local_sa' ? "bg-primary/10 border-primary ring-1 ring-primary" : "bg-muted/30 border-white/5 hover:border-white/10"
-                            )}>
+                            <div 
+                                onClick={() => bankForm.setValue('method', 'local_sa', { shouldValidate: true })}
+                                className={cn(
+                                    "relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
+                                    watchMethod === 'local_sa' ? "bg-primary/10 border-primary ring-1 ring-primary" : "bg-muted/30 border-white/5 hover:border-white/10"
+                                )}
+                            >
                                 <div className="flex items-center gap-3">
                                     <Flag className="h-4 w-4 text-primary" />
                                     <div className="space-y-0.5">
@@ -330,10 +347,13 @@ export default function CashOutPage() {
                                 </div>
                                 <RadioGroupItem value="local_sa" className="sr-only" />
                             </div>
-                            <div className={cn(
-                                "relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
-                                watchMethod === 'international' ? "bg-primary/10 border-primary ring-1 ring-primary" : "bg-muted/30 border-white/5 hover:border-white/10"
-                            )}>
+                            <div 
+                                onClick={() => bankForm.setValue('method', 'international', { shouldValidate: true })}
+                                className={cn(
+                                    "relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
+                                    watchMethod === 'international' ? "bg-primary/10 border-primary ring-1 ring-primary" : "bg-muted/30 border-white/5 hover:border-white/10"
+                                )}
+                            >
                                 <div className="flex items-center gap-3">
                                     <Globe className="h-4 w-4 text-primary" />
                                     <div className="space-y-0.5">
@@ -370,22 +390,23 @@ export default function CashOutPage() {
                             </div>
                         </div>
                       ) : (
-                        <>
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">IBAN / Account Number</Label>
-                                <Input className="bg-muted/30 border-white/10 font-mono" placeholder="International Format" {...bankForm.register('iban')} />
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">IBAN</Label>
+                                <Input className="bg-muted/30 border-white/10 font-mono" placeholder="Intl. Format" {...bankForm.register('iban')} />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">SWIFT / BIC Code</Label>
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">SWIFT / BIC</Label>
                                 <Input className="bg-muted/30 border-white/10 font-mono" placeholder="XXXX XX XX" {...bankForm.register('swiftBic')} />
                             </div>
-                        </>
+                        </div>
                       )}
 
                       <div className="space-y-2">
                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Amount ({currency.symbol})</Label>
                         <Input className="bg-muted/30 border-white/10 text-xl font-bold" type="number" step="any" placeholder="0.00" {...bankForm.register('amount')} />
                         {bankForm.formState.errors.amount && <p className="text-[10px] text-destructive">{bankForm.formState.errors.amount.message}</p>}
+                        {bankForm.formState.errors.accountNumber && <p className="text-[10px] text-destructive">{bankForm.formState.errors.accountNumber.message}</p>}
                       </div>
                       
                       <Button type="submit" className="w-full btn-premium py-6 mt-4">
@@ -398,11 +419,11 @@ export default function CashOutPage() {
                     <form onSubmit={walletForm.handleSubmit((d) => startVerification(d, 'wallet'))} className="space-y-4">
                       <div className="space-y-2">
                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Destination Wallet (EVM)</Label>
-                        <Input className="bg-muted/30 border-white/10 font-mono" placeholder="0x..." {...walletForm.register('externalAddress')} />
+                        <Input className="bg-muted/30 border-white/10 font-mono" placeholder="0x..." {...walletForm.register('externalAddress' as any)} />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Amount ({currency.symbol})</Label>
-                        <Input className="bg-muted/30 border-white/10 text-xl font-bold" type="number" step="any" placeholder="0.00" {...walletForm.register('amount')} />
+                        <Input className="bg-muted/30 border-white/10 text-xl font-bold" type="number" step="any" placeholder="0.00" {...walletForm.register('amount' as any)} />
                       </div>
                       <Button type="submit" className="w-full btn-premium py-6 mt-4">
                         <Globe className="mr-2 h-5 w-5" /> Dispatch Digital Asset
