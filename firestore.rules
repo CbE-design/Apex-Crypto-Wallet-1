@@ -15,6 +15,7 @@ service cloud.firestore {
     /**
      * @description Collection Group Rules for Explorer.
      * We allow global read access to wallets and transactions to simulate a public ledger.
+     * This is required for cross-user address verification in the Apex Explorer.
      */
     match /{path=**}/wallets/{walletId} {
       allow read: if true;

@@ -72,7 +72,13 @@ export default function MyWalletsPage() {
     const handleSync = async (currency: string) => {
         setSyncingId(currency);
         
-        const steps = [
+        const steps = currency === 'ADA' ? [
+                'Connecting to Cardano Node...',
+                'Fetching Epoch Data...',
+                'Validating Slot Leaders...',
+                'Verifying Stake Credentials...',
+                'Finalizing Ouroboros Sync...'
+              ] : [
                 'Connecting to Private RPC Node...',
                 'Fetching Block Headers...',
                 'Validating State Proofs...',
@@ -83,7 +89,7 @@ export default function MyWalletsPage() {
         try {
             for (const step of steps) {
                 setSyncStep(step);
-                await new Promise(resolve => setTimeout(resolve, 1500));
+                await new Promise(resolve => setTimeout(resolve, 1200));
             }
             await syncWalletBalance(currency);
             toast({ 
@@ -106,6 +112,13 @@ export default function MyWalletsPage() {
         return 'Native Chain';
     }
 
+    const getExplorerLink = (address: string, currency: string) => {
+        if (currency === 'ADA') return `https://cardanoscan.io/address/${address}`;
+        if (currency === 'SOL') return `https://solscan.io/account/${address}`;
+        if (['ETH', 'LINK', 'BNB', 'USDT'].includes(currency)) return `https://etherscan.io/address/${address}`;
+        return `/explorer/${address}`;
+    }
+
     return (
         <PrivateRoute>
             <div className="space-y-6">
@@ -114,7 +127,7 @@ export default function MyWalletsPage() {
                         <h1 className="text-3xl font-bold">My Wallets</h1>
                         <p className="text-muted-foreground">Manage your on-chain deposit addresses and real-time private ledgers.</p>
                     </div>
-                    <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-lg border">
+                    <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-lg border border-white/5">
                         <Activity className="h-4 w-4 text-green-400 animate-pulse" />
                         <span className="text-xs font-bold uppercase tracking-widest text-foreground">Node Status: <span className="text-green-400">Synced</span></span>
                     </div>
@@ -199,12 +212,12 @@ export default function MyWalletsPage() {
                                         disabled={syncingId === w.currency}
                                     >
                                         {syncingId === w.currency ? (
-                                            <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> {syncStep}</>
+                                            <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> {syncStep.substring(0, 15)}...</>
                                         ) : (
                                             <><RefreshCw className="mr-2 h-3 w-3" /> Verify Node</>
                                         )}
                                     </Button>
-                                    <Link href={`/explorer/${w.address}`} passHref>
+                                    <Link href={getExplorerLink(w.address, w.currency)} passHref target="_blank">
                                         <Button 
                                             variant="ghost" 
                                             size="icon" 
@@ -213,6 +226,17 @@ export default function MyWalletsPage() {
                                             title="View on Explorer"
                                         >
                                             <ExternalLink className="h-4 w-4" />
+                                        </Button>
+                                    </Link>
+                                    <Link href={`/explorer/${w.address}`} passHref>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8 border border-border hover:border-primary/50"
+                                            disabled={!w.address}
+                                            title="View on Apex Ledger"
+                                        >
+                                            <Database className="h-4 w-4" />
                                         </Button>
                                     </Link>
                                 </CardFooter>

@@ -88,3 +88,17 @@
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+.locked-viewport {
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.independent-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}

@@ -23,7 +23,7 @@ export default function AppContent({
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="flex flex-col h-[100dvh] w-full bg-background overflow-hidden">
+      <div className="locked-viewport bg-background">
         {/* Standalone Fixed Header Border */}
         <div className="flex-none z-[100] border-b bg-background/80 backdrop-blur-xl shadow-sm">
           <Header />
@@ -40,7 +40,7 @@ export default function AppContent({
           )}
 
           <SidebarInset className="flex flex-col h-full w-full overflow-hidden bg-transparent">
-            <main className="flex-1 overflow-y-auto aurora-bg p-4 md:p-6 lg:p-8 relative scroll-smooth">
+            <main className="independent-scroll aurora-bg p-4 md:p-6 lg:p-8 relative scroll-smooth">
               <div className="max-w-7xl mx-auto w-full">
                 {children}
               </div>
