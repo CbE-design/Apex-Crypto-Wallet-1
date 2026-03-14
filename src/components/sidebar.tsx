@@ -14,13 +14,11 @@ import {
   LayoutDashboard, 
   Send, 
   Settings, 
-  Sparkles, 
   Bot, 
   Repeat, 
   ShieldCheck, 
   Banknote, 
-  Wallet, 
-  Image as ImageIcon 
+  Wallet 
 } from "lucide-react";
 import { useWallet } from "@/context/wallet-context";
 import Link from "next/link";

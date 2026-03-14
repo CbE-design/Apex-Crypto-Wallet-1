@@ -8,12 +8,12 @@ import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
-import { Copy, RefreshCw, CheckCircle2, ShieldCheck, Loader2, QrCode, Search, Wallet, ExternalLink } from 'lucide-react';
+import { Copy, RefreshCw, ShieldCheck, Loader2, QrCode, Wallet, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PrivateRoute } from '@/components/private-route';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import QRCode from 'qrcode';
 import Image from 'next/image';
 
@@ -70,7 +70,7 @@ export default function MyWalletsPage() {
     const handleSync = async (currency: string) => {
         setSyncingId(currency);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate RPC Node verification
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate RPC Node verification
             await syncWalletBalance(currency);
             toast({ 
                 title: "On-Chain Sync Complete", 
@@ -94,7 +94,6 @@ export default function MyWalletsPage() {
             'LINK': `https://etherscan.io/token/0x514910771af9ca656af840dff83e8264ecf986ca?a=${address}`,
             'USDT': `https://etherscan.io/token/0xdac17f958d2ee523a2206206994597c13d831ec7?a=${address}`,
             'ADA': `https://cardanoscan.io/address/${address}`,
-            'XRP': `https://xrpscan.com/account/${address}`,
         };
         
         const url = explorerMap[currency] || `https://blockchair.com/search?q=${address}`;
@@ -112,11 +111,9 @@ export default function MyWalletsPage() {
     return (
         <PrivateRoute>
             <div className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold">My Wallets</h1>
-                        <p className="text-muted-foreground">Manage your on-chain deposit addresses and real-time ledgers.</p>
-                    </div>
+                <div>
+                    <h1 className="text-3xl font-bold">My Wallets</h1>
+                    <p className="text-muted-foreground">Manage your on-chain deposit addresses and real-time ledgers.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -231,12 +228,6 @@ export default function MyWalletsPage() {
 
                 <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
                     <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                                <CryptoIcon name={selectedQrAddress?.currency || ''} className="h-6 w-6" />
-                                {selectedQrAddress?.currency} Identity
-                            </DialogTitle>
-                        </DialogHeader>
                         <div className="flex flex-col items-center justify-center p-8 bg-white rounded-xl border-4 my-4">
                             {qrDataUrl ? (
                                 <Image src={qrDataUrl} alt="Deposit QR Code" width={250} height={250} className="rounded-lg" />
@@ -247,8 +238,8 @@ export default function MyWalletsPage() {
                                 {selectedQrAddress?.address}
                             </div>
                         </div>
-                        <DialogFooter className="flex gap-2">
-                            <Button type="button" className="flex-1" onClick={() => handleCopy(selectedQrAddress?.address || '')}>
+                        <DialogFooter>
+                            <Button type="button" className="w-full" onClick={() => handleCopy(selectedQrAddress?.address || '')}>
                                 <Copy className="h-4 w-4 mr-2" /> Copy Address
                             </Button>
                         </DialogFooter>
