@@ -24,7 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrency } from '@/context/currency-context';
 import { getLivePrices } from '@/services/crypto-service';
 import type { PortfolioAsset } from '@/lib/types';
-
+import { TrendingUp, Wallet } from 'lucide-react';
 
 const chartConfig = {
   value: {
@@ -111,20 +111,18 @@ export function PortfolioOverview() {
   const totalBalanceInSelectedCurrency = totalBalance * currency.rate;
 
   const chartData = portfolioAssets
-    .filter(asset => asset.valueUSD > 0.01) // Only include assets with a meaningful value
+    .filter(asset => asset.valueUSD > 0.01)
     .map((asset) => ({
       name: asset.symbol,
       value: asset.valueUSD,
       fill: `var(--color-${asset.symbol.toLowerCase()})`,
     }));
-  
-  const balanceDigits = Math.floor(totalBalanceInSelectedCurrency).toString().length;
 
   const isLoading = isWalletLoading || isPriceLoading;
 
   if (isLoading) {
     return (
-        <Card className="bg-card/50 backdrop-blur-sm">
+        <Card className="bg-card/40 backdrop-blur-xl border-white/10">
             <CardHeader>
                 <Skeleton className="h-7 w-48" />
                 <Skeleton className="h-4 w-64" />
@@ -151,14 +149,20 @@ export function PortfolioOverview() {
   }
 
   return (
-    <Card className="bg-card/50 backdrop-blur-sm">
+    <Card className="glass-module glass-glow-blue overflow-hidden relative">
+      <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+          <Wallet className="h-32 w-32" />
+      </div>
       <CardHeader>
-        <CardTitle>Portfolio Overview</CardTitle>
-        <CardDescription>
-          Your current crypto holdings and their values.
+        <div className="flex items-center gap-2 mb-1">
+            <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+            <CardTitle className="text-xl">Net Worth</CardTitle>
+        </div>
+        <CardDescription className="text-blue-300/60 uppercase tracking-tighter text-[10px] font-black">
+          Apex Private Ledger Account
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col md:flex-row items-center gap-8">
+      <CardContent className="flex flex-col md:flex-row items-center gap-8 relative z-10">
         <div className="relative w-full md:w-1/2 h-72">
           <ChartContainer
             config={chartConfig}
@@ -170,18 +174,14 @@ export function PortfolioOverview() {
                         cursor={false}
                         content={<ChartTooltipContent 
                             hideLabel 
-                            formatter={(value, name, props) => {
+                            formatter={(value, name) => {
                                 const asset = portfolioAssets.find(a => a.symbol === name);
                                 if (!asset) return null;
                                 return (
                                   <div className="w-full">
-                                      <div className="flex items-center justify-between">
-                                        <span>{asset.name}</span>
-                                        <span className="font-semibold">{formatCurrency(asset.valueUSD * currency.rate)}</span>
-                                      </div>
-                                      <div className="flex items-center justify-between text-muted-foreground">
-                                         <span></span>
-                                         <span className="text-xs">{asset.amount.toFixed(6)} {asset.symbol}</span>
+                                      <div className="flex items-center justify-between gap-4">
+                                        <span className="font-bold">{asset.name}</span>
+                                        <span className="font-black text-accent">{formatCurrency(asset.valueUSD * currency.rate)}</span>
                                       </div>
                                   </div>
                                 )
@@ -192,61 +192,65 @@ export function PortfolioOverview() {
                         data={chartData}
                         dataKey="value"
                         nameKey="name"
-                        innerRadius="60%"
-                        strokeWidth={5}
-                        paddingAngle={chartData.length > 1 ? 5 : 0}
+                        innerRadius="75%"
+                        outerRadius="90%"
+                        strokeWidth={0}
+                        paddingAngle={5}
                     >
                         {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                        <Cell key={`cell-${index}`} fill={entry.fill} className="hover:opacity-80 transition-opacity" />
                         ))}
                     </Pie>
                 </PieChart>
             ) : (
-                <div className="flex justify-center items-center h-full text-muted-foreground">
-                   No assets in your portfolio.
+                <div className="flex justify-center items-center h-full text-muted-foreground italic text-xs">
+                   Awaiting initial deposit...
                 </div>
             )}
           </ChartContainer>
           {totalBalance > 0 && (
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none space-y-1">
-              <p className="text-sm text-muted-foreground">Total Balance</p>
-              <p
-                className={cn(
-                  'font-bold',
-                  balanceDigits > 10 ? 'text-xl' : 'text-2xl'
-                )}
-              >
-                {formatCurrency(totalBalanceInSelectedCurrency)}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none space-y-0">
+              <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Total Assets</p>
+              <p className="text-4xl font-black tracking-tighter text-white">
+                {formatCurrency(totalBalanceInSelectedCurrency).split('.')[0]}
+                <span className="text-xl opacity-50">.{formatCurrency(totalBalanceInSelectedCurrency).split('.')[1]}</span>
               </p>
             </div>
           )}
         </div>
         <div className="w-full md:w-1/2 space-y-4">
           {portfolioAssets.length > 0 ? portfolioAssets.sort((a,b) => b.valueUSD - a.valueUSD).map((asset) => (
-            <div key={asset.symbol} className="flex items-center">
-              <div className="flex items-center gap-2 flex-1">
+            <div key={asset.symbol} className="flex items-center group cursor-pointer p-2 rounded-xl hover:bg-white/5 transition-all">
+              <div className="flex items-center gap-3 flex-1">
                 <div
-                  className="w-2 h-2 rounded-full"
+                  className="w-1 h-8 rounded-full"
                   style={{
-                    backgroundColor: asset.valueUSD > 0.01 ? `hsl(var(--chart-${
+                    backgroundColor: `hsl(var(--chart-${
                       (Object.keys(chartConfig).indexOf(asset.symbol.toLowerCase()) % 5) + 1
-                    }))` : 'transparent',
+                    }))`,
                   }}
                 />
-                <CryptoIcon name={asset.name} className="h-6 w-6" />
-                <span className="font-semibold">{asset.name}</span>
+                <CryptoIcon name={asset.name} className="h-8 w-8 transition-transform group-hover:scale-110" />
+                <div>
+                    <span className="block font-black text-sm tracking-tight">{asset.name}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">{asset.amount.toFixed(4)} {asset.symbol}</span>
+                </div>
               </div>
               <div className="text-right">
-                <p className="font-semibold">
+                <p className="font-black text-sm">
                   {formatCurrency(asset.valueUSD * currency.rate)}
                 </p>
-                <p className="text-sm text-muted-foreground">
-                    {asset.amount.toFixed(6)} {asset.symbol}
-                </p>
+                <div className={cn(
+                    "flex items-center justify-end gap-0.5 text-[10px] font-bold",
+                    asset.change24h >= 0 ? "text-accent" : "text-red-400"
+                )}>
+                    <TrendingUp className={cn("h-2.5 w-2.5", asset.change24h < 0 && "rotate-180")} />
+                    {Math.abs(asset.change24h)}%
+                </div>
               </div>
             </div>
           )) : (
-            <div className="text-center text-muted-foreground">Your portfolio is empty.</div>
+            <div className="text-center text-muted-foreground text-xs">No active ledger positions.</div>
           )}
         </div>
       </CardContent>

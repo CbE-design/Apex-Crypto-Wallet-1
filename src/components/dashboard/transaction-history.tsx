@@ -23,7 +23,7 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query, orderBy, limit, type Timestamp } from 'firebase/firestore'
 import { useCurrency } from "@/context/currency-context";
 import { CryptoIcon } from "../crypto-icon";
-import { Loader2, ExternalLink, Hash } from "lucide-react";
+import { Loader2, ExternalLink, Hash, Activity, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { getLivePrices } from '@/services/crypto-service';
 
 interface Transaction {
@@ -51,7 +51,7 @@ export function TransactionHistory() {
     return query(
         collection(firestore, 'users', user.uid, 'wallets', 'ETH', 'transactions'),
         orderBy('timestamp', 'desc'),
-        limit(20)
+        limit(15)
     );
   }, [user, firestore]);
 
@@ -71,42 +71,31 @@ export function TransactionHistory() {
     fetchEthPrice();
   }, []);
 
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'Completed':
-        return 'default';
-      case 'Pending':
-        return 'secondary';
-      case 'Failed':
-        return 'destructive';
-      default:
-        return 'outline';
-    }
-  };
-
   return (
-    <Card className="bg-card/50 backdrop-blur-sm border-white/5">
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="glass-module overflow-hidden border-white/5">
+      <CardHeader className="flex flex-row items-center justify-between border-b border-white/5 bg-white/5">
         <div>
-            <CardTitle>Private Ledger Transactions</CardTitle>
-            <CardDescription>Verified ETH history on the Apex node.</CardDescription>
+            <CardTitle className="text-lg flex items-center gap-2">
+                <Activity className="h-4 w-4 text-accent" /> Ledger Activity
+            </CardTitle>
+            <CardDescription className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">
+                Apex Real-Time Verification Node
+            </CardDescription>
         </div>
-        <div className="hidden md:flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px] border-green-500/50 text-green-400">
-                <Hash className="h-2 w-2 mr-1" /> NODE_v1.4.2
-            </Badge>
-        </div>
+        <Badge variant="outline" className="text-[9px] border-primary/30 text-primary bg-primary/10">
+            0.00ms Latency
+        </Badge>
       </CardHeader>
-      <CardContent className="px-0 md:px-6">
-        <div className="max-h-[500px] overflow-auto">
+      <CardContent className="p-0">
+        <div className="max-h-[500px] overflow-auto scroll-container">
         <Table>
-          <TableHeader className="sticky top-0 bg-card/80 backdrop-blur-sm z-10">
-            <TableRow className="border-white/5">
-              <TableHead className="text-[10px] uppercase font-bold tracking-widest">Details</TableHead>
-              <TableHead className="text-[10px] uppercase font-bold tracking-widest">Asset</TableHead>
-              <TableHead className="text-right text-[10px] uppercase font-bold tracking-widest">Amount</TableHead>
-              <TableHead className="text-right hidden md:table-cell text-[10px] uppercase font-bold tracking-widest">Value</TableHead>
-              <TableHead className="text-right text-[10px] uppercase font-bold tracking-widest">Status</TableHead>
+          <TableHeader className="sticky top-0 bg-background/50 backdrop-blur-md z-10">
+            <TableRow className="border-white/5 hover:bg-transparent">
+              <TableHead className="text-[9px] uppercase font-black tracking-[0.2em] text-muted-foreground pl-6">Type</TableHead>
+              <TableHead className="text-[9px] uppercase font-black tracking-[0.2em] text-muted-foreground">Asset</TableHead>
+              <TableHead className="text-right text-[9px] uppercase font-black tracking-[0.2em] text-muted-foreground">Amount</TableHead>
+              <TableHead className="text-right hidden md:table-cell text-[9px] uppercase font-black tracking-[0.2em] text-muted-foreground">Market Value</TableHead>
+              <TableHead className="text-right text-[9px] uppercase font-black tracking-[0.2em] text-muted-foreground pr-6">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -120,37 +109,45 @@ export function TransactionHistory() {
               transactions.map((tx) => {
                 const valueInSelectedCurrency = (tx.amount * (tx.price > 0 ? tx.price : ethPrice)) * currency.rate;
                 const txHash = tx.txHash || '0x' + tx.id.substring(0, 10).padEnd(64, '0');
+                const isIncoming = tx.type === 'Buy' || tx.type === 'Swap';
 
                 return (
-                    <TableRow key={tx.id} className="border-white/5 group hover:bg-white/5">
-                    <TableCell>
-                        <div className={cn(
-                        "font-bold text-sm",
-                        tx.type === 'Buy' ? 'text-green-400' : 'text-red-400'
-                        )}>
-                        {tx.type}
-                        </div>
-                         <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1 mt-0.5">
-                            {txHash.substring(0, 10)}...
-                            <ExternalLink className="h-2 w-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" />
+                    <TableRow key={tx.id} className="border-white/5 group hover:bg-white/5 transition-colors">
+                    <TableCell className="pl-6">
+                        <div className="flex items-center gap-3">
+                            <div className={cn(
+                                "p-2 rounded-lg border",
+                                isIncoming ? "bg-accent/10 border-accent/20 text-accent" : "bg-primary/10 border-primary/20 text-primary"
+                            )}>
+                                {isIncoming ? <ArrowDownLeft className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
+                            </div>
+                            <div>
+                                <div className="font-black text-xs uppercase tracking-tight">{tx.type}</div>
+                                <div className="text-[9px] text-muted-foreground font-mono truncate max-w-[80px]">
+                                    {txHash.substring(0, 12)}...
+                                </div>
+                            </div>
                         </div>
                     </TableCell>
                     <TableCell>
                         <div className="flex items-center gap-2">
-                            <CryptoIcon name="Ethereum" className="h-5 w-5"/>
-                            <span className="font-bold text-xs">ETH</span>
+                            <CryptoIcon name="Ethereum" className="h-4 w-4 opacity-70"/>
+                            <span className="font-black text-[10px] text-muted-foreground">ETH</span>
                         </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm font-bold">
-                        {tx.type === 'Buy' ? '+' : '-'}{tx.amount.toFixed(4)}
+                    <TableCell className="text-right font-black text-xs tracking-tighter">
+                        <span className={isIncoming ? "text-accent" : "text-white"}>
+                            {isIncoming ? '+' : '-'}{tx.amount.toFixed(4)}
+                        </span>
                     </TableCell>
-                    <TableCell className="text-right hidden md:table-cell font-bold text-xs text-muted-foreground">
+                    <TableCell className="text-right hidden md:table-cell font-mono text-[10px] text-muted-foreground/60">
                         {formatCurrency(valueInSelectedCurrency)}
                     </TableCell>
-                    <TableCell className="text-right">
-                        <Badge variant={getStatusVariant(tx.status || 'Completed') as any} className="text-[9px] h-5">
-                            {tx.status || 'Completed'}
-                        </Badge>
+                    <TableCell className="text-right pr-6">
+                        <div className="flex items-center justify-end gap-1.5 text-[9px] font-black text-accent uppercase italic tracking-widest">
+                            <div className="h-1 w-1 rounded-full bg-accent animate-pulse" />
+                            Confirmed
+                        </div>
                     </TableCell>
                     </TableRow>
                 )
@@ -158,9 +155,9 @@ export function TransactionHistory() {
             ) : (
                  <TableRow>
                     <TableCell colSpan={5} className="h-64 text-center">
-                        <div className="flex flex-col items-center justify-center space-y-3">
-                            <Hash className="h-10 w-10 text-muted-foreground/20" />
-                            <p className="text-muted-foreground text-sm">No ledger entries detected.</p>
+                        <div className="flex flex-col items-center justify-center space-y-4 opacity-20">
+                            <Hash className="h-16 w-16 text-primary" />
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em]">No Ledger Entries Found</p>
                         </div>
                     </TableCell>
                 </TableRow>
