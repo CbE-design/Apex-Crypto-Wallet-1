@@ -13,28 +13,23 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { 
-  Banknote, 
-  Wallet, 
-  Loader2, 
   CheckCircle2, 
   ShieldCheck, 
   Globe, 
   Building2, 
-  ArrowRight, 
-  AlertCircle,
-  FileCheck2,
   Lock,
   Flag,
-  Landmark
+  Wallet
 } from 'lucide-react';
 import { PrivateRoute } from '@/components/private-route';
 import { useWallet } from '@/context/wallet-context';
 import { useCurrency } from '@/context/currency-context';
-import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { doc, runTransaction, collection, serverTimestamp } from 'firebase/firestore';
 import { getLivePrices } from '@/services/crypto-service';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useDoc, useMemoFirebase } from '@/firebase';
 
 const bankSchema = z.object({
   method: z.enum(['local_sa', 'international']),
@@ -60,7 +55,8 @@ const bankSchema = z.object({
 });
 
 type BankFormValues = z.infer<typeof bankSchema>;
-type WalletFormValues = z.object({
+
+const walletSchema = z.object({
   externalAddress: z.string().refine(ethers.isAddress, {
     message: "Please enter a valid Ethereum wallet address",
   }),
@@ -68,6 +64,8 @@ type WalletFormValues = z.object({
     message: "Amount must be greater than zero",
   }),
 });
+
+type WalletFormValues = z.infer<typeof walletSchema>;
 
 type WithdrawalStep = 'input' | 'verifying' | 'finalizing' | 'success';
 
@@ -105,16 +103,9 @@ export default function CashOutPage() {
     mode: 'onChange',
   });
 
-  const walletForm = useForm<z.infer<typeof bankSchema>>({
-    resolver: zodResolver(z.object({
-        externalAddress: z.string().refine(ethers.isAddress, {
-          message: "Please enter a valid Ethereum wallet address",
-        }),
-        amount: z.string().refine(val => parseFloat(val) > 0, {
-          message: "Amount must be greater than zero",
-        }),
-      }) as any),
-    defaultValues: { externalAddress: '', amount: '' } as any,
+  const walletForm = useForm<WalletFormValues>({
+    resolver: zodResolver(walletSchema),
+    defaultValues: { externalAddress: '', amount: '' },
     mode: 'onChange',
   });
 
@@ -149,7 +140,7 @@ export default function CashOutPage() {
   }, [step]);
 
   const handleFinalizeWithdrawal = async () => {
-    if (!user || !firestore || !wallet || !pendingData) return;
+    if (!user || !firestore || !wallet || !pendingData || !ethWalletRef) return;
 
     try {
       const prices = await getLivePrices(['ETH'], 'USD');
@@ -163,17 +154,17 @@ export default function CashOutPage() {
       }
 
       await runTransaction(firestore, async (transaction) => {
-        const walletDoc = await transaction.get(ethWalletRef!);
+        const walletDoc = await transaction.get(ethWalletRef);
         if (!walletDoc.exists()) throw new Error("Wallet not found");
 
         const currentBalance = walletDoc.data().balance;
         if (currentBalance < ethToDeduct) throw new Error("Insufficient funds");
 
-        transaction.update(ethWalletRef!, {
+        transaction.update(ethWalletRef, {
           balance: currentBalance - ethToDeduct
         });
 
-        const txRef = doc(collection(ethWalletRef!, 'transactions'));
+        const txRef = doc(collection(ethWalletRef, 'transactions'));
         
         let notes = "";
         if (activeMethod === 'bank') {
@@ -419,11 +410,11 @@ export default function CashOutPage() {
                     <form onSubmit={walletForm.handleSubmit((d) => startVerification(d, 'wallet'))} className="space-y-4">
                       <div className="space-y-2">
                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Destination Wallet (EVM)</Label>
-                        <Input className="bg-muted/30 border-white/10 font-mono" placeholder="0x..." {...walletForm.register('externalAddress' as any)} />
+                        <Input className="bg-muted/30 border-white/10 font-mono" placeholder="0x..." {...walletForm.register('externalAddress')} />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Amount ({currency.symbol})</Label>
-                        <Input className="bg-muted/30 border-white/10 text-xl font-bold" type="number" step="any" placeholder="0.00" {...walletForm.register('amount' as any)} />
+                        <Input className="bg-muted/30 border-white/10 text-xl font-bold" type="number" step="any" placeholder="0.00" {...walletForm.register('amount')} />
                       </div>
                       <Button type="submit" className="w-full btn-premium py-6 mt-4">
                         <Globe className="mr-2 h-5 w-5" /> Dispatch Digital Asset
