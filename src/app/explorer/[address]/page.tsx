@@ -27,6 +27,7 @@ export default function ExplorerPage() {
             setIsLoading(true);
             try {
                 // Use Collection Group query to find the wallet document across all users
+                // This requires /{path=**}/wallets/{walletId} permission in firestore.rules
                 const walletsQuery = query(collectionGroup(firestore, 'wallets'), where('address', '==', address));
                 const walletSnap = await getDocs(walletsQuery);
                 
@@ -59,6 +60,9 @@ export default function ExplorerPage() {
 
             } catch (error) {
                 console.error("Explorer fetch error:", error);
+                // Gracefully handle permission errors or missing data
+                setWallets([]);
+                setTransactions([]);
             } finally {
                 setIsLoading(false);
             }
