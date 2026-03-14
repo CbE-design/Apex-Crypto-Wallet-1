@@ -6,7 +6,6 @@ import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/sidebar';
 import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
-import { cn } from '@/lib/utils';
 
 export default function AppContent({
   children,

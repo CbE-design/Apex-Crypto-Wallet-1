@@ -14,11 +14,11 @@ service cloud.firestore {
     
     /**
      * @description Collection Group Rules for Explorer.
-     * These must be at the top level to allow global queries.
+     * We allow global read access to wallets and transactions to simulate a public ledger.
      */
     match /{path=**}/wallets/{walletId} {
       allow read: if true;
-      allow write: if isSignedIn() && isOwner(get(/databases/$(database)/documents/users/$(request.auth.uid)).id);
+      allow write: if isSignedIn();
     }
 
     match /{path=**}/transactions/{transactionId} {
