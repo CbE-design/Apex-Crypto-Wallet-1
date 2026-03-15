@@ -15,7 +15,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { 
     ShieldCheck, 
-    ArrowRight, 
     DollarSign, 
     Wallet, 
     Activity, 
@@ -25,12 +24,11 @@ import {
     RefreshCw, 
     Loader2, 
     CheckCircle, 
-    XCircle,
     Power
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, limit, runTransaction, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, runTransaction, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getLedgerSyncStatus } from '@/services/ledger-sync-service';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -38,8 +36,11 @@ import { marketCoins } from '@/lib/data';
 import { sendNotification } from '@/ai/flows/send-notification-flow';
 import { sendEmail } from '@/ai/flows/send-email-flow';
 import { cn } from '@/lib/utils';
+import { 
+  SendEmailInputSchema, 
+  SendNotificationInputSchema,
+} from '@/lib/types';
 
-// --- Local Schemas for UI Validation ---
 const sendSchema = z.object({
   recipientAddress: z.string().min(1, "Recipient address is required."),
   amount: z.string().refine(val => parseFloat(val) > 0, {
@@ -48,19 +49,9 @@ const sendSchema = z.object({
   asset: z.string().min(1, "Asset is required."),
 });
 
-const notificationSchema = z.object({
-  title: z.string().min(1, 'Title is required.'),
-  body: z.string().min(1, 'Body is required.'),
-});
-
-const emailSchema = z.object({
-  subject: z.string().min(1, 'Subject is required.'),
-  body: z.string().min(1, 'Body is required.'),
-});
-
 type SendFormValues = z.infer<typeof sendSchema>;
-type NotificationFormValues = z.infer<typeof notificationSchema>;
-type EmailFormValues = z.infer<typeof emailSchema>;
+type NotificationFormValues = z.infer<typeof SendNotificationInputSchema>;
+type EmailFormValues = z.infer<typeof SendEmailInputSchema>;
 
 type OperationStatus = 'idle' | 'processing' | 'success' | 'error';
 
@@ -71,7 +62,14 @@ export default function AdminDashboardPage() {
 
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [isReconciling, setIsReconciling] = useState(false);
-  const [isProtocolHalted, setIsProtocolHalted] = useState(false);
+
+  const protocolSettingsRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return doc(firestore, 'protocol_settings', 'status');
+  }, [firestore]);
+
+  const { data: protocolStatus } = useDoc<{ isHalted: boolean }>(protocolSettingsRef);
+  const isProtocolHalted = protocolStatus?.isHalted ?? false;
 
   const [fundingStatus, setFundingStatus] = useState<OperationStatus>('idle');
   const [broadcastStatus, setBroadcastStatus] = useState<OperationStatus>('idle');
@@ -110,16 +108,26 @@ export default function AdminDashboardPage() {
   };
 
   const handleToggleGate = async (checked: boolean) => {
-      setIsProtocolHalted(!checked);
-      const action = checked ? "OPENED" : "HALTED";
-      toast({ 
-          title: `Protocol ${action}`, 
-          description: checked ? "Resuming inbound RPC traffic..." : "Suspending all synchronization services.",
-          variant: checked ? "default" : "destructive"
-      });
+      if (!firestore) return;
+      const newHaltState = !checked;
+      try {
+          await setDoc(doc(firestore, 'protocol_settings', 'status'), { 
+            isHalted: newHaltState,
+            updatedBy: user?.uid,
+            timestamp: serverTimestamp()
+          }, { merge: true });
+
+          const action = checked ? "OPENED" : "HALTED";
+          toast({ 
+              title: `Protocol ${action}`, 
+              description: checked ? "Resuming inbound RPC traffic..." : "Suspending all synchronization services.",
+              variant: checked ? "default" : "destructive"
+          });
+      } catch (e) {
+          toast({ title: "Update Failed", description: "Insufficient permissions for global protocol change.", variant: "destructive" });
+      }
   };
 
-  // --- Ledger Funding Logic ---
   const fundingForm = useForm<SendFormValues>({
     resolver: zodResolver(sendSchema),
     defaultValues: { recipientAddress: '', amount: '', asset: 'ETH' },
@@ -173,9 +181,8 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // --- Broadcast Logic ---
   const broadcastForm = useForm<NotificationFormValues>({
-    resolver: zodResolver(notificationSchema),
+    resolver: zodResolver(SendNotificationInputSchema),
     defaultValues: { title: '', body: '' },
   });
 
@@ -192,9 +199,8 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // --- Email Logic ---
   const emailForm = useForm<EmailFormValues>({
-    resolver: zodResolver(emailSchema),
+    resolver: zodResolver(SendEmailInputSchema),
     defaultValues: { subject: '', body: '' },
   });
 

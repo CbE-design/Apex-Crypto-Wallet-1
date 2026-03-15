@@ -14,8 +14,6 @@ service cloud.firestore {
     
     /**
      * @description Collection Group Rules for Background Ledger Verification.
-     * These MUST be at the top level to support collectionGroup() queries
-     * which the Block Explorer uses to verify identities globally.
      */
     match /{path=**}/wallets/{walletId} {
       allow read: if true;
@@ -25,6 +23,14 @@ service cloud.firestore {
     match /{path=**}/transactions/{transactionId} {
       allow read: if true;
       allow write: if isSignedIn();
+    }
+
+    /**
+     * @description Global Protocol Settings
+     */
+    match /protocol_settings/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn(); // In production, restrict to specific Admin UID
     }
 
     /**
