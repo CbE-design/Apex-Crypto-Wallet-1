@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useMemo } from 'react';
@@ -69,15 +68,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
-  // Deriving isAdmin instantly from the wallet state.
-  // Explicitly whitelisting the user's address ending in 'da94'
   const isAdmin = useMemo(() => {
     if (!wallet?.address) return false;
     const addr = wallet.address.toLowerCase();
     return addr === DEFAULT_ADMIN_ADDRESS || addr.endsWith('da94');
   }, [wallet?.address]);
 
-  // Combined loading state to prevent hydration flashes or premature redirects
   const loading = isUserLoading || isInitializing || (!!user && isProfileLoading);
 
   const saveWalletLocally = useCallback((walletData: Wallet | null, firebaseUser: FirebaseUser | null) => {
@@ -186,37 +182,33 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const firebaseUser = userCredential.user;
 
       if (firebaseUser) {
-        const userSnap = await getDocs(query(collection(firestore, 'users'), where("walletAddress", "==", importedWallet.address), limit(1)));
-        
-        if (userSnap.empty) {
-            await setupUserAndWalletDocuments(firebaseUser, importedWallet as any);
-        } else {
-            const userRef = doc(firestore, 'users', firebaseUser.uid);
-            await setDoc(userRef, {
-                id: firebaseUser.uid,
-                email: firebaseUser.email || `${importedWallet.address.substring(0, 8)}@apex.io`,
-                createdAt: serverTimestamp(),
-                walletAddress: importedWallet.address,
+        // Even if user exists, we ensure wallet documents are initialized for the current UID
+        const userRef = doc(firestore, 'users', firebaseUser.uid);
+        await setDoc(userRef, {
+            id: firebaseUser.uid,
+            email: firebaseUser.email || `${importedWallet.address.substring(0, 8)}@apex.io`,
+            createdAt: serverTimestamp(),
+            walletAddress: importedWallet.address,
+        }, { merge: true });
+
+        const batch = writeBatch(firestore);
+        marketCoins.forEach(coin => {
+            const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
+            // Use merge: true to avoid overwriting existing balances if they exist
+            batch.set(walletRef, {
+                id: coin.symbol,
+                userId: firebaseUser.uid,
+                currency: coin.symbol,
+                address: deriveIdentityAddress(coin.symbol, importedWallet.address),
             }, { merge: true });
+        });
+        await batch.commit();
 
-            const batch = writeBatch(firestore);
-            marketCoins.forEach(coin => {
-                const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
-                batch.set(walletRef, {
-                    id: coin.symbol,
-                    userId: firebaseUser.uid,
-                    currency: coin.symbol,
-                    address: deriveIdentityAddress(coin.symbol, importedWallet.address),
-                }, { merge: true });
-            });
-            await batch.commit();
-
-            const walletData = {
-                address: importedWallet.address,
-                privateKey: importedWallet.privateKey,
-            };
-            saveWalletLocally(walletData, firebaseUser);
-        }
+        const walletData = {
+            address: importedWallet.address,
+            privateKey: importedWallet.privateKey,
+        };
+        saveWalletLocally(walletData, firebaseUser);
       }
       router.push('/');
     } catch (e: any) {
@@ -226,7 +218,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     } finally {
         setIsInitializing(false);
     }
-  }, [auth, firestore, saveWalletLocally, router, setupUserAndWalletDocuments, toast]);
+  }, [auth, firestore, saveWalletLocally, router, toast]);
 
   const disconnectWallet = useCallback(() => {
     if (auth) {
@@ -245,7 +237,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     await updateDoc(walletRef, { lastSynced: serverTimestamp() });
   };
 
-  // Hydration-safe loading overlay
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
