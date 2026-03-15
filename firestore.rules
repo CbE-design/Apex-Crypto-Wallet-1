@@ -8,10 +8,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-    
     /**
      * @description Global Protocol Settings - Publicly readable for status monitoring
      */
@@ -22,26 +18,19 @@ service cloud.firestore {
 
     /**
      * @description Hierarchical rules for user-specific data.
+     * Owners have full read/write access to their profile and all subcollections.
      */
     match /users/{userId} {
-      // Explicitly allow owners to read and write their own profile
-      allow read, write: if isOwner(userId);
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
 
-      match /wallets/{walletId} {
-        allow read, write: if isOwner(userId);
-
-        match /transactions/{transactionId} {
-          allow read, write: if isOwner(userId);
-        }
-      }
-
-      match /price_alerts/{alertId} {
-        allow read, write: if isOwner(userId);
+      match /{allSubcollections=**} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
       }
     }
 
     /**
      * @description Collection Group Rules for Explorer and Admin Verification.
+     * Explicitly allows public read access for block explorer functionality.
      */
     match /{path=**}/wallets/{walletId} {
       allow read: if true;
