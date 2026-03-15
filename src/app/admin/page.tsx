@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import { 
     ShieldCheck, 
     ArrowRight, 
@@ -23,13 +24,13 @@ import {
     Mail, 
     RefreshCw, 
     Loader2, 
-    Send, 
     CheckCircle, 
-    XCircle 
+    XCircle,
+    Power
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, limit, runTransaction, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, runTransaction, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { getLedgerSyncStatus } from '@/services/ledger-sync-service';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -69,6 +70,7 @@ export default function AdminDashboardPage() {
 
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [isReconciling, setIsReconciling] = useState(false);
+  const [isProtocolHalted, setIsProtocolHalted] = useState(false);
 
   const [fundingStatus, setFundingStatus] = useState<OperationStatus>('idle');
   const [broadcastStatus, setBroadcastStatus] = useState<OperationStatus>('idle');
@@ -92,6 +94,10 @@ export default function AdminDashboardPage() {
   }, []);
 
   const handleForceSync = async () => {
+    if (isProtocolHalted) {
+        toast({ title: "Sync Inhibited", description: "Orchestration gate is closed. Cannot sync state roots.", variant: "destructive" });
+        return;
+    }
     setIsReconciling(true);
     try {
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -102,6 +108,16 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleToggleGate = async (checked: boolean) => {
+      setIsProtocolHalted(!checked);
+      const action = checked ? "OPENED" : "HALTED";
+      toast({ 
+          title: `Protocol ${action}`, 
+          description: checked ? "Resuming inbound RPC traffic..." : "Suspending all synchronization services.",
+          variant: checked ? "default" : "destructive"
+      });
+  };
+
   // --- Ledger Funding Logic ---
   const fundingForm = useForm<SendFormValues>({
     resolver: zodResolver(sendSchema),
@@ -110,6 +126,10 @@ export default function AdminDashboardPage() {
   });
 
   const handleExecuteFunding: SubmitHandler<SendFormValues> = async (data) => {
+    if (isProtocolHalted) {
+        toast({ title: "Operation Denied", description: "Ledger is currently halted. Re-open the Protocol Gate.", variant: "destructive" });
+        return;
+    }
     if (!user || !firestore) return;
     setFundingStatus('processing');
     try {
@@ -198,15 +218,15 @@ export default function AdminDashboardPage() {
     <div className="space-y-6 pb-20">
         <div className="flex justify-between items-start">
             <div>
-                <h1 className="text-3xl font-bold">Orchestration Terminal</h1>
-                <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-[0.2em] text-blue-400">Governance & Liquidity Controller</p>
+                <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Orchestration Terminal</h1>
+                <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400">Governance & Liquidity Controller v4.2</p>
             </div>
             <Button 
                 variant="outline" 
                 size="sm" 
-                className="gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10"
+                className="gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10 rounded-xl"
                 onClick={handleForceSync}
-                disabled={isReconciling}
+                disabled={isReconciling || isProtocolHalted}
             >
                 {isReconciling ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                 Sync State Roots
@@ -214,18 +234,35 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="glass-module border-primary/20">
+            <Card className="glass-module border-primary/20 relative overflow-hidden group">
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-primary" /> Network Pulse
+                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Activity className={cn("h-4 w-4", isProtocolHalted ? "text-destructive" : "text-primary")} /> 
+                            Network Pulse
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Label className="text-[8px] font-bold text-muted-foreground">GATE</Label>
+                            <Switch 
+                                checked={!isProtocolHalted} 
+                                onCheckedChange={handleToggleGate}
+                                className="scale-75 data-[state=checked]:bg-primary data-[state=unchecked]:bg-destructive"
+                            />
+                        </div>
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="flex justify-between items-center">
-                        <span className="text-2xl font-black text-white">{syncStatus?.status || 'Active'}</span>
-                        <Badge className="bg-green-500/20 text-green-400 border-none h-5 px-1.5 uppercase text-[8px] font-black">Online</Badge>
+                        <span className={cn("text-2xl font-black uppercase italic", isProtocolHalted ? "text-destructive" : "text-white")}>
+                            {isProtocolHalted ? 'Halted' : 'Active'}
+                        </span>
+                        <Badge className={cn("border-none h-5 px-1.5 uppercase text-[8px] font-black", isProtocolHalted ? "bg-destructive/20 text-destructive" : "bg-green-500/20 text-green-400")}>
+                            {isProtocolHalted ? 'Offline' : 'Online'}
+                        </Badge>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-2 font-mono truncate">ROOT: {syncStatus?.stateRoot?.substring(0, 24)}...</p>
+                    <p className="text-[10px] text-muted-foreground mt-2 font-mono truncate">
+                        {isProtocolHalted ? 'ROOT_SYNC_SUSPENDED' : `ROOT: ${syncStatus?.stateRoot?.substring(0, 24)}...`}
+                    </p>
                 </CardContent>
             </Card>
 
@@ -236,7 +273,7 @@ export default function AdminDashboardPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-black text-white">{syncStatus?.bridgeLiquidity || '0.00M USDC'}</div>
+                    <div className="text-2xl font-black text-white italic">{syncStatus?.bridgeLiquidity || '0.00M USDC'}</div>
                     <Badge variant="outline" className="mt-2 text-[8px] border-accent/30 text-accent uppercase font-bold tracking-widest">Public Rail Stables</Badge>
                 </CardContent>
             </Card>
@@ -248,7 +285,7 @@ export default function AdminDashboardPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-black text-white">{adminBalance.toFixed(4)} ETH</div>
+                    <div className="text-2xl font-black text-white italic">{adminBalance.toFixed(4)} ETH</div>
                     <p className="text-[10px] text-muted-foreground mt-2 uppercase font-bold tracking-widest">System Vault Balance</p>
                 </CardContent>
             </Card>
@@ -270,32 +307,38 @@ export default function AdminDashboardPage() {
             <TabsContent value="ledger" className="mt-6">
                 <Card className="glass-module">
                     <CardHeader>
-                        <CardTitle>Manual Asset Injection</CardTitle>
-                        <CardDescription>Directly credit a user's wallet on the Apex Private Ledger.</CardDescription>
+                        <CardTitle className="italic">Manual Asset Injection</CardTitle>
+                        <CardDescription className="text-[10px] uppercase font-bold">Directly credit a user's wallet on the Apex Private Ledger.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {fundingStatus === 'processing' ? (
+                        {isProtocolHalted ? (
+                            <div className="py-20 flex flex-col items-center gap-4 text-center">
+                                <Power className="h-12 w-12 text-destructive animate-pulse" />
+                                <h3 className="text-sm font-black uppercase tracking-widest text-destructive">Ledger Halted</h3>
+                                <p className="text-xs text-muted-foreground max-w-xs">Manual asset injection is inhibited while the Protocol Gate is closed. Re-open the gate to resume.</p>
+                            </div>
+                        ) : fundingStatus === 'processing' ? (
                             <div className="py-20 flex flex-col items-center gap-4">
                                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                                <p className="text-xs font-black uppercase tracking-widest">Updating Ledger...</p>
+                                <p className="text-xs font-black uppercase tracking-widest">Updating Ledger State...</p>
                             </div>
                         ) : fundingStatus === 'success' ? (
                             <div className="py-20 flex flex-col items-center gap-4 text-center">
                                 <CheckCircle className="h-12 w-12 text-accent" />
                                 <p className="text-xs font-black uppercase tracking-widest">Ledger State Finalized</p>
-                                <Button onClick={() => setFundingStatus('idle')} variant="outline">New Operation</Button>
+                                <Button onClick={() => setFundingStatus('idle')} variant="outline" className="rounded-xl">New Operation</Button>
                             </div>
                         ) : (
                             <form onSubmit={fundingForm.handleSubmit(handleExecuteFunding)} className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest">Recipient Rail ID</Label>
-                                        <Input className="bg-white/5 rounded-xl font-mono text-xs" placeholder="0x..." {...fundingForm.register('recipientAddress')} />
+                                        <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Recipient Rail ID</Label>
+                                        <Input className="bg-white/5 rounded-xl font-mono text-xs border-white/10" placeholder="0x..." {...fundingForm.register('recipientAddress')} />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest">Asset Protocol</Label>
+                                        <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Asset Protocol</Label>
                                         <Select onValueChange={(val) => fundingForm.setValue('asset', val, { shouldValidate: true })}>
-                                            <SelectTrigger className="bg-white/5 rounded-xl">
+                                            <SelectTrigger className="bg-white/5 rounded-xl border-white/10">
                                                 <SelectValue placeholder="Select Asset" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -307,11 +350,11 @@ export default function AdminDashboardPage() {
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest">Amount to Inject</Label>
-                                    <Input type="number" step="any" className="bg-white/5 rounded-xl text-lg font-black" placeholder="0.00" {...fundingForm.register('amount')} />
+                                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Amount to Inject</Label>
+                                    <Input type="number" step="any" className="bg-white/5 rounded-xl text-lg font-black border-white/10" placeholder="0.00" {...fundingForm.register('amount')} />
                                 </div>
-                                <Button type="submit" className="w-full btn-premium py-7 rounded-2xl font-black uppercase italic" disabled={!fundingForm.formState.isValid}>
-                                    Execute Ledger Funding
+                                <Button type="submit" className="w-full btn-premium py-7 rounded-2xl font-black uppercase italic tracking-widest" disabled={!fundingForm.formState.isValid}>
+                                    Execute Ledger Injection
                                 </Button>
                             </form>
                         )}
@@ -322,8 +365,8 @@ export default function AdminDashboardPage() {
             <TabsContent value="broadcast" className="mt-6">
                 <Card className="glass-module">
                     <CardHeader>
-                        <CardTitle>Global Push Broadcast</CardTitle>
-                        <CardDescription>Dispatch a high-priority push notification to all active devices.</CardDescription>
+                        <CardTitle className="italic">Global Push Broadcast</CardTitle>
+                        <CardDescription className="text-[10px] uppercase font-bold">Dispatch a high-priority push notification to all active devices.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {broadcastStatus === 'processing' ? (
@@ -334,14 +377,14 @@ export default function AdminDashboardPage() {
                         ) : (
                             <form onSubmit={broadcastForm.handleSubmit(handleBroadcast)} className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest">Alert Headline</Label>
-                                    <Input className="bg-white/5 rounded-xl" placeholder="e.g. Market Volatility Warning" {...broadcastForm.register('title')} />
+                                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Alert Headline</Label>
+                                    <Input className="bg-white/5 rounded-xl border-white/10" placeholder="e.g. Market Volatility Warning" {...broadcastForm.register('title')} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest">Message Payload</Label>
-                                    <Textarea className="bg-white/5 rounded-xl" rows={4} placeholder="Enter broadcast details..." {...broadcastForm.register('body')} />
+                                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Message Payload</Label>
+                                    <Textarea className="bg-white/5 rounded-xl border-white/10" rows={4} placeholder="Enter broadcast details..." {...broadcastForm.register('body')} />
                                 </div>
-                                <Button type="submit" className="w-full bg-accent text-accent-foreground py-7 rounded-2xl font-black uppercase italic hover:bg-accent/80">
+                                <Button type="submit" className="w-full bg-accent text-accent-foreground py-7 rounded-2xl font-black uppercase italic hover:bg-accent/80 tracking-widest">
                                     Dispatch Multi-Cast Alert
                                 </Button>
                             </form>
@@ -353,8 +396,8 @@ export default function AdminDashboardPage() {
             <TabsContent value="marketing" className="mt-6">
                 <Card className="glass-module">
                     <CardHeader>
-                        <CardTitle>Enterprise Email Suite</CardTitle>
-                        <CardDescription>Deploy HTML-enriched system updates to the entire registry.</CardDescription>
+                        <CardTitle className="italic">Enterprise Email Suite</CardTitle>
+                        <CardDescription className="text-[10px] uppercase font-bold">Deploy HTML-enriched system updates to the entire registry.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {emailStatus === 'processing' ? (
@@ -365,14 +408,14 @@ export default function AdminDashboardPage() {
                         ) : (
                             <form onSubmit={emailForm.handleSubmit(handleSendEmail)} className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest">Email Subject Line</Label>
-                                    <Input className="bg-white/5 rounded-xl" placeholder="e.g. Apex Security Protocol Update" {...emailForm.register('subject')} />
+                                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Email Subject Line</Label>
+                                    <Input className="bg-white/5 rounded-xl border-white/10" placeholder="e.g. Apex Security Protocol Update" {...emailForm.register('subject')} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest">HTML Body Content</Label>
-                                    <Textarea className="bg-white/5 rounded-xl font-mono text-[10px]" rows={10} placeholder="<h1>Welcome to the Future</h1>..." {...emailForm.register('body')} />
+                                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">HTML Body Content</Label>
+                                    <Textarea className="bg-white/5 rounded-xl font-mono text-[10px] border-white/10" rows={10} placeholder="<h1>Welcome to the Future</h1>..." {...emailForm.register('body')} />
                                 </div>
-                                <Button type="submit" className="w-full bg-blue-600 text-white py-7 rounded-2xl font-black uppercase italic hover:bg-blue-500">
+                                <Button type="submit" className="w-full bg-blue-600 text-white py-7 rounded-2xl font-black uppercase italic hover:bg-blue-500 tracking-widest">
                                     Blast Email Campaign
                                 </Button>
                             </form>
