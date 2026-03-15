@@ -20,11 +20,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { marketCoins } from '@/lib/data';
 
 const sendSchema = z.object({
-  recipientAddress: z.string().min(1, "Recipient address is required."),
+  recipientAddress: z.string().min(1, "Recipient rail identity is required."),
   amount: z.string().refine(val => parseFloat(val) > 0, {
     message: "Amount must be greater than zero.",
   }),
-  asset: z.string().min(1, "Asset is required."),
+  asset: z.string().min(1, "Asset protocol is required."),
 });
 
 type SendFormValues = z.infer<typeof sendSchema>;
@@ -55,7 +55,7 @@ export default function DirectSendPage() {
 
     const handleConfirmSend: SubmitHandler<SendFormValues> = async (data) => {
         if (!adminUser || !firestore) {
-            toast({ title: "Cannot process", description: "Admin context missing.", variant: "destructive"});
+            toast({ title: "Operation Inhibited", description: "Administrative context missing.", variant: "destructive"});
             return;
         }
 
@@ -69,7 +69,7 @@ export default function DirectSendPage() {
                 const recipientSnapshot = await getDocs(recipientQuery);
 
                 if (recipientSnapshot.empty) {
-                    throw new Error("Recipient address not found in system.");
+                    throw new Error("Recipient address not registered in the Apex network.");
                 }
                 const recipientUserDoc = recipientSnapshot.docs[0];
                 const recipientUserId = recipientUserDoc.id;
@@ -89,11 +89,11 @@ export default function DirectSendPage() {
                 const recipientTxRef = doc(collection(recipientWalletRef, 'transactions'));
                 transaction.set(recipientTxRef, {
                     userId: recipientUserId,
-                    type: 'Buy',
+                    type: 'Internal Transfer',
                     amount: amount,
                     price: 0,
                     timestamp: serverTimestamp(),
-                    notes: `System funding from Admin`
+                    notes: `Administrative Asset Injection`
                 });
             });
 
@@ -101,11 +101,11 @@ export default function DirectSendPage() {
             setStatus('success');
             reset({ asset: data.asset });
         } catch (error: any) {
-            console.error("Direct send failed:", error);
+            console.error("Administrative send failed:", error);
             setStatus('error');
             toast({
-                title: 'Transaction Failed',
-                description: error.message || 'Could not complete the transaction.',
+                title: 'Transaction Rejected',
+                description: error.message || 'Could not finalize administrative ledger update.',
                 variant: 'destructive',
             });
         }
@@ -113,19 +113,19 @@ export default function DirectSendPage() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold">Direct Send</h1>
-            <p className="text-muted-foreground">Force fund any user wallet for testing purposes.</p>
+            <h1 className="text-3xl font-bold">Administrative Funding</h1>
+            <p className="text-muted-foreground">Authorized system-level asset allocation for verified account identities.</p>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Fund User Wallet</CardTitle>
-                    <CardDescription>Instantly credit a user's wallet with any supported asset.</CardDescription>
+                    <CardTitle>Provision User Liquidity</CardTitle>
+                    <CardDescription>Execute high-integrity ledger credit for any supported asset on the Apex Private Rail.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {status === 'idle' && (
                         <form onSubmit={handleSubmit(handleConfirmSend)} className="space-y-4">
                             <div className="space-y-2">
-                                <Label>Asset to Send</Label>
+                                <Label>Asset Protocol</Label>
                                 <Select defaultValue="ETH" onValueChange={(val) => setValue('asset', val, { shouldValidate: true })}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select asset" />
@@ -143,16 +143,16 @@ export default function DirectSendPage() {
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="recipientAddress">Recipient Address (0x...)</Label>
+                                <Label htmlFor="recipientAddress">Recipient Identity (Rail ID)</Label>
                                 <Input 
                                     id="recipientAddress" 
-                                    placeholder="Paste user's primary address"
+                                    placeholder="0x..."
                                     {...register('recipientAddress')}
                                 />
                                 {errors.recipientAddress && <p className="text-sm text-destructive">{errors.recipientAddress.message}</p>}
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="amount">Amount</Label>
+                                <Label htmlFor="amount">Injection Amount</Label>
                                 <Input
                                     id="amount"
                                     type="number"
@@ -166,18 +166,18 @@ export default function DirectSendPage() {
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button className="w-full" disabled={!isValid}>
-                                        <Send className="mr-2" /> Fund Wallet
+                                        <Send className="mr-2" /> Execute Injection
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>Execute Admin Funding</AlertDialogTitle>
+                                        <AlertDialogTitle>Authorize Administrative Credit</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            You are about to credit {formValues.amount} {formValues.asset} to an account.
+                                            You are about to credit {formValues.amount} {formValues.asset} to an account identity. This operation updates the global state root.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogCancel>Abort</AlertDialogCancel>
                                         <AlertDialogAction onClick={handleSubmit(handleConfirmSend)}>
                                             Confirm & Execute
                                         </AlertDialogAction>
@@ -190,24 +190,24 @@ export default function DirectSendPage() {
                     {status === 'sending' && (
                         <div className="flex flex-col items-center justify-center text-center space-y-4 h-48">
                             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                            <h3 className="text-lg font-semibold text-primary">Executing Ledger Update...</h3>
+                            <h3 className="text-lg font-semibold text-primary">Synchronizing Ledger State...</h3>
                         </div>
                     )}
                     {status === 'success' && lastTransaction && (
                         <div className="flex flex-col items-center justify-center text-center space-y-4 h-48">
                             <CheckCircle className="h-12 w-12 text-green-500" />
-                            <h3 className="text-lg font-semibold">Funds Delivered</h3>
+                            <h3 className="text-lg font-semibold">Asset Injection Finalized</h3>
                             <p className="text-sm text-muted-foreground">
-                                Credited {lastTransaction.amount} {lastTransaction.asset} to user.
+                                Provisioned {lastTransaction.amount} {lastTransaction.asset} to recipient identity.
                             </p>
-                            <Button onClick={() => setStatus('idle')}>Send More</Button>
+                            <Button onClick={() => setStatus('idle')}>Process New Injection</Button>
                         </div>
                     )}
                     {status === 'error' && (
                          <div className="flex flex-col items-center justify-center text-center space-y-4 h-48">
                             <XCircle className="h-12 w-12 text-destructive" />
-                            <h3 className="text-lg font-semibold">Update Failed</h3>
-                             <Button variant="outline" onClick={() => setStatus('idle')}>Try Again</Button>
+                            <h3 className="text-lg font-semibold">Orchestration Failure</h3>
+                             <Button variant="outline" onClick={() => setStatus('idle')}>Re-Attempt</Button>
                         </div>
                     )}
                 </CardContent>

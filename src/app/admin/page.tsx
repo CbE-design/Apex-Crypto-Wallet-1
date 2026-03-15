@@ -12,14 +12,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
     ShieldCheck, 
     DollarSign, 
     Wallet, 
     Activity, 
-    Database, 
     Bell, 
     Mail, 
     RefreshCw, 
@@ -32,7 +30,7 @@ import {
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, limit, runTransaction, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, runTransaction, doc, serverTimestamp } from 'firebase/firestore';
 import { getLedgerSyncStatus } from '@/services/ledger-sync-service';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -47,11 +45,11 @@ import {
 } from '@/lib/types';
 
 const sendSchema = z.object({
-  recipientAddress: z.string().min(1, "Recipient address is required."),
+  recipientAddress: z.string().min(1, "Recipient identity is required."),
   amount: z.string().refine(val => parseFloat(val) > 0, {
     message: "Amount must be greater than zero.",
   }),
-  asset: z.string().min(1, "Asset is required."),
+  asset: z.string().min(1, "Asset protocol is required."),
 });
 
 type SendFormValues = z.infer<typeof sendSchema>;
@@ -107,31 +105,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleToggleGate = async (checked: boolean) => {
-      if (!firestore) return;
-      const isActive = checked;
-      try {
-          await setDoc(doc(firestore, 'protocol_settings', 'status'), { 
-            isActive: isActive,
-            isHalted: !isActive,
-            maintenanceMode: !isActive,
-            version: "5.0.1",
-            lastUpdated: serverTimestamp(),
-            updatedBy: user?.uid,
-            timestamp: serverTimestamp()
-          }, { merge: true });
-
-          const action = checked ? "OPENED" : "HALTED";
-          toast({ 
-              title: `Protocol ${action}`, 
-              description: checked ? "Resuming inbound RPC traffic..." : "Suspending all synchronization services.",
-              variant: checked ? "default" : "destructive"
-          });
-      } catch (e) {
-          toast({ title: "Update Failed", description: "Insufficient permissions for global protocol change.", variant: "destructive" });
-      }
-  };
-
   const fundingForm = useForm<SendFormValues>({
     resolver: zodResolver(sendSchema),
     defaultValues: { recipientAddress: '', amount: '', asset: 'ETH' },
@@ -140,7 +113,7 @@ export default function AdminDashboardPage() {
 
   const handleExecuteFunding: SubmitHandler<SendFormValues> = async (data) => {
     if (isProtocolHalted) {
-        toast({ title: "Operation Denied", description: "Ledger is currently halted. Re-open the Protocol Gate.", variant: "destructive" });
+        toast({ title: "Operation Denied", description: "Ledger is currently halted. Contact system governance.", variant: "destructive" });
         return;
     }
     if (!user || !firestore) return;
@@ -169,7 +142,7 @@ export default function AdminDashboardPage() {
             const txRef = doc(collection(walletRef, 'transactions'));
             transaction.set(txRef, {
                 userId: recipientUserId,
-                type: 'Buy',
+                type: 'Internal Transfer',
                 amount: amount,
                 price: 0,
                 timestamp: serverTimestamp(),
@@ -272,14 +245,6 @@ export default function AdminDashboardPage() {
                             <Activity className={cn("h-4 w-4", isProtocolHalted ? "text-destructive" : "text-primary")} /> 
                             Network Pulse
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Label className="text-[8px] font-bold text-muted-foreground">GATE</Label>
-                            <Switch 
-                                checked={!isProtocolHalted} 
-                                onCheckedChange={handleToggleGate}
-                                className="scale-75 data-[state=checked]:bg-primary data-[state=unchecked]:bg-destructive"
-                            />
-                        </div>
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -327,14 +292,14 @@ export default function AdminDashboardPage() {
                 <Card className="glass-module">
                     <CardHeader>
                         <CardTitle className="italic">Manual Asset Injection</CardTitle>
-                        <CardDescription className="text-[10px] uppercase font-bold">Directly credit a user's wallet on the Apex Private Ledger.</CardDescription>
+                        <CardDescription className="text-[10px] uppercase font-bold">Authorized administrative credit to a user identity on the Apex Private Ledger.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {isProtocolHalted ? (
                             <div className="py-20 flex flex-col items-center gap-4 text-center">
                                 <Power className="h-12 w-12 text-destructive animate-pulse" />
-                                <h3 className="text-sm font-black uppercase tracking-widest text-destructive">Ledger Halted</h3>
-                                <p className="text-xs text-muted-foreground max-w-xs">Manual asset injection is inhibited while the Protocol Gate is closed. Re-open the gate to resume.</p>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-destructive">Ledger Suspended</h3>
+                                <p className="text-xs text-muted-foreground max-w-xs">Asset injection is inhibited while the protocol is in maintenance mode.</p>
                             </div>
                         ) : fundingStatus === 'processing' ? (
                             <div className="py-20 flex flex-col items-center gap-4">

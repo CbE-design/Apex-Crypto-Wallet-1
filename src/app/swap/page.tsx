@@ -71,8 +71,8 @@ export default function SwapPage() {
       } catch (error) {
         console.error("Failed to fetch exchange rate:", error);
         toast({
-          title: 'Error Fetching Rate',
-          description: 'Could not retrieve live exchange rate. Please try again.',
+          title: 'Liquidity Bridge Timeout',
+          description: 'Could not retrieve real-time exchange rates. Please refresh.',
           variant: 'destructive',
         });
         setExchangeRate(0);
@@ -95,18 +95,18 @@ export default function SwapPage() {
     const temp = fromAsset;
     setFromAsset(toAsset);
     setToAsset(temp);
-    setFromAmount(''); // Reset amount on flip
+    setFromAmount(''); 
   };
   
   const handleSwap = async () => {
      if (!user || !firestore || !fromAmount || !exchangeRate) {
-      toast({ title: 'Cannot process swap', description: 'Missing required information.', variant: 'destructive'});
+      toast({ title: 'Operation Rejected', description: 'Missing required settlement parameters.', variant: 'destructive'});
       return;
     }
 
     const amountNum = parseFloat(fromAmount);
     if (amountNum <= 0 || amountNum > fromAssetBalance) {
-        toast({ title: 'Invalid Amount', description: 'Please enter a valid amount to swap.', variant: 'destructive'});
+        toast({ title: 'Invalid Liquidity', description: 'Please enter a valid amount within your ledger balance.', variant: 'destructive'});
         return;
     }
 
@@ -114,18 +114,16 @@ export default function SwapPage() {
 
     try {
         await runTransaction(firestore, async (transaction) => {
-            // 1. Debit 'from' asset
             const fromWalletRef = doc(firestore, 'users', user.uid, 'wallets', fromAsset);
             const fromWalletDoc = await transaction.get(fromWalletRef);
             
             if (!fromWalletDoc.exists() || fromWalletDoc.data().balance < amountNum) {
-                throw new Error(`Insufficient balance of ${fromAsset}.`);
+                throw new Error(`Insufficient ledger balance for ${fromAsset}.`);
             }
             
             const newFromBalance = fromWalletDoc.data().balance - amountNum;
             transaction.update(fromWalletRef, { balance: newFromBalance });
 
-            // 2. Credit 'to' asset
             const toWalletRef = doc(firestore, 'users', user.uid, 'wallets', toAsset);
             const toWalletDoc = await transaction.get(toWalletRef);
 
@@ -140,41 +138,37 @@ export default function SwapPage() {
                 userId: user.uid,
             }, { merge: true });
 
-            // 3. Log transactions
-            const fromAssetPrice = staticAssets.find(a => a.symbol === fromAsset)?.priceUSD || 0;
-            const toAssetPrice = staticAssets.find(a => a.symbol === toAsset)?.priceUSD || marketCoins.find(m => m.symbol === toAsset)?.priceUSD || 0;
-            
             const sellTxLogRef = doc(collection(fromWalletRef, 'transactions'));
             transaction.set(sellTxLogRef, {
                 userId: user.uid,
-                type: 'Sell',
+                type: 'Swap',
                 amount: amountNum,
-                price: fromAssetPrice,
+                price: 0,
                 timestamp: serverTimestamp(),
                 status: 'Completed',
-                notes: `Swap to ${toAsset}`
+                notes: `Liquidation to ${toAsset}`
             });
             
             const buyTxLogRef = doc(collection(toWalletRef, 'transactions'));
             transaction.set(buyTxLogRef, {
                 userId: user.uid,
-                type: 'Buy',
+                type: 'Swap',
                 amount: toAmountNum,
-                price: toAssetPrice,
+                price: 0,
                 timestamp: serverTimestamp(),
                 status: 'Completed',
-                notes: `Swap from ${fromAsset}`
+                notes: `Acquisition from ${fromAsset}`
             });
         });
 
         setStatus('success');
-        toast({ title: 'Swap Successful!', description: `Swapped ${fromAmount} ${fromAsset} for ${toAmount} ${toAsset}.`});
+        toast({ title: 'Ledger State Updated', description: `Successfully exchanged ${fromAmount} ${fromAsset} for ${toAmount} ${toAsset}.`});
 
     } catch (error: any) {
-        console.error("Swap failed:", error);
+        console.error("Asset exchange failed:", error);
         setStatus('failed');
-        setErrorMessage(error.message || 'An unknown error occurred during the swap.');
-        toast({ title: 'Swap Failed', description: error.message || 'An unknown error occurred during the swap.', variant: 'destructive'});
+        setErrorMessage(error.message || 'An internal ledger error occurred.');
+        toast({ title: 'Exchange Failed', description: error.message || 'Atomic update failed.', variant: 'destructive'});
     }
   }
 
@@ -193,26 +187,26 @@ export default function SwapPage() {
             return (
                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-96">
                     <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <h3 className="text-lg font-semibold capitalize">Processing Swap...</h3>
-                    <p className="text-muted-foreground">Please wait while the transaction is processed.</p>
+                    <h3 className="text-lg font-semibold capitalize">Reconciling Ledger...</h3>
+                    <p className="text-muted-foreground">Updating atomic balances on the private rail.</p>
                 </div>
             );
         case 'success':
             return (
                  <div className="flex flex-col items-center justify-center text-center space-y-4 h-96">
                     <CheckCircle className="h-12 w-12 text-green-500" />
-                    <h3 className="text-lg font-semibold">Swap Successful!</h3>
-                    <p className="text-muted-foreground">You have successfully swapped {fromAmount} {fromAsset} for {toAmount} {toAsset}.</p>
-                     <Button onClick={resetFlow} className="w-full">Perform Another Swap</Button>
+                    <h3 className="text-lg font-semibold">Exchange Finalized</h3>
+                    <p className="text-muted-foreground">Successfully updated ledger for {fromAmount} {fromAsset} ↔ {toAmount} {toAsset}.</p>
+                     <Button onClick={resetFlow} className="w-full">Process New Exchange</Button>
                 </div>
             );
         case 'failed':
              return (
                  <div className="flex flex-col items-center justify-center text-center space-y-4 h-96">
                     <XCircle className="h-12 w-12 text-destructive" />
-                    <h3 className="text-lg font-semibold">Swap Failed</h3>
+                    <h3 className="text-lg font-semibold">Settlement Failure</h3>
                     <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
-                    <Button onClick={resetFlow} variant="outline" className="w-full">Try Again</Button>
+                    <Button onClick={resetFlow} variant="outline" className="w-full">Re-Attempt</Button>
                 </div>
             );
         default:
@@ -223,7 +217,7 @@ export default function SwapPage() {
   const renderSwapForm = () => (
     <div className="space-y-4">
         <div className="space-y-2">
-            <Label htmlFor="from-asset">From</Label>
+            <Label htmlFor="from-asset">Base Asset</Label>
             <div className="flex gap-2">
                 <Select value={fromAsset} onValueChange={setFromAsset}>
                     <SelectTrigger id="from-asset" className="w-2/3">
@@ -250,7 +244,7 @@ export default function SwapPage() {
                 />
             </div>
             <p className="text-xs text-muted-foreground mt-1 h-4">
-                {`Balance: ${fromAssetBalance.toFixed(4)}`}
+                {`Ledger Balance: ${fromAssetBalance.toFixed(4)}`}
             </p>
         </div>
         
@@ -263,7 +257,7 @@ export default function SwapPage() {
         </div>
 
         <div className="space-y-2">
-            <Label htmlFor="to-asset">To</Label>
+            <Label htmlFor="to-asset">Target Asset</Label>
             <div className="flex gap-2">
                 <Select value={toAsset} onValueChange={setToAsset}>
                     <SelectTrigger id="to-asset" className="w-2/3">
@@ -297,32 +291,32 @@ export default function SwapPage() {
         <div className="text-sm text-muted-foreground text-center h-5 flex items-center justify-center">
             {isLoadingRate && <Loader2 className="h-4 w-4 animate-spin" />}
             {!isLoadingRate && exchangeRate !== null && exchangeRate > 0 && fromAsset !== toAsset && `1 ${fromAsset} ≈ ${exchangeRate.toFixed(5)} ${toAsset}`}
-            {!isLoadingRate && exchangeRate === 0 && <span className="text-destructive">Could not fetch rate</span>}
+            {!isLoadingRate && exchangeRate === 0 && <span className="text-destructive">Rate Fetch Error</span>}
         </div>
 
         <AlertDialog>
             <AlertDialogTrigger asChild>
                 <Button className="w-full" disabled={isButtonDisabled}>
-                    <Repeat className="mr-2" /> Swap
+                    <Repeat className="mr-2" /> Authorize Exchange
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Swap</AlertDialogTitle>
+                    <AlertDialogTitle>Finalize Asset Exchange</AlertDialogTitle>
                     <AlertDialogDescription>
-                        You are about to swap your assets. This action is for simulation purposes and cannot be undone.
+                        Please verify the exchange parameters. This operation will update your private ledger balances and cannot be reversed.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                  <div className="space-y-4 py-4 text-sm">
                     <div className="flex justify-between">
-                        <span className="text-muted-foreground">From</span>
+                        <span className="text-muted-foreground">Liquidation</span>
                         <span className="font-medium flex items-center gap-2">
                             <CryptoIcon name={allAssets.find(a => a.symbol === fromAsset)?.name || ''} />
                             {fromAmount} {fromAsset}
                         </span>
                     </div>
                     <div className="flex justify-between">
-                        <span className="text-muted-foreground">To</span>
+                        <span className="text-muted-foreground">Acquisition</span>
                         <span className="font-medium flex items-center gap-2">
                             <CryptoIcon name={allAssets.find(a => a.symbol === toAsset)?.name || ''} />
                             {toAmount} {toAsset}
@@ -330,8 +324,8 @@ export default function SwapPage() {
                     </div>
                  </div>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleSwap}>Confirm Swap</AlertDialogAction>
+                    <AlertDialogCancel>Abort</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSwap}>Confirm & Finalize</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -343,8 +337,8 @@ export default function SwapPage() {
       <div className="flex justify-center items-start pt-8">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Swap Crypto</CardTitle>
-            <CardDescription>Exchange one cryptocurrency for another instantly.</CardDescription>
+            <CardTitle>Asset Exchange</CardTitle>
+            <CardDescription>Instant settlement between supported ledger protocols.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {status === 'idle' ? renderSwapForm() : getStatusContent()}
@@ -354,4 +348,3 @@ export default function SwapPage() {
     </PrivateRoute>
   );
 }
-    
