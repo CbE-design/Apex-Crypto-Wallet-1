@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -93,13 +92,8 @@ export default function AdminDashboardPage() {
   }, []);
 
   const handleForceSync = async () => {
-    if (isProtocolHalted) {
-        toast({ title: "Sync Inhibited", description: "Orchestration gate is closed. Cannot sync state roots.", variant: "destructive" });
-        return;
-    }
     setIsReconciling(true);
     try {
-        await new Promise(resolve => setTimeout(resolve, 1500));
         await fetchStatus();
         toast({ title: "Ledger Synchronized", description: "State roots reconciled successfully." });
     } finally {
@@ -226,17 +220,17 @@ export default function AdminDashboardPage() {
         <div className="flex justify-between items-start">
             <div>
                 <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Orchestration Terminal</h1>
-                <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400">Governance & Liquidity Controller v4.2</p>
+                <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400">Governance & Liquidity Controller v5.0</p>
             </div>
             <Button 
                 variant="outline" 
                 size="sm" 
                 className="gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10 rounded-xl"
                 onClick={handleForceSync}
-                disabled={isReconciling || isProtocolHalted}
+                disabled={isReconciling}
             >
                 {isReconciling ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                Sync State Roots
+                Force State Sync
             </Button>
         </div>
 
@@ -268,7 +262,7 @@ export default function AdminDashboardPage() {
                         </Badge>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-2 font-mono truncate">
-                        {isProtocolHalted ? 'ROOT_SYNC_SUSPENDED' : `ROOT: ${syncStatus?.stateRoot?.substring(0, 24)}...`}
+                        ROOT: {syncStatus?.stateRoot?.substring(0, 32)}...
                     </p>
                 </CardContent>
             </Card>
@@ -276,12 +270,12 @@ export default function AdminDashboardPage() {
             <Card className="glass-module border-accent/20">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <Database className="h-4 w-4 text-accent" /> Bridge Reserves
+                        <Database className="h-4 w-4 text-accent" /> Bridge Liquidity
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-black text-white italic">{syncStatus?.bridgeLiquidity || '0.00M USDC'}</div>
-                    <Badge variant="outline" className="mt-2 text-[8px] border-accent/30 text-accent uppercase font-bold tracking-widest">Public Rail Stables</Badge>
+                    <div className="text-2xl font-black text-white italic">{syncStatus?.bridgeLiquidity || '0.00 ETH'}</div>
+                    <Badge variant="outline" className="mt-2 text-[8px] border-accent/30 text-accent uppercase font-bold tracking-widest">Aggregate Rail Supply</Badge>
                 </CardContent>
             </Card>
 

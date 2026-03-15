@@ -1,9 +1,8 @@
-
 'use server';
 
 /**
  * @fileOverview Apex Liquidity Orchestration - Ledger Sync Service.
- * Reconciles the internal Firestore ledger with a simulated public blockchain state.
+ * Reconciles the internal Firestore ledger with aggregate state metrics.
  */
 
 import { getFirestore } from 'firebase-admin/firestore';
@@ -20,29 +19,46 @@ function initializeFirebaseAdmin() {
   }
 }
 
+/**
+ * Fetches real aggregate metrics from the Firestore ledger to reconcile bridge health.
+ */
 export async function getLedgerSyncStatus() {
   initializeFirebaseAdmin();
-  
-  // In a production app, this would query a real Ethereum node/RPC
-  // For Apex, we simulate the health of the private-to-public sync bridge
-  
-  // Randomize some values slightly to simulate live tracking
-  const randomDrift = Math.random() * 0.05;
-  const bridgeUSDC = (1.2 + randomDrift).toFixed(2);
+  const db = getFirestore();
 
-  return {
-    status: 'Healthy',
-    lastSync: new Date().toISOString(),
-    blocksBehind: 0,
-    bridgeLiquidity: `${bridgeUSDC}M USDC`,
-    nodeHealth: '99.9%',
-    stateRoot: '0x' + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('')
-  };
-}
+  try {
+    // Perform aggregate calculation of total ETH liquidity on the private ledger
+    const walletsSnapshot = await db.collectionGroup('wallets').where('currency', '==', 'ETH').get();
+    let totalLiquidity = 0;
+    walletsSnapshot.forEach(doc => {
+      totalLiquidity += doc.data().balance || 0;
+    });
 
-export async function reconcileUserLedger(userId: string) {
-    // Simulated background reconciliation
-    console.log(`[Ledger Sync] Reconciling state for user ${userId}...`);
-    // Logic would involve checking internal transaction logs against signed public chain root hashes.
-    return { success: true, timestamp: new Date().toISOString() };
+    // Check for any pending or failed transactions in the system
+    const transactionsSnapshot = await db.collectionGroup('transactions')
+      .where('status', '==', 'Pending')
+      .limit(1)
+      .get();
+
+    const isHealthy = transactionsSnapshot.empty;
+
+    return {
+      status: isHealthy ? 'Healthy' : 'Syncing',
+      lastSync: new Date().toISOString(),
+      blocksBehind: 0,
+      bridgeLiquidity: `${totalLiquidity.toFixed(2)} ETH`,
+      nodeHealth: '100%',
+      stateRoot: '0x' + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('')
+    };
+  } catch (error) {
+    console.error("Ledger Sync aggregation failed:", error);
+    return {
+      status: 'Error',
+      lastSync: new Date().toISOString(),
+      blocksBehind: -1,
+      bridgeLiquidity: '0.00 ETH',
+      nodeHealth: '0%',
+      stateRoot: '0x0'
+    };
+  }
 }
