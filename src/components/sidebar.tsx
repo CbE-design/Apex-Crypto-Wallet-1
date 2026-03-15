@@ -66,10 +66,10 @@ export function AppSidebar() {
           
           {isAdmin && (
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === "/admin"}>
+              <SidebarMenuButton asChild isActive={pathname.startsWith('/admin')} className="text-accent hover:text-accent">
                 <Link href="/admin">
                   <ShieldCheck className="h-4 w-4" />
-                  <span>Admin Panel</span>
+                  <span className="font-black">Admin Panel</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

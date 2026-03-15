@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
 import { Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -41,7 +41,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const WALLET_STORAGE_KEY_PREFIX = 'apex-wallet-';
-// Standard address for 'abandon abandon ... about' mnemonic
+// Standard address for 'abandon abandon ... about' mnemonic in Ethers v6
 const ADMIN_WALLET_ADDRESS = '0x985864190c7E5c803B918B273f324220037e819f'.toLowerCase();
 
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
@@ -63,7 +63,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const firestore = useFirestore();
   const router = useRouter();
   const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const { toast } = useToast();
 
@@ -74,21 +73,19 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
+  // Deriving isAdmin instantly from the wallet state
+  const isAdmin = useMemo(() => {
+    return !!wallet?.address && wallet.address.toLowerCase() === ADMIN_WALLET_ADDRESS;
+  }, [wallet?.address]);
+
   const loading = isUserLoading || isInitializing || isProfileLoading;
 
-  const setWalletAndAdmin = useCallback((walletData: Wallet | null, firebaseUser: FirebaseUser | null) => {
+  const saveWalletLocally = useCallback((walletData: Wallet | null, firebaseUser: FirebaseUser | null) => {
     setWallet(walletData);
     if (walletData && firebaseUser?.uid) {
       localStorage.setItem(`${WALLET_STORAGE_KEY_PREFIX}${firebaseUser.uid}`, JSON.stringify(walletData));
-      const isAdminUser = walletData.address.toLowerCase() === ADMIN_WALLET_ADDRESS;
-      setIsAdmin(isAdminUser);
-      return isAdminUser;
-    } else {
-      if (firebaseUser?.uid) {
-        localStorage.removeItem(`${WALLET_STORAGE_KEY_PREFIX}${firebaseUser.uid}`);
-      }
-      setIsAdmin(false);
-      return false;
+    } else if (firebaseUser?.uid) {
+      localStorage.removeItem(`${WALLET_STORAGE_KEY_PREFIX}${firebaseUser.uid}`);
     }
   }, []);
 
@@ -125,8 +122,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         address: walletInstance.address,
         privateKey: walletInstance.privateKey,
       };
-      setWalletAndAdmin(walletData, firebaseUser);
-  }, [firestore, setWalletAndAdmin]);
+      saveWalletLocally(walletData, firebaseUser);
+  }, [firestore, saveWalletLocally]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -142,7 +139,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
                     const storedWallet = JSON.parse(storedWalletJson);
                     if (storedWallet.privateKey) {
                         const walletInstance = new ethers.Wallet(storedWallet.privateKey);
-                        setWalletAndAdmin({ address: walletInstance.address, privateKey: walletInstance.privateKey }, user);
+                        setWallet({ address: walletInstance.address, privateKey: walletInstance.privateKey });
                     }
                 } catch (e) {
                     console.error("Wallet cache invalid.", e);
@@ -153,7 +150,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         setIsInitializing(false);
     }
     initializeWallet();
-  }, [user, auth, wallet, setWalletAndAdmin]);
+  }, [user, auth, wallet]);
 
   const createWallet = useCallback(async (): Promise<string> => {
     const newWallet = ethers.Wallet.createRandom();
@@ -181,25 +178,19 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!auth || !firestore) throw new Error("Services missing");
     setIsInitializing(true);
     try {
-      // Validate and derive wallet
       const cleanMnemonic = mnemonic.trim().toLowerCase();
       const importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
       
-      // Sign in anonymously to get a session
       const userCredential = await initiateAnonymousSignIn(auth);
       const firebaseUser = userCredential.user;
 
       if (firebaseUser) {
-        // Check if user profile already exists for this UID
-        const userRef = doc(firestore, 'users', firebaseUser.uid);
         const userSnap = await getDocs(query(collection(firestore, 'users'), where("walletAddress", "==", importedWallet.address), limit(1)));
         
         if (userSnap.empty) {
-            // First time this wallet is seen, set up new docs for this UID
             await setupUserAndWalletDocuments(firebaseUser, importedWallet as any);
         } else {
-            // Wallet already exists in ledger, link this anonymous session to it
-            // For the prototype, we just update the current session's profile to point to this address
+            const userRef = doc(firestore, 'users', firebaseUser.uid);
             await setDoc(userRef, {
                 id: firebaseUser.uid,
                 email: firebaseUser.email || `${importedWallet.address.substring(0, 8)}@apex.io`,
@@ -207,7 +198,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
                 walletAddress: importedWallet.address,
             }, { merge: true });
 
-            // Ensure sub-wallets exist
             const batch = writeBatch(firestore);
             marketCoins.forEach(coin => {
                 const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
@@ -224,7 +214,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
                 address: importedWallet.address,
                 privateKey: importedWallet.privateKey,
             };
-            setWalletAndAdmin(walletData, firebaseUser);
+            saveWalletLocally(walletData, firebaseUser);
         }
       }
       router.push('/');
@@ -234,7 +224,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     } finally {
         setIsInitializing(false);
     }
-  }, [auth, firestore, setWalletAndAdmin, router, setupUserAndWalletDocuments]);
+  }, [auth, firestore, saveWalletLocally, router, setupUserAndWalletDocuments]);
 
   const disconnectWallet = useCallback(() => {
     if (auth) {
