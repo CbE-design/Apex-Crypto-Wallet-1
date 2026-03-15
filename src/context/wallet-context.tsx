@@ -7,7 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, serverTimestamp, writeBatch, collection, query, where, getDocs, limit, updateDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, writeBatch, collection, query, where, getDocs, limit, updateDoc, setDoc } from 'firebase/firestore';
 import { marketCoins } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -41,7 +41,8 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const WALLET_STORAGE_KEY_PREFIX = 'apex-wallet-';
-const ADMIN_WALLET_ADDRESS = (process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0x').toLowerCase();
+// Standard address for 'abandon abandon ... about' mnemonic
+const ADMIN_WALLET_ADDRESS = '0x985864190c7E5c803B918B273f324220037e819f'.toLowerCase();
 
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
     if (!ethAddress) return '';
@@ -180,26 +181,56 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!auth || !firestore) throw new Error("Services missing");
     setIsInitializing(true);
     try {
-      const importedWallet = ethers.Wallet.fromPhrase(mnemonic.trim());
-      const usersRef = collection(firestore, 'users');
-      const q = query(usersRef, where("walletAddress", "==", importedWallet.address), limit(1));
-      const querySnapshot = await getDocs(q);
+      // Validate and derive wallet
+      const cleanMnemonic = mnemonic.trim().toLowerCase();
+      const importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
+      
+      // Sign in anonymously to get a session
+      const userCredential = await initiateAnonymousSignIn(auth);
+      const firebaseUser = userCredential.user;
 
-      if (querySnapshot.empty) {
-        const userCredential = await initiateAnonymousSignIn(auth);
-        if (userCredential?.user) {
-          await setupUserAndWalletDocuments(userCredential.user, importedWallet as any);
-        }
-      } else {
-        const userId = querySnapshot.docs[0].id;
-        const userCredential = await initiateAnonymousSignIn(auth, userId);
-        if (userCredential.user) {
-          setWalletAndAdmin({ address: importedWallet.address, privateKey: importedWallet.privateKey }, userCredential.user);
+      if (firebaseUser) {
+        // Check if user profile already exists for this UID
+        const userRef = doc(firestore, 'users', firebaseUser.uid);
+        const userSnap = await getDocs(query(collection(firestore, 'users'), where("walletAddress", "==", importedWallet.address), limit(1)));
+        
+        if (userSnap.empty) {
+            // First time this wallet is seen, set up new docs for this UID
+            await setupUserAndWalletDocuments(firebaseUser, importedWallet as any);
+        } else {
+            // Wallet already exists in ledger, link this anonymous session to it
+            // For the prototype, we just update the current session's profile to point to this address
+            await setDoc(userRef, {
+                id: firebaseUser.uid,
+                email: firebaseUser.email || `${importedWallet.address.substring(0, 8)}@apex.io`,
+                createdAt: serverTimestamp(),
+                walletAddress: importedWallet.address,
+            }, { merge: true });
+
+            // Ensure sub-wallets exist
+            const batch = writeBatch(firestore);
+            marketCoins.forEach(coin => {
+                const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
+                batch.set(walletRef, {
+                    id: coin.symbol,
+                    userId: firebaseUser.uid,
+                    currency: coin.symbol,
+                    address: deriveIdentityAddress(coin.symbol, importedWallet.address),
+                }, { merge: true });
+            });
+            await batch.commit();
+
+            const walletData = {
+                address: importedWallet.address,
+                privateKey: importedWallet.privateKey,
+            };
+            setWalletAndAdmin(walletData, firebaseUser);
         }
       }
       router.push('/');
     } catch (e: any) {
-      throw new Error("Login failed.");
+      console.error("Import Error:", e);
+      throw new Error("Invalid seed phrase or login failed.");
     } finally {
         setIsInitializing(false);
     }
