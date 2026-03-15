@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -72,10 +73,13 @@ export function useCollection<T = any>(
     setIsLoading(true);
     setError(null);
 
+    let unsubscribed = false;
+
     // Directly use memoizedTargetRefOrQuery as it's assumed to be the final query
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
+        if (unsubscribed) return;
         const results: ResultItemType[] = [];
         for (const doc of snapshot.docs) {
           results.push({ ...(doc.data() as T), id: doc.id });
@@ -85,6 +89,7 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (error: FirestoreError) => {
+        if (unsubscribed) return;
         // This logic extracts the path from either a ref or a query
         const path: string =
           memoizedTargetRefOrQuery.type === 'collection'
@@ -105,7 +110,15 @@ export function useCollection<T = any>(
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribed = true;
+      try {
+        unsubscribe();
+      } catch (e) {
+        // Defensive catch for Firestore internal assertion failures during cleanup
+        console.warn("Firestore useCollection cleanup error:", e);
+      }
+    };
   }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
 
   return { data, isLoading, error };
