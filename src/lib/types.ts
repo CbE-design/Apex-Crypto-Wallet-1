@@ -46,6 +46,14 @@ export interface PriceAlert {
   triggered: boolean;
 }
 
+export interface ProtocolStatus {
+  isActive: boolean;
+  isHalted: boolean;
+  version: string;
+  lastUpdated: any;
+  maintenanceMode: boolean;
+}
+
 export const GetExchangeRateInputSchema = z.object({
   fromAsset: z.string().describe('The symbol of the cryptocurrency to convert from.'),
   toAsset: z.string().describe('The symbol of the cryptocurrency to convert to.'),
@@ -92,10 +100,7 @@ export const SendNotificationInputSchema = z.object({
 });
 export type SendNotificationInput = z.infer<typeof SendNotificationInputSchema>;
 
-export const SendNotificationOutputSchema = z.object({
-  successCount: z.number().describe('The number of messages that were sent successfully.'),
-  failureCount: z.number().describe('The number of messages that could not be sent.'),
-});
+export const SendNotificationOutputSchema = z.number().describe('The number of messages that were sent successfully.');
 export type SendNotificationOutput = z.infer<typeof SendNotificationOutputSchema>;
 
 export const SendEmailInputSchema = z.object({

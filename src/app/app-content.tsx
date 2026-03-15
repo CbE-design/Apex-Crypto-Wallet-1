@@ -12,6 +12,7 @@ import { useWallet } from '@/context/wallet-context';
 import { ShieldAlert, Loader2, Power } from 'lucide-react';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import type { ProtocolStatus } from '@/lib/types';
 
 export default function AppContent({
   children,
@@ -19,20 +20,23 @@ export default function AppContent({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { isAdmin } = useWallet();
+  const { isAdmin, user } = useWallet();
   const [mounted, setMounted] = useState(false);
   const firestore = useFirestore();
 
   const isPublicPage = pathname === '/login';
 
-  // Only create the reference if we are not on a public page to avoid unnecessary permission checks
+  // Optimization: Only create the reference if a user is logged in AND we're not on a public page.
+  // This prevents permission errors before authentication is established.
   const protocolSettingsRef = useMemoFirebase(() => {
-    if (!firestore || isPublicPage) return null;
+    if (!firestore || !user || isPublicPage) return null;
     return doc(firestore, 'protocol_settings', 'status');
-  }, [firestore, isPublicPage]);
+  }, [firestore, user, isPublicPage]);
 
-  const { data: protocolStatus } = useDoc<{ isHalted: boolean }>(protocolSettingsRef);
-  const isProtocolHalted = protocolStatus?.isHalted ?? false;
+  const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
+  
+  // A protocol is considered halted if maintenanceMode is true OR isActive is explicitly false
+  const isProtocolHalted = protocolStatus ? (protocolStatus.maintenanceMode || !protocolStatus.isActive || protocolStatus.isHalted) : false;
 
   useEffect(() => {
     setMounted(true);

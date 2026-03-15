@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -42,6 +43,7 @@ import { cn } from '@/lib/utils';
 import { 
   SendEmailInputSchema, 
   SendNotificationInputSchema,
+  type ProtocolStatus
 } from '@/lib/types';
 
 const sendSchema = z.object({
@@ -71,8 +73,8 @@ export default function AdminDashboardPage() {
     return doc(firestore, 'protocol_settings', 'status');
   }, [firestore]);
 
-  const { data: protocolStatus } = useDoc<{ isHalted: boolean }>(protocolSettingsRef);
-  const isProtocolHalted = protocolStatus?.isHalted ?? false;
+  const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
+  const isProtocolHalted = protocolStatus ? (protocolStatus.maintenanceMode || !protocolStatus.isActive || protocolStatus.isHalted) : false;
 
   const [fundingStatus, setFundingStatus] = useState<OperationStatus>('idle');
   const [broadcastStatus, setBroadcastStatus] = useState<OperationStatus>('idle');
@@ -107,10 +109,14 @@ export default function AdminDashboardPage() {
 
   const handleToggleGate = async (checked: boolean) => {
       if (!firestore) return;
-      const newHaltState = !checked;
+      const isActive = checked;
       try {
           await setDoc(doc(firestore, 'protocol_settings', 'status'), { 
-            isHalted: newHaltState,
+            isActive: isActive,
+            isHalted: !isActive,
+            maintenanceMode: !isActive,
+            version: "5.0.1",
+            lastUpdated: serverTimestamp(),
             updatedBy: user?.uid,
             timestamp: serverTimestamp()
           }, { merge: true });
@@ -187,10 +193,10 @@ export default function AdminDashboardPage() {
   const handleBroadcast: SubmitHandler<NotificationFormValues> = async (data) => {
     setBroadcastStatus('processing');
     try {
-        const result = await sendNotification(data);
+        const successCount = await sendNotification(data);
         setBroadcastStatus('success');
         broadcastForm.reset();
-        toast({ title: "Broadcast Sent", description: `${result.successCount} users notified.` });
+        toast({ title: "Broadcast Sent", description: `${successCount} users notified.` });
     } catch (e: any) {
         setBroadcastStatus('error');
         toast({ title: "Broadcast Failed", description: e.message, variant: "destructive" });
