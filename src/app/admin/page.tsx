@@ -23,7 +23,8 @@ import {
     RefreshCw, 
     Loader2, 
     CheckCircle, 
-    Power
+    Power,
+    AlertCircle
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -267,15 +268,25 @@ export default function AdminDashboardPage() {
                 </CardContent>
             </Card>
 
-            <Card className="glass-module border-accent/20">
+            <Card className={cn("glass-module", syncStatus?.isOffline ? "border-destructive/20" : "border-accent/20")}>
                 <CardHeader className="pb-2">
                     <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <Database className="h-4 w-4 text-accent" /> Bridge Liquidity
+                        <Database className={cn("h-4 w-4", syncStatus?.isOffline ? "text-destructive" : "text-accent")} /> Bridge Liquidity
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-black text-white italic">{syncStatus?.bridgeLiquidity || '0.00 ETH'}</div>
-                    <Badge variant="outline" className="mt-2 text-[8px] border-accent/30 text-accent uppercase font-bold tracking-widest">Aggregate Rail Supply</Badge>
+                    <div className={cn("text-2xl font-black italic", syncStatus?.isOffline ? "text-destructive/50" : "text-white")}>
+                        {syncStatus?.bridgeLiquidity || '0.00 ETH'}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-2">
+                        {syncStatus?.isOffline ? (
+                            <Badge variant="outline" className="text-[8px] border-destructive/30 text-destructive uppercase font-bold tracking-widest flex items-center gap-1">
+                                <AlertCircle className="h-2 w-2" /> Admin SDK Required
+                            </Badge>
+                        ) : (
+                            <Badge variant="outline" className="text-[8px] border-accent/30 text-accent uppercase font-bold tracking-widest">Aggregate Rail Supply</Badge>
+                        )}
+                    </div>
                 </CardContent>
             </Card>
 
