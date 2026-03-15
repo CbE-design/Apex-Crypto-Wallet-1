@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from '@/components/ui/switch';
 import { 
     ShieldCheck, 
     DollarSign, 
@@ -29,7 +30,7 @@ import {
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, limit, runTransaction, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, runTransaction, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { getLedgerSyncStatus } from '@/services/ledger-sync-service';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -101,6 +102,26 @@ export default function AdminDashboardPage() {
         toast({ title: "Ledger Synchronized", description: "State roots reconciled successfully." });
     } finally {
         setIsReconciling(false);
+    }
+  };
+
+  const handleToggleProtocol = async (checked: boolean) => {
+    if (!firestore || !protocolSettingsRef) return;
+    try {
+        await updateDoc(protocolSettingsRef, {
+            isActive: checked,
+            maintenanceMode: !checked,
+            isHalted: !checked,
+            lastUpdated: serverTimestamp(),
+            version: protocolStatus?.version || '5.0.0'
+        });
+        toast({ 
+            title: checked ? "Protocol Resumed" : "Protocol Halted", 
+            description: checked ? "Network RPC traffic authorized." : "System governance has suspended all ledger traffic.",
+            variant: checked ? "default" : "destructive"
+        });
+    } catch (e: any) {
+        toast({ title: "Governance Failure", description: e.message, variant: "destructive" });
     }
   };
 
@@ -243,6 +264,14 @@ export default function AdminDashboardPage() {
                         <div className="flex items-center gap-2">
                             <Activity className={cn("h-4 w-4", isProtocolHalted ? "text-destructive" : "text-primary")} /> 
                             Network Pulse
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Gateway</span>
+                            <Switch 
+                                checked={!isProtocolHalted} 
+                                onCheckedChange={handleToggleProtocol}
+                                className="data-[state=checked]:bg-green-500"
+                            />
                         </div>
                     </CardTitle>
                 </CardHeader>
