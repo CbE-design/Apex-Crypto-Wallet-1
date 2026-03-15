@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -22,10 +23,13 @@ export default function AppContent({
   const [mounted, setMounted] = useState(false);
   const firestore = useFirestore();
 
+  const isPublicPage = pathname === '/login';
+
+  // Only create the reference if we are not on a public page to avoid unnecessary permission checks
   const protocolSettingsRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || isPublicPage) return null;
     return doc(firestore, 'protocol_settings', 'status');
-  }, [firestore]);
+  }, [firestore, isPublicPage]);
 
   const { data: protocolStatus } = useDoc<{ isHalted: boolean }>(protocolSettingsRef);
   const isProtocolHalted = protocolStatus?.isHalted ?? false;
@@ -37,8 +41,6 @@ export default function AppContent({
   if (!mounted) {
     return null;
   }
-
-  const isPublicPage = pathname === '/login';
 
   if (isPublicPage) {
     return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
