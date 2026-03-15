@@ -11,10 +11,15 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 function initializeFirebaseAdmin() {
   if (getApps().length) return true;
   
-  const config = process.env.FIREBASE_ADMIN_SDK_CONFIG;
+  let config = process.env.FIREBASE_ADMIN_SDK_CONFIG;
   if (!config) {
     console.warn("FIREBASE_ADMIN_SDK_CONFIG is not set. Admin services operating in Disconnected Mode.");
     return false;
+  }
+
+  // Handle potential wrapping quotes from some env loaders
+  if (config.startsWith("'") && config.endsWith("'")) {
+    config = config.slice(1, -1);
   }
 
   try {
@@ -22,7 +27,7 @@ function initializeFirebaseAdmin() {
     initializeApp({ credential: cert(serviceAccount) });
     return true;
   } catch(e) {
-    console.error("Admin SDK init failed in Sync Service", e);
+    console.error("Admin SDK init failed in Sync Service. Ensure JSON is valid and escaped correctly.", e);
     return false;
   }
 }
@@ -46,9 +51,8 @@ export async function getLedgerSyncStatus() {
     };
   }
 
-  const db = getFirestore();
-
   try {
+    const db = getFirestore();
     // Perform aggregate calculation of total ETH liquidity on the private ledger
     const walletsSnapshot = await db.collectionGroup('wallets').where('currency', '==', 'ETH').get();
     let totalLiquidity = 0;
