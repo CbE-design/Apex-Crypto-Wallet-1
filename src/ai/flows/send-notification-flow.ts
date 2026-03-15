@@ -1,14 +1,11 @@
+
 'use server';
 /**
  * @fileOverview A flow for sending push notifications to all users.
- *
- * - sendNotification - A function that sends a message to all users with a valid FCM token.
  */
 
 import { ai } from '@/ai/genkit';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getMessaging } from 'firebase-admin/messaging';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getAdminFirestore, getAdminMessaging } from '@/lib/firebase-admin';
 import { 
   SendNotificationInputSchema, 
   SendNotificationOutputSchema, 
@@ -16,35 +13,10 @@ import {
   type SendNotificationOutput 
 } from '@/lib/types';
 
-// Helper to initialize Firebase Admin SDK
-function initializeFirebaseAdmin() {
-  if (getApps().length) {
-    return;
-  }
-  
-  const config = process.env.FIREBASE_ADMIN_SDK_CONFIG;
-  if (!config) {
-    console.warn("FIREBASE_ADMIN_SDK_CONFIG is not set. Skipping Firebase Admin initialization.");
-    return;
-  }
-
-  try {
-    const serviceAccount = JSON.parse(config);
-    initializeApp({
-        credential: cert(serviceAccount)
-    });
-  } catch(e) {
-      console.error("Could not initialize Firebase Admin SDK.", e);
-  }
-}
-
-// Exported wrapper function
 export async function sendNotification(input: SendNotificationInput): Promise<SendNotificationOutput> {
   return sendNotificationFlow(input);
 }
 
-
-// Define the Genkit flow
 const sendNotificationFlow = ai.defineFlow(
   {
     name: 'sendNotificationFlow',
@@ -52,16 +24,13 @@ const sendNotificationFlow = ai.defineFlow(
     outputSchema: SendNotificationOutputSchema,
   },
   async ({ title, body }) => {
-    initializeFirebaseAdmin();
+    const db = getAdminFirestore();
+    const messaging = getAdminMessaging();
 
-    // Check if the admin app was initialized before proceeding
-    if (getApps().length === 0) {
-        throw new Error("Firebase Admin SDK is not initialized. Cannot send notifications.");
+    if (!db || !messaging) {
+      throw new Error("Firebase Admin SDK is not initialized. Cannot send notifications.");
     }
     
-    const db = getFirestore();
-    const messaging = getMessaging();
-
     // 1. Fetch all users
     const usersSnapshot = await db.collection('users').get();
     

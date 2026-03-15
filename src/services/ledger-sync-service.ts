@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -5,54 +6,27 @@
  * Reconciles the internal Firestore ledger with aggregate state metrics.
  */
 
-import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-
-function initializeFirebaseAdmin() {
-  if (getApps().length) return true;
-  
-  let config = process.env.FIREBASE_ADMIN_SDK_CONFIG;
-  if (!config) {
-    console.warn("FIREBASE_ADMIN_SDK_CONFIG is not set. Admin services operating in Disconnected Mode.");
-    return false;
-  }
-
-  // Handle potential wrapping quotes from some env loaders
-  if (config.startsWith("'") && config.endsWith("'")) {
-    config = config.slice(1, -1);
-  }
-
-  try {
-    const serviceAccount = JSON.parse(config);
-    initializeApp({ credential: cert(serviceAccount) });
-    return true;
-  } catch(e) {
-    console.error("Admin SDK init failed in Sync Service. Ensure JSON is valid and escaped correctly.", e);
-    return false;
-  }
-}
+import { getAdminFirestore } from '@/lib/firebase-admin';
 
 /**
  * Fetches real aggregate metrics from the Firestore ledger to reconcile bridge health.
- * If Admin SDK is missing, it returns a descriptive Disconnected state.
  */
 export async function getLedgerSyncStatus() {
-  const isInitialized = initializeFirebaseAdmin();
+  const db = getAdminFirestore();
 
-  if (!isInitialized) {
+  if (!db) {
     return {
       status: 'Disconnected',
       lastSync: new Date().toISOString(),
       blocksBehind: -1,
-      bridgeLiquidity: 'Config Required',
+      bridgeLiquidity: 'SDK Required',
       nodeHealth: '0%',
-      stateRoot: '0x0000... (Awaiting Admin SDK Credentials)',
+      stateRoot: '0x0000... (Awaiting Admin SDK)',
       isOffline: true
     };
   }
 
   try {
-    const db = getFirestore();
     // Perform aggregate calculation of total ETH liquidity on the private ledger
     const walletsSnapshot = await db.collectionGroup('wallets').where('currency', '==', 'ETH').get();
     let totalLiquidity = 0;
@@ -60,7 +34,7 @@ export async function getLedgerSyncStatus() {
       totalLiquidity += doc.data().balance || 0;
     });
 
-    // Check for any pending or failed transactions in the system
+    // Check for any pending transactions
     const transactionsSnapshot = await db.collectionGroup('transactions')
       .where('status', '==', 'Pending')
       .limit(1)
@@ -82,10 +56,8 @@ export async function getLedgerSyncStatus() {
     return {
       status: 'Error',
       lastSync: new Date().toISOString(),
-      blocksBehind: -1,
       bridgeLiquidity: 'Sync Error',
       nodeHealth: '0%',
-      stateRoot: '0x0',
       isOffline: true
     };
   }
