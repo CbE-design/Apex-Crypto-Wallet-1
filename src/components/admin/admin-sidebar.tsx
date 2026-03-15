@@ -10,19 +10,12 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Settings, ShieldAlert, Bell, DollarSign, Mail, ArrowLeft } from "lucide-react";
+import { LayoutDashboard, Settings, ShieldAlert, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 export function AdminSidebar() {
   const pathname = usePathname();
-
-  const adminItems = [
-    { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/admin/direct-send", label: "Direct Send", icon: DollarSign },
-    { href: "/admin/notification-center", label: "Notification Center", icon: Bell },
-    { href: "/admin/email-marketing", label: "Email Marketing", icon: Mail },
-  ];
 
   return (
     <>
@@ -40,16 +33,14 @@ export function AdminSidebar() {
       
       <SidebarContent className="p-2">
         <SidebarMenu>
-          {adminItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton asChild isActive={pathname === item.href}>
-                <Link href={item.href}>
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname === "/admin"}>
+              <Link href="/admin">
+                <LayoutDashboard className="h-4 w-4" />
+                <span>Orchestration Terminal</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           
           <div className="my-4 border-t border-white/5 mx-2" />
           
