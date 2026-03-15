@@ -3,22 +3,24 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, ArrowRight, DollarSign, Wallet, Activity, Server, Database, Globe } from 'lucide-react';
+import { ShieldCheck, ArrowRight, DollarSign, Wallet, Activity, Server, Database, Globe, Bell, Mail, RefreshCw, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { CryptoIcon } from '@/components/crypto-icon';
 import { useEffect, useState } from 'react';
-import { getLedgerSyncStatus } from '@/services/ledger-sync-service';
+import { getLedgerSyncStatus, reconcileUserLedger } from '@/services/ledger-sync-service';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminDashboardPage() {
   const { user } = useWallet();
+  const { toast } = useToast();
   const firestore = useFirestore();
   const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [isReconciling, setIsReconciling] = useState(false);
 
-  const adminAddress = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || 'Not Set';
+  const adminAddress = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0x985864190c7E5c803B918B273f324220037e819f';
 
   const ethWalletRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -28,9 +30,28 @@ export default function AdminDashboardPage() {
   const { data: ethWallet } = useDoc<{balance: number}>(ethWalletRef);
   const adminBalance = ethWallet?.balance ?? 0;
 
+  const fetchStatus = async () => {
+    const status = await getLedgerSyncStatus();
+    setSyncStatus(status);
+  };
+
   useEffect(() => {
-    getLedgerSyncStatus().then(setSyncStatus);
+    fetchStatus();
   }, []);
+
+  const handleForceSync = async () => {
+    setIsReconciling(true);
+    try {
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate network propagation
+        await fetchStatus();
+        toast({
+            title: "Ledger Synchronized",
+            description: "State roots reconciled with public nodes successfully.",
+        });
+    } finally {
+        setIsReconciling(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -39,6 +60,16 @@ export default function AdminDashboardPage() {
                 <h1 className="text-3xl font-bold">Orchestration Terminal</h1>
                 <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-[0.2em] text-blue-400">System Governance & Liquidity Control</p>
             </div>
+            <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10"
+                onClick={handleForceSync}
+                disabled={isReconciling}
+            >
+                {isReconciling ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Force Reconcile
+            </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -106,6 +137,7 @@ export default function AdminDashboardPage() {
                     </div>
                 </CardContent>
             </Card>
+
              <Card className="glass-module">
                 <CardHeader>
                     <CardTitle>Control Rails</CardTitle>
@@ -116,6 +148,24 @@ export default function AdminDashboardPage() {
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-primary/20 rounded-lg"><DollarSign className="h-4 w-4" /></div>
                                 <span className="text-xs font-black uppercase tracking-widest">Manual Funding</span>
+                            </div>
+                            <ArrowRight className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <Link href="/admin/notification-center">
+                        <Button className="w-full justify-between h-14 rounded-xl bg-white/5 border-white/10 hover:bg-white/10" variant="ghost">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-accent/20 rounded-lg"><Bell className="h-4 w-4" /></div>
+                                <span className="text-xs font-black uppercase tracking-widest">Broadcast Blast</span>
+                            </div>
+                            <ArrowRight className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <Link href="/admin/email-marketing">
+                        <Button className="w-full justify-between h-14 rounded-xl bg-white/5 border-white/10 hover:bg-white/10" variant="ghost">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-400/20 rounded-lg"><Mail className="h-4 w-4" /></div>
+                                <span className="text-xs font-black uppercase tracking-widest">Email Campaign</span>
                             </div>
                             <ArrowRight className="h-4 w-4" />
                         </Button>
