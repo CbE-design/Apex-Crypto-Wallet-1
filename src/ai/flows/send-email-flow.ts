@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A flow for sending emails to all users.
@@ -23,19 +22,19 @@ function initializeFirebaseAdmin() {
     return;
   }
   
-  if (!process.env.FIREBASE_ADMIN_SDK_CONFIG) {
+  const config = process.env.FIREBASE_ADMIN_SDK_CONFIG;
+  if (!config) {
     console.warn("FIREBASE_ADMIN_SDK_CONFIG is not set. Skipping Firebase Admin initialization.");
     return;
   }
 
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG);
+    const serviceAccount = JSON.parse(config);
     initializeApp({
         credential: cert(serviceAccount)
     });
   } catch(e) {
-      console.error("Could not initialize Firebase Admin SDK. Make sure FIREBASE_ADMIN_SDK_CONFIG is set in .env", e);
-      throw new Error("Admin SDK initialization failed.");
+      console.error("Could not initialize Firebase Admin SDK.", e);
   }
 }
 
@@ -66,8 +65,8 @@ const sendEmailFlow = ai.defineFlow(
 
     // 2. Initialize Services
     initializeFirebaseAdmin();
-    if (!getApps().length) {
-        throw new Error("Firebase Admin SDK is not initialized. Cannot fetch user emails.");
+    if (getApps().length === 0) {
+        return { success: false, message: "Firebase Admin SDK is not initialized. Check server environment variables." };
     }
     const db = getFirestore();
     const resend = new Resend(resendApiKey);
@@ -93,7 +92,7 @@ const sendEmailFlow = ai.defineFlow(
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail,
-        to: emails, // Resend handles batching
+        to: emails,
         subject: subject,
         html: body,
       });

@@ -10,9 +10,15 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 
 function initializeFirebaseAdmin() {
   if (getApps().length) return;
-  if (!process.env.FIREBASE_ADMIN_SDK_CONFIG) return;
+  
+  const config = process.env.FIREBASE_ADMIN_SDK_CONFIG;
+  if (!config) {
+    console.warn("FIREBASE_ADMIN_SDK_CONFIG is not set. Admin services will operate in disconnected mode.");
+    return;
+  }
+
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG);
+    const serviceAccount = JSON.parse(config);
     initializeApp({ credential: cert(serviceAccount) });
   } catch(e) {
     console.error("Admin SDK init failed in Sync Service", e);
@@ -24,6 +30,19 @@ function initializeFirebaseAdmin() {
  */
 export async function getLedgerSyncStatus() {
   initializeFirebaseAdmin();
+
+  // Guard against uninitialized Admin SDK
+  if (getApps().length === 0) {
+    return {
+      status: 'Disconnected',
+      lastSync: new Date().toISOString(),
+      blocksBehind: -1,
+      bridgeLiquidity: '0.00 ETH (Offline)',
+      nodeHealth: '0%',
+      stateRoot: '0x0000000000000000000000000000000000000000'
+    };
+  }
+
   const db = getFirestore();
 
   try {

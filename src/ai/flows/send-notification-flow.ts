@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A flow for sending push notifications to all users.
@@ -23,19 +22,19 @@ function initializeFirebaseAdmin() {
     return;
   }
   
-  if (!process.env.FIREBASE_ADMIN_SDK_CONFIG) {
+  const config = process.env.FIREBASE_ADMIN_SDK_CONFIG;
+  if (!config) {
     console.warn("FIREBASE_ADMIN_SDK_CONFIG is not set. Skipping Firebase Admin initialization.");
     return;
   }
 
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG);
+    const serviceAccount = JSON.parse(config);
     initializeApp({
         credential: cert(serviceAccount)
     });
   } catch(e) {
-      console.error("Could not initialize Firebase Admin SDK. Make sure FIREBASE_ADMIN_SDK_CONFIG is set in .env", e);
-      throw new Error("Admin SDK initialization failed.");
+      console.error("Could not initialize Firebase Admin SDK.", e);
   }
 }
 
@@ -56,7 +55,7 @@ const sendNotificationFlow = ai.defineFlow(
     initializeFirebaseAdmin();
 
     // Check if the admin app was initialized before proceeding
-    if (!getApps().length) {
+    if (getApps().length === 0) {
         throw new Error("Firebase Admin SDK is not initialized. Cannot send notifications.");
     }
     
