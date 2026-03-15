@@ -1,11 +1,10 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ethers } from 'ethers';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,27 +18,33 @@ import {
   Building2, 
   Lock,
   Flag,
-  Wallet,
   Info,
   AlertCircle,
-  ArrowDownToLine
+  ArrowDownToLine,
+  Loader2,
+  Activity,
+  CreditCard,
+  ChevronRight,
+  ShieldAlert
 } from 'lucide-react';
 import { PrivateRoute } from '@/components/private-route';
 import { useWallet } from '@/context/wallet-context';
 import { useCurrency } from '@/context/currency-context';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, runTransaction, collection, serverTimestamp } from 'firebase/firestore';
 import { getLivePrices } from '@/services/crypto-service';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useDoc, useMemoFirebase } from '@/firebase';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// Schemas for Industrial Banking
+// Industrial Schemas
 const bankSchema = z.object({
-  method: z.enum(['local_sa', 'international']),
+  protocol: z.enum(['local_sa', 'international']),
+  provider: z.string().min(1, "Please select a provider or bank"),
   accountName: z.string().min(2, "Account holder name is required"),
-  bankName: z.string().min(2, "Bank name is required"),
   accountNumber: z.string().optional(),
   branchCode: z.string().optional(),
   iban: z.string().optional(),
@@ -48,29 +53,22 @@ const bankSchema = z.object({
     message: "Amount must be greater than zero",
   }),
 }).refine((data) => {
-  if (data.method === 'local_sa') {
+  if (data.protocol === 'local_sa') {
     return !!data.accountNumber && data.accountNumber.length >= 8 && !!data.branchCode;
   }
   return !!data.iban && data.iban.length >= 15 && !!data.swiftBic;
 }, {
-  message: "Please fill in all required banking details for the selected protocol",
+  message: "Please fill in all required banking details",
   path: ["accountNumber"],
 });
 
 type BankFormValues = z.infer<typeof bankSchema>;
 
-const walletSchema = z.object({
-  externalAddress: z.string().refine(ethers.isAddress, {
-    message: "Please enter a valid Ethereum wallet address",
-  }),
-  amount: z.string().refine(val => parseFloat(val) > 0, {
-    message: "Amount must be greater than zero",
-  }),
-});
+const SA_BANKS = ["FNB", "Standard Bank", "Capitec", "Absa", "Nedbank", "Investec"];
+const INTL_PROVIDERS = ["Stripe Connect", "PayPal Payouts", "Wise Business"];
 
-type WalletFormValues = z.infer<typeof walletSchema>;
-
-type WithdrawalStep = 'input' | 'verifying' | 'finalizing' | 'success';
+type WithdrawalStep = 'input' | 'security' | 'tracking' | 'success';
+type TrackingStatus = 'initiated' | 'confirmed' | 'processing' | 'completed';
 
 export default function CashOutPage() {
   const { toast } = useToast();
@@ -79,9 +77,11 @@ export default function CashOutPage() {
   const firestore = useFirestore();
   
   const [step, setStep] = useState<WithdrawalStep>('input');
-  const [activeMethod, setActiveMethod] = useState<'bank' | 'wallet'>('bank');
-  const [pendingData, setPendingData] = useState<any>(null);
-  const [verificationProgress, setVerificationProgress] = useState(0);
+  const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>('initiated');
+  const [trackingProgress, setTrackingProgress] = useState(0);
+  const [isSecurityOpen, setIsSecurityOpen] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pendingData, setPendingData] = useState<BankFormValues | null>(null);
 
   const ethWalletRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -91,12 +91,12 @@ export default function CashOutPage() {
   const { data: ethWallet } = useDoc<{ balance: number }>(ethWalletRef);
   const ethBalance = ethWallet?.balance ?? 0;
 
-  const bankForm = useForm<BankFormValues>({
+  const form = useForm<BankFormValues>({
     resolver: zodResolver(bankSchema),
     defaultValues: { 
-        method: 'local_sa', 
+        protocol: 'local_sa', 
+        provider: '',
         accountName: '', 
-        bankName: '', 
         accountNumber: '', 
         branchCode: '', 
         iban: '', 
@@ -106,183 +106,184 @@ export default function CashOutPage() {
     mode: 'onChange',
   });
 
-  const walletForm = useForm<WalletFormValues>({
-    resolver: zodResolver(walletSchema),
-    defaultValues: { externalAddress: '', amount: '' },
-    mode: 'onChange',
-  });
+  const watchAmount = form.watch('amount');
+  const watchProtocol = form.watch('protocol');
 
-  const watchMethod = bankForm.watch('method');
+  // Fee Calculation Logic
+  const fees = useMemo(() => {
+    const val = parseFloat(watchAmount) || 0;
+    const gasFee = 15.00 * currency.rate; // $15 simulated gas
+    const processingRate = watchProtocol === 'local_sa' ? 0.015 : 0.03;
+    const processingFee = val * processingRate;
+    const totalFees = gasFee + processingFee;
+    const netAmount = Math.max(0, val - totalFees);
 
-  const startVerification = (data: any, method: 'bank' | 'wallet') => {
-    setActiveMethod(method);
+    return { gasFee, processingFee, totalFees, netAmount };
+  }, [watchAmount, watchProtocol, currency.rate]);
+
+  const handleInitiate = (data: BankFormValues) => {
     setPendingData(data);
-    setStep('verifying');
+    setIsSecurityOpen(true);
   };
 
-  useEffect(() => {
-    if (step === 'verifying') {
-      const interval = setInterval(() => {
-        setVerificationProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            setTimeout(() => setStep('finalizing'), 500);
-            return 100;
-          }
-          return prev + 4; // Authentic slow-crawl for security feel
-        });
-      }, 150);
-      return () => clearInterval(interval);
+  const handleSecurityConfirm = async () => {
+    if (pin.length < 4) {
+      toast({ title: "Security Error", description: "Invalid PIN format.", variant: "destructive" });
+      return;
     }
-  }, [step]);
+    setIsSecurityOpen(false);
+    setStep('tracking');
+    runTrackingSimulation();
+  };
 
-  useEffect(() => {
-    if (step === 'finalizing') {
-      handleFinalizeWithdrawal();
-    }
-  }, [step]);
+  const runTrackingSimulation = async () => {
+    // 1. Initiated
+    setTrackingStatus('initiated');
+    setTrackingProgress(10);
+    await new Promise(r => setTimeout(r, 2000));
 
-  const handleFinalizeWithdrawal = async () => {
-    if (!user || !firestore || !pendingData || !ethWalletRef) return;
+    // 2. Blockchain Confirmed (Write to Ledger)
+    setTrackingProgress(40);
+    setTrackingStatus('confirmed');
+    const success = await executeLedgerDebit();
+    if (!success) return;
+    await new Promise(r => setTimeout(r, 3000));
+
+    // 3. Bank Processing
+    setTrackingProgress(75);
+    setTrackingStatus('processing');
+    await new Promise(r => setTimeout(r, 3000));
+
+    // 4. Completed
+    setTrackingProgress(100);
+    setTrackingStatus('completed');
+    setTimeout(() => setStep('success'), 1000);
+  };
+
+  const executeLedgerDebit = async () => {
+    if (!user || !firestore || !pendingData || !ethWalletRef) return false;
 
     try {
       const prices = await getLivePrices(['ETH'], 'USD');
       const ethPriceUSD = prices.ETH || 3500;
-      const amountInSelectedCurrency = parseFloat(pendingData.amount);
-      const amountInUSD = amountInSelectedCurrency / currency.rate;
+      const amountInUSD = parseFloat(pendingData.amount) / currency.rate;
       const ethToDeduct = amountInUSD / ethPriceUSD;
 
-      // Add a small 0.5% protocol fee for authenticity
-      const fee = ethToDeduct * 0.005;
-      const totalToDeduct = ethToDeduct + fee;
-
-      if (totalToDeduct > ethBalance) {
-        throw new Error(`Insufficient funds. You need ${totalToDeduct.toFixed(6)} ETH (incl. protocol fee) but have ${ethBalance.toFixed(6)} ETH.`);
+      if (ethToDeduct > ethBalance) {
+        throw new Error("Insufficient Ledger Balance.");
       }
 
       await runTransaction(firestore, async (transaction) => {
         const walletDoc = await transaction.get(ethWalletRef);
-        if (!walletDoc.exists()) throw new Error("Private Ledger Node: Wallet not found.");
-
+        if (!walletDoc.exists()) throw new Error("Wallet not found.");
+        
         const currentBalance = walletDoc.data().balance;
-        if (currentBalance < totalToDeduct) throw new Error("Private Ledger Node: Atomic sync failed - Insufficient funds.");
-
-        transaction.update(ethWalletRef, {
-          balance: currentBalance - totalToDeduct
-        });
+        transaction.update(ethWalletRef, { balance: currentBalance - ethToDeduct });
 
         const txRef = doc(collection(ethWalletRef, 'transactions'));
-        
-        let notes = "";
-        if (activeMethod === 'bank') {
-            if (pendingData.method === 'local_sa') {
-                notes = `EFT South Africa to ${pendingData.bankName} (Acc: ${pendingData.accountNumber?.slice(-4)}...)`;
-            } else {
-                notes = `International SWIFT Wire to ${pendingData.bankName} (IBAN: ${pendingData.iban?.slice(0, 4)}...)`;
-            }
-        } else {
-            notes = `Digital Asset Withdrawal to ${pendingData.externalAddress}`;
-        }
-
         transaction.set(txRef, {
           userId: user.uid,
           type: 'Withdrawal',
           amount: ethToDeduct,
-          fee: fee,
           price: ethPriceUSD,
           timestamp: serverTimestamp(),
           status: 'Completed',
-          method: activeMethod,
-          protocol: pendingData.method || 'Blockchain',
-          notes: notes
+          notes: `Payout to ${pendingData.provider} (${pendingData.protocol})`
         });
       });
-
-      setStep('success');
-      toast({ title: "Ledger Synchronized", description: "Gateway funds successfully dispatched." });
-    } catch (error: any) {
-      console.error("Withdrawal execution failed:", error);
+      return true;
+    } catch (e: any) {
       setStep('input');
-      toast({
-        title: "Protocol Error",
-        description: error.message || "Ledger finalization failed.",
-        variant: "destructive",
-      });
+      toast({ title: "Ledger Error", description: e.message, variant: "destructive" });
+      return false;
     }
   };
 
-  const renderSecurityTerminal = () => {
-    const steps = [
-      { id: 20, label: 'Initializing Apex Handshake' },
-      { id: 40, label: 'Global AML & Compliance Scan' },
-      { id: 60, label: watchMethod === 'local_sa' ? 'Clearing House Routing' : 'SWIFT Protocol Validation' },
-      { id: 80, label: 'Verifying Liquidity Reservoir' },
-      { id: 100, label: 'Finalizing Private Ledger entry' },
+  const renderStatusTracker = () => {
+    const statuses = [
+      { id: 'initiated', label: 'Initiated', icon: Activity },
+      { id: 'confirmed', label: 'Blockchain Confirmed', icon: ShieldCheck },
+      { id: 'processing', label: 'Bank Processing', icon: Building2 },
+      { id: 'completed', label: 'Completed', icon: CheckCircle2 },
     ];
-    const currentLabel = steps.find(s => verificationProgress <= s.id)?.label || 'Executing';
 
     return (
-      <div className="flex flex-col items-center justify-center space-y-8 py-12 bg-black/20 rounded-2xl border border-white/5">
-        <div className="relative">
-          <div className="h-32 w-32 rounded-full border-4 border-primary/10 flex items-center justify-center shadow-[0_0_30px_-10px_rgba(59,130,246,0.3)]">
-            <Lock className="h-12 w-12 text-primary animate-pulse" />
-          </div>
-          <svg className="absolute top-0 left-0 h-32 w-32 -rotate-90">
-            <circle
-              cx="64"
-              cy="64"
-              r="60"
-              fill="transparent"
-              stroke="currentColor"
-              strokeWidth="4"
-              strokeDasharray={377}
-              strokeDashoffset={377 - (377 * verificationProgress) / 100}
-              className="text-primary transition-all duration-300"
-            />
-          </svg>
-        </div>
+      <div className="space-y-8 py-8 animate-in fade-in duration-500">
         <div className="text-center space-y-2">
-          <h3 className="text-lg font-black uppercase tracking-[0.3em] text-primary">Security Terminal</h3>
-          <p className="text-[10px] font-mono text-muted-foreground uppercase animate-pulse">{currentLabel}...</p>
+            <h3 className="text-2xl font-black tracking-tighter uppercase italic text-primary">Gateway in Transit</h3>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-[0.2em]">Cross-Protocol Handshake v4.2</p>
         </div>
-        <div className="w-full max-w-[200px] bg-white/5 rounded-full h-1 overflow-hidden">
-          <div 
-            className="bg-primary h-full transition-all duration-300 shadow-[0_0_10px_rgba(59,130,246,0.5)]" 
-            style={{ width: `${verificationProgress}%` }}
-          />
+
+        <div className="relative pt-8">
+            <Progress value={trackingProgress} className="h-2 bg-white/5" />
+            <div className="flex justify-between mt-6">
+                {statuses.map((s, idx) => {
+                    const isActive = trackingStatus === s.id;
+                    const isPassed = statuses.findIndex(x => x.id === trackingStatus) >= idx;
+                    return (
+                        <div key={s.id} className="flex flex-col items-center gap-3 group">
+                            <div className={cn(
+                                "h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-500",
+                                isActive ? "bg-primary text-white scale-110 shadow-[0_0_20px_rgba(59,130,246,0.5)] border-primary" : 
+                                isPassed ? "bg-accent/20 text-accent border-accent/40" : "bg-muted/30 text-muted-foreground border-white/5"
+                            )}>
+                                <s.icon className="h-5 w-5" />
+                            </div>
+                            <span className={cn(
+                                "text-[8px] font-black uppercase tracking-widest text-center max-w-[60px]",
+                                isPassed ? "text-white" : "text-muted-foreground"
+                            )}>
+                                {s.label}
+                            </span>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
+
+        <Card className="bg-black/20 border-white/5 p-6 rounded-2xl">
+            <div className="flex items-center gap-4">
+                <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                <div className="space-y-1">
+                    <p className="text-xs font-bold text-white uppercase tracking-tight">Current Operation</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">
+                        {trackingStatus === 'initiated' && 'Synchronizing transaction packet with node cluster...'}
+                        {trackingStatus === 'confirmed' && 'Atomic state update written to Apex Private Ledger...'}
+                        {trackingStatus === 'processing' && 'Routing funds via regional clearing house nodes...'}
+                        {trackingStatus === 'completed' && 'Gateway successfully finalized. Funds dispatched.'}
+                    </p>
+                </div>
+            </div>
+        </Card>
       </div>
     );
   };
 
   const renderSuccess = () => (
-    <div className="flex flex-col items-center justify-center text-center space-y-6 py-8">
-      <div className="p-4 bg-accent/10 rounded-full border border-accent/20">
-        <CheckCircle2 className="h-16 w-16 text-accent animate-in zoom-in" />
+    <div className="flex flex-col items-center justify-center text-center space-y-6 py-12 animate-in zoom-in-95 duration-500">
+      <div className="h-24 w-24 rounded-full bg-accent/20 border-4 border-accent flex items-center justify-center shadow-[0_0_40px_-10px_rgba(16,185,129,0.5)]">
+        <CheckCircle2 className="h-12 w-12 text-accent" />
       </div>
       <div className="space-y-2">
-        <h2 className="text-3xl font-black tracking-tighter">Gateway Dispatched</h2>
-        <p className="text-sm text-muted-foreground max-w-sm px-4">
-            Transaction finalized on the Apex Private Ledger. Your funds are now in flight via the chosen banking protocol.
-        </p>
+        <h2 className="text-4xl font-black tracking-tighter uppercase italic">Success</h2>
+        <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest">Gateway Dispatched</p>
       </div>
-      <div className="w-full p-5 rounded-2xl bg-muted/30 border border-white/5 space-y-4">
-        <div className="flex justify-between items-center text-[10px]">
-          <span className="text-muted-foreground uppercase font-black tracking-widest">Protocol</span>
-          <span className="font-mono text-primary uppercase font-bold">{pendingData?.method === 'local_sa' ? 'EFT / Clearing' : 'SWIFT / Wire'}</span>
+      <div className="w-full bg-white/5 p-5 rounded-2xl border border-white/10 space-y-3 font-mono">
+        <div className="flex justify-between text-[10px]">
+          <span className="text-muted-foreground">REF:</span>
+          <span className="text-white">APX-{Math.random().toString(36).substring(7).toUpperCase()}</span>
         </div>
-        <div className="flex justify-between items-center text-[10px]">
-          <span className="text-muted-foreground uppercase font-black tracking-widest">Status</span>
-          <span className="text-accent font-black uppercase tracking-widest">Confirmed & Finalized</span>
+        <div className="flex justify-between text-[10px]">
+          <span className="text-muted-foreground">AMOUNT:</span>
+          <span className="text-accent">{formatCurrency(parseFloat(pendingData?.amount || '0'))}</span>
         </div>
-        <div className="h-px bg-white/5" />
-        <div className="flex justify-between items-center text-[10px]">
-          <span className="text-muted-foreground uppercase font-black tracking-widest">Arrival</span>
-          <span className="text-white font-bold">{pendingData?.method === 'local_sa' ? '24 Hours' : '3-5 Business Days'}</span>
+        <div className="flex justify-between text-[10px]">
+          <span className="text-muted-foreground">EST. ARRIVAL:</span>
+          <span className="text-primary">{watchProtocol === 'local_sa' ? 'INSTANT - 24H' : '1-3 BUSINESS DAYS'}</span>
         </div>
       </div>
-      <Button onClick={() => { setStep('input'); setVerificationProgress(0); }} className="w-full btn-premium py-6 rounded-xl">
-        Return to Gateway
+      <Button onClick={() => setStep('input')} className="w-full btn-premium py-7 rounded-2xl font-black uppercase tracking-widest">
+        Return to Portal
       </Button>
     </div>
   );
@@ -291,202 +292,190 @@ export default function CashOutPage() {
     <PrivateRoute>
       <div className="flex justify-center items-start pt-6 pb-20">
         <Card className="w-full max-w-lg glass-module glass-glow-blue border-white/10 overflow-hidden shadow-2xl">
-          <CardHeader className="border-b border-white/5 bg-white/5">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/20 rounded-lg">
-                <ShieldCheck className="h-5 w-5 text-primary" />
+          <CardHeader className="border-b border-white/5 bg-white/5 py-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/20 rounded-2xl border border-primary/40">
+                  <CreditCard className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl font-black tracking-tight uppercase italic">Cash Out</CardTitle>
+                  <CardDescription className="text-[10px] uppercase font-bold tracking-[0.2em] text-blue-400">Multi-Region Gateway v4.2</CardDescription>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-xl font-black tracking-tight uppercase">Cash Out Gateway</CardTitle>
-                <CardDescription className="text-[10px] uppercase font-bold tracking-widest text-primary/60 flex items-center gap-1">
-                   <Lock className="h-3 w-3" /> Secure Banking Protocol v3.0
-                </CardDescription>
-              </div>
+              <Badge variant="outline" className="bg-primary/10 border-primary/40 text-[10px] font-black italic">
+                SECURE HANDSHAKE
+              </Badge>
             </div>
           </CardHeader>
-          <CardContent className="pt-8">
+          <CardContent className="pt-10">
             {step === 'input' && (
-              <>
-                <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-primary/20 to-transparent border border-white/10 relative overflow-hidden group">
-                  <div className="absolute -right-6 -top-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <ArrowDownToLine className="h-28 w-28" />
-                  </div>
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="text-[10px] text-primary font-black uppercase tracking-[0.2em]">Available Liquidity</div>
-                    <Badge variant="outline" className="text-[8px] bg-primary/10 border-primary/30 text-primary">LIVE SYNC</Badge>
-                  </div>
-                  <div className="text-4xl font-black tracking-tighter mb-1 text-white">{ethBalance.toFixed(6)} ETH</div>
-                  <div className="text-sm font-bold text-accent">
-                    ≈ {formatCurrency(ethBalance * (3500 * currency.rate))} 
+              <form onSubmit={form.handleSubmit(handleInitiate)} className="space-y-8">
+                
+                {/* Protocol Selector */}
+                <div className="space-y-4">
+                  <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Select Banking Protocol</Label>
+                  <RadioGroup 
+                    value={watchProtocol} 
+                    onValueChange={(val) => form.setValue('protocol', val as any)}
+                    className="grid grid-cols-2 gap-4"
+                  >
+                    <div 
+                      onClick={() => form.setValue('protocol', 'local_sa')}
+                      className={cn(
+                        "relative p-6 rounded-3xl border transition-all cursor-pointer group overflow-hidden",
+                        watchProtocol === 'local_sa' ? "bg-primary/10 border-primary ring-1 ring-primary shadow-2xl" : "bg-muted/20 border-white/5 hover:border-white/20"
+                      )}
+                    >
+                      <Flag className={cn("h-4 w-4 mb-3 transition-colors", watchProtocol === 'local_sa' ? "text-primary" : "text-muted-foreground")} />
+                      <div className="text-sm font-black uppercase tracking-tight">South Africa</div>
+                      <div className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">EFT Clearing</div>
+                    </div>
+                    <div 
+                      onClick={() => form.setValue('protocol', 'international')}
+                      className={cn(
+                        "relative p-6 rounded-3xl border transition-all cursor-pointer group overflow-hidden",
+                        watchProtocol === 'international' ? "bg-primary/10 border-primary ring-1 ring-primary shadow-2xl" : "bg-muted/20 border-white/5 hover:border-white/20"
+                      )}
+                    >
+                      <Globe className={cn("h-4 w-4 mb-3 transition-colors", watchProtocol === 'international' ? "text-primary" : "text-muted-foreground")} />
+                      <div className="text-sm font-black uppercase tracking-tight">International</div>
+                      <div className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">SWIFT Protocol</div>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {/* Account Details */}
+                <div className="space-y-5 animate-in slide-in-from-bottom-2 duration-300">
+                  <div className="grid grid-cols-1 gap-5">
+                    <div className="space-y-2">
+                      <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Payout Provider / Bank</Label>
+                      <Select onValueChange={(val) => form.setValue('provider', val)}>
+                        <SelectTrigger className="h-14 bg-white/5 border-white/10 rounded-2xl">
+                          <SelectValue placeholder="Choose entity" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(watchProtocol === 'local_sa' ? SA_BANKS : INTL_PROVIDERS).map(p => (
+                            <SelectItem key={p} value={p}>{p}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Account Holder Name</Label>
+                      <Input className="h-14 bg-white/5 border-white/10 rounded-2xl text-sm" placeholder="Legal full name" {...form.register('accountName')} />
+                    </div>
+
+                    {watchProtocol === 'local_sa' ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Account No.</Label>
+                          <Input className="h-14 bg-white/5 border-white/10 rounded-2xl font-mono text-sm" placeholder="XXXXXXXXX" {...form.register('accountNumber')} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Branch Code</Label>
+                          <Input className="h-14 bg-white/5 border-white/10 rounded-2xl font-mono text-sm" placeholder="250655" {...form.register('branchCode')} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">IBAN Number</Label>
+                          <Input className="h-14 bg-white/5 border-white/10 rounded-2xl font-mono text-sm" placeholder="International Format" {...form.register('iban')} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">SWIFT / BIC Code</Label>
+                          <Input className="h-14 bg-white/5 border-white/10 rounded-2xl font-mono text-sm" placeholder="XXXX XX XX" {...form.register('swiftBic')} />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <Tabs defaultValue="bank" className="w-full" onValueChange={(val) => setActiveMethod(val as any)}>
-                  <TabsList className="grid w-full grid-cols-2 bg-black/20 p-1.5 rounded-2xl border border-white/5 mb-8">
-                    <TabsTrigger value="bank" className="rounded-xl py-2.5 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-bold">
-                      <Building2 className="h-4 w-4 mr-2" /> Fiat Gateway
-                    </TabsTrigger>
-                    <TabsTrigger value="wallet" className="rounded-xl py-2.5 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-bold">
-                      <Globe className="h-4 w-4 mr-2" /> Digital Asset
-                    </TabsTrigger>
-                  </TabsList>
+                {/* Fee Calculator Module */}
+                <div className="space-y-4">
+                   <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Withdrawal Amount ({currency.symbol})</Label>
+                   <div className="relative group">
+                      <Input 
+                        className="h-20 bg-primary/5 border-primary/20 rounded-3xl text-3xl font-black text-white transition-all focus:border-primary focus:ring-1 focus:ring-primary pl-16" 
+                        type="number" 
+                        step="any" 
+                        placeholder="0.00" 
+                        {...form.register('amount')} 
+                      />
+                      <div className="absolute left-6 top-1/2 -translate-y-1/2 text-primary font-black text-xl italic">{currency.symbol}</div>
+                   </div>
 
-                  <TabsContent value="bank" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="space-y-3">
-                        <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground ml-1">Select Banking Protocol</Label>
-                        <RadioGroup 
-                            value={watchMethod}
-                            className="grid grid-cols-2 gap-3"
-                            onValueChange={(val) => bankForm.setValue('method', val as any, { shouldValidate: true })}
-                        >
-                            <div 
-                                onClick={() => bankForm.setValue('method', 'local_sa', { shouldValidate: true })}
-                                className={cn(
-                                    "relative flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer group",
-                                    watchMethod === 'local_sa' ? "bg-primary/10 border-primary ring-1 ring-primary shadow-[0_0_15px_-5px_rgba(59,130,246,0.5)]" : "bg-muted/30 border-white/5 hover:border-white/10"
-                                )}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className={cn("p-1.5 rounded-lg transition-colors", watchMethod === 'local_sa' ? "bg-primary text-white" : "bg-white/5 text-muted-foreground")}>
-                                        <Flag className="h-3 w-3" />
-                                    </div>
-                                    <div className="space-y-0.5">
-                                        <div className="text-[11px] font-black uppercase tracking-tight">South Africa</div>
-                                        <div className="text-[9px] text-muted-foreground font-bold">EFT / Instant</div>
-                                    </div>
-                                </div>
-                                <RadioGroupItem value="local_sa" className="sr-only" />
-                            </div>
-                            <div 
-                                onClick={() => bankForm.setValue('method', 'international', { shouldValidate: true })}
-                                className={cn(
-                                    "relative flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer group",
-                                    watchMethod === 'international' ? "bg-primary/10 border-primary ring-1 ring-primary shadow-[0_0_15px_-5px_rgba(59,130,246,0.5)]" : "bg-muted/30 border-white/5 hover:border-white/10"
-                                )}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className={cn("p-1.5 rounded-lg transition-colors", watchMethod === 'international' ? "bg-primary text-white" : "bg-white/5 text-muted-foreground")}>
-                                        <Globe className="h-3 w-3" />
-                                    </div>
-                                    <div className="space-y-0.5">
-                                        <div className="text-[11px] font-black uppercase tracking-tight">International</div>
-                                        <div className="text-[9px] text-muted-foreground font-bold">SWIFT / Wire</div>
-                                    </div>
-                                </div>
-                                <RadioGroupItem value="international" className="sr-only" />
-                            </div>
-                        </RadioGroup>
-                    </div>
-
-                    <form onSubmit={bankForm.handleSubmit((d) => startVerification(d, 'bank'))} className="space-y-5">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Account Holder</Label>
-                          <Input className="bg-white/5 border-white/10 rounded-xl h-12 text-sm" placeholder="Legal Name" {...bankForm.register('accountName')} />
+                   {parseFloat(watchAmount) > 0 && (
+                      <div className="p-6 rounded-3xl bg-muted/30 border border-white/5 space-y-3 animate-in fade-in zoom-in-95">
+                        <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                          <span className="text-muted-foreground">Network Gas Fee</span>
+                          <span className="text-white">{formatCurrency(fees.gasFee)}</span>
                         </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Bank Name</Label>
-                          <Input className="bg-white/5 border-white/10 rounded-xl h-12 text-sm" placeholder="e.g. FNB, Chase" {...bankForm.register('bankName')} />
+                        <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                          <span className="text-muted-foreground">Gateway Proc. Fee</span>
+                          <span className="text-white">{formatCurrency(fees.processingFee)}</span>
+                        </div>
+                        <div className="h-px bg-white/5" />
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Final Settlement</span>
+                          <span className="text-xl font-black italic text-accent">{formatCurrency(fees.netAmount)}</span>
                         </div>
                       </div>
+                   )}
+                </div>
 
-                      {watchMethod === 'local_sa' ? (
-                        <div className="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95 duration-200">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Account Number</Label>
-                                <Input className="bg-white/5 border-white/10 rounded-xl h-12 font-mono text-sm" placeholder="10-12 digits" {...bankForm.register('accountNumber')} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Branch Code</Label>
-                                <Input className="bg-white/5 border-white/10 rounded-xl h-12 font-mono text-sm" placeholder="250655" {...bankForm.register('branchCode')} />
-                            </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95 duration-200">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] uppercase font-black text-muted-foreground ml-1">IBAN Number</Label>
-                                <Input className="bg-white/5 border-white/10 rounded-xl h-12 font-mono text-sm" placeholder="Intl. Format" {...bankForm.register('iban')} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[10px] uppercase font-black text-muted-foreground ml-1">SWIFT / BIC</Label>
-                                <Input className="bg-white/5 border-white/10 rounded-xl h-12 font-mono text-sm" placeholder="XXXX XX XX" {...bankForm.register('swiftBic')} />
-                            </div>
-                        </div>
-                      )}
-
-                      <div className="space-y-2">
-                        <Label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Withdrawal Amount ({currency.symbol})</Label>
-                        <div className="relative group">
-                            <Input className="bg-white/5 border-white/10 rounded-xl h-14 text-2xl font-black transition-all group-focus-within:border-primary/50" type="number" step="any" placeholder="0.00" {...bankForm.register('amount')} />
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                <div className="h-4 w-px bg-white/10" />
-                                <span className="text-xs font-black text-primary">{currency.symbol}</span>
-                            </div>
-                        </div>
-                        <div className="flex justify-between items-center px-1">
-                             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                <Info className="h-3 w-3" />
-                                Protocol Fee: <span className="text-white font-bold">0.5%</span>
-                             </div>
-                             {bankForm.watch('amount') && (
-                                <div className="text-[10px] text-accent font-bold">
-                                    ≈ {(parseFloat(bankForm.watch('amount')) / (3500 * currency.rate)).toFixed(6)} ETH
-                                </div>
-                             )}
-                        </div>
-                      </div>
-                      
-                      <Button type="submit" className="w-full btn-premium py-7 mt-4 rounded-xl text-sm font-black uppercase tracking-widest">
-                        <ShieldCheck className="mr-3 h-5 w-5" /> Execute Protocol Transfer
-                      </Button>
-                    </form>
-                  </TabsContent>
-
-                  <TabsContent value="wallet" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-4 flex gap-3">
-                        <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
-                        <p className="text-[10px] text-amber-200/80 leading-relaxed font-bold uppercase tracking-tight">
-                            Ensure the destination address supports the Ethereum Network. Assets sent to incorrect chains may be permanently lost on the private ledger.
-                        </p>
-                    </div>
-                    <form onSubmit={walletForm.handleSubmit((d) => startVerification(d, 'wallet'))} className="space-y-5">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Destination EVM Address</Label>
-                        <Input className="bg-white/5 border-white/10 rounded-xl h-12 font-mono text-sm" placeholder="0x..." {...walletForm.register('externalAddress')} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Asset Amount ({currency.symbol})</Label>
-                         <div className="relative group">
-                            <Input className="bg-white/5 border-white/10 rounded-xl h-14 text-2xl font-black transition-all group-focus-within:border-primary/50" type="number" step="any" placeholder="0.00" {...walletForm.register('amount')} />
-                             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                <div className="h-4 w-px bg-white/10" />
-                                <span className="text-xs font-black text-primary">{currency.symbol}</span>
-                            </div>
-                        </div>
-                      </div>
-                      <Button type="submit" className="w-full btn-premium py-7 mt-4 rounded-xl text-sm font-black uppercase tracking-widest">
-                        <Globe className="mr-3 h-5 w-5" /> Dispatch Digital Asset
-                      </Button>
-                    </form>
-                  </TabsContent>
-                </Tabs>
-              </>
+                <Button type="submit" className="w-full btn-premium py-8 rounded-3xl font-black uppercase tracking-[0.2em] text-sm italic group" disabled={!form.formState.isValid}>
+                  Initialize Dispatch <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </form>
             )}
 
-            {(step === 'verifying' || step === 'finalizing') && renderSecurityTerminal()}
+            {step === 'tracking' && renderStatusTracker()}
             {step === 'success' && renderSuccess()}
           </CardContent>
-          <CardFooter className="bg-black/20 border-t border-white/5 py-4 flex items-center justify-center gap-3">
-            <div className="flex -space-x-1">
-                <div className="h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
-                <div className="h-3 w-3 rounded-full bg-cyan-500 animate-pulse delay-75" />
+          
+          <CardFooter className="bg-black/40 border-t border-white/5 py-6 flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-3 w-3 text-accent" />
+              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em]">End-to-End Encrypted Transit Pipeline</span>
             </div>
-            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em]">
-                Apex Multi-Region Gateway • Encrypted Handshake
-            </span>
+            <p className="text-[8px] text-muted-foreground/50 font-mono">NODE_IDENTITY: {user?.uid.substring(0, 16).toUpperCase()}</p>
           </CardFooter>
         </Card>
       </div>
+
+      {/* Security Verification Dialog */}
+      <Dialog open={isSecurityOpen} onOpenChange={setIsSecurityOpen}>
+        <DialogContent className="sm:max-w-md bg-card border-white/10 rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-2xl font-black italic uppercase italic">
+              <ShieldAlert className="h-6 w-6 text-primary" />
+              Security Challenge
+            </DialogTitle>
+            <DialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground pt-2">
+              Please enter your 6-digit Secret PIN to authorize this ledger dispatch.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-8">
+            <Input 
+              type="password" 
+              className="h-16 bg-white/5 border-white/10 rounded-2xl text-center text-3xl font-black tracking-[0.5em]" 
+              placeholder="••••••"
+              maxLength={6}
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+            />
+          </div>
+          <DialogFooter className="sm:justify-center">
+            <Button onClick={handleSecurityConfirm} className="w-full py-7 rounded-2xl font-black uppercase tracking-widest text-xs italic">
+              Authorize Finalization
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PrivateRoute>
   );
 }
+
