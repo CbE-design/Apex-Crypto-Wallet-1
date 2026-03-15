@@ -23,7 +23,6 @@ import {
     RefreshCw, 
     Loader2, 
     CheckCircle, 
-    Power,
     AlertCircle,
     Info,
     ExternalLink
@@ -166,10 +165,10 @@ export default function AdminDashboardPage() {
   const handleBroadcast: SubmitHandler<NotificationFormValues> = async (data) => {
     setBroadcastStatus('processing');
     try {
-        const successCount = await sendNotification(data);
+        const result = await sendNotification(data);
         setBroadcastStatus('success');
         broadcastForm.reset();
-        toast({ title: "Broadcast Sent", description: `${successCount} users notified.` });
+        toast({ title: "Broadcast Sent", description: `${result.successCount} users notified.` });
     } catch (e: any) {
         setBroadcastStatus('error');
         toast({ title: "Broadcast Failed", description: e.message, variant: "destructive" });
@@ -222,7 +221,7 @@ export default function AdminDashboardPage() {
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle className="text-xs font-black uppercase tracking-widest">Admin SDK Disconnected</AlertTitle>
                 <AlertDescription className="text-[10px] uppercase font-bold text-muted-foreground flex flex-col gap-2 mt-1">
-                    <p>Global broadcast protocols and system synchronization are currently inhibited. Please provide the Firebase Admin SDK configuration in your .env file.</p>
+                    <p>Global broadcast protocols and system synchronization are currently inhibited. Please provide the Firebase Admin SDK configuration.</p>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="h-7 text-[9px] uppercase font-black px-3 rounded-lg border-destructive/20 hover:bg-destructive/20" asChild>
                             <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">
@@ -291,17 +290,11 @@ export default function AdminDashboardPage() {
             <TabsContent value="ledger" className="mt-6">
                 <Card className="glass-module">
                     <CardHeader>
-                        <CardTitle className="italic">Manual Asset Injection</CardTitle>
-                        <CardDescription className="text-[10px] uppercase font-bold">Authorized administrative credit to a user identity on the Apex Private Ledger.</CardDescription>
+                        <CardTitle className="italic">Authorized Asset Injection</CardTitle>
+                        <CardDescription className="text-[10px] uppercase font-bold">Administrative ledger update for verified account identities on the Apex Private Rail.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {isProtocolHalted ? (
-                            <div className="py-20 flex flex-col items-center gap-4 text-center">
-                                <Power className="h-12 w-12 text-destructive animate-pulse" />
-                                <h3 className="text-sm font-black uppercase tracking-widest text-destructive">Ledger Suspended</h3>
-                                <p className="text-xs text-muted-foreground max-w-xs">Asset injection is inhibited while the protocol is in maintenance mode.</p>
-                            </div>
-                        ) : fundingStatus === 'processing' ? (
+                        {fundingStatus === 'processing' ? (
                             <div className="py-20 flex flex-col items-center gap-4">
                                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
                                 <p className="text-xs font-black uppercase tracking-widest">Updating Ledger State...</p>
@@ -350,14 +343,14 @@ export default function AdminDashboardPage() {
                 <Card className="glass-module">
                     <CardHeader>
                         <CardTitle className="italic">Global Push Broadcast</CardTitle>
-                        <CardDescription className="text-[10px] uppercase font-bold">Dispatch a high-priority push notification to all active devices.</CardDescription>
+                        <CardDescription className="text-[10px] uppercase font-bold">Dispatch a high-priority system notification to all verified nodes.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {syncStatus?.isOffline ? (
                             <div className="py-20 flex flex-col items-center gap-4 text-center">
                                 <AlertCircle className="h-12 w-12 text-destructive" />
                                 <h3 className="text-sm font-black uppercase tracking-widest text-destructive">Broadcast Rails Disabled</h3>
-                                <p className="text-xs text-muted-foreground max-w-xs">Global push broadcast requires a valid Firebase Admin SDK configuration.</p>
+                                <p className="text-xs text-muted-foreground max-w-xs">Global push broadcast requires valid administrative configuration.</p>
                             </div>
                         ) : broadcastStatus === 'processing' ? (
                             <div className="py-20 flex flex-col items-center gap-4">
@@ -394,7 +387,7 @@ export default function AdminDashboardPage() {
                             <div className="py-20 flex flex-col items-center gap-4 text-center">
                                 <AlertCircle className="h-12 w-12 text-destructive" />
                                 <h3 className="text-sm font-black uppercase tracking-widest text-destructive">SMTP Rails Disabled</h3>
-                                <p className="text-xs text-muted-foreground max-w-xs">Bulk email dispatching requires a valid Firebase Admin SDK configuration.</p>
+                                <p className="text-xs text-muted-foreground max-w-xs">Bulk email dispatching requires valid administrative configuration.</p>
                             </div>
                         ) : emailStatus === 'processing' ? (
                             <div className="py-20 flex flex-col items-center gap-4">
@@ -409,10 +402,10 @@ export default function AdminDashboardPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label className="text-[10px] font-black uppercase tracking-widest ml-1">HTML Body Content</Label>
-                                    <Textarea className="bg-white/5 rounded-xl font-mono text-[10px] border-white/10" rows={10} placeholder="<h1>Welcome to the Future</h1>..." {...emailForm.register('body')} />
+                                    <Textarea className="bg-white/5 rounded-xl font-mono text-[10px] border-white/10" rows={10} placeholder="<h1>System Update</h1>..." {...emailForm.register('body')} />
                                 </div>
                                 <Button type="submit" className="w-full bg-blue-600 text-white py-7 rounded-2xl font-black uppercase italic hover:bg-blue-500 tracking-widest">
-                                    Blast Email Campaign
+                                    Dispatch Email Campaign
                                 </Button>
                             </form>
                         )}

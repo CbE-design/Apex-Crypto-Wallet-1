@@ -1,3 +1,4 @@
+
 /**
  * @fileOverview Centralized Firebase Admin SDK initialization.
  * Ensures the Admin SDK is initialized correctly across all server-side environments.
@@ -25,7 +26,7 @@ export function initializeFirebaseAdmin(): App | null {
   }
 
   try {
-    // 1. Sanitize the string: remove potential wrapping quotes from various env loaders/pasting
+    // 1. Sanitize the string: remove potential wrapping quotes
     const sanitizedConfig = config.trim().replace(/^['"]|['"]$/g, '');
     
     // 2. Parse the JSON
