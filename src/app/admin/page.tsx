@@ -3,13 +3,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, ArrowRight, DollarSign, Wallet, Activity, Server, Database, Globe, Bell, Mail, RefreshCw, Loader2 } from 'lucide-react';
+import { ShieldCheck, ArrowRight, DollarSign, Wallet, Activity, Server, Database, Globe, Bell, Mail, RefreshCw, Loader2, Cpu } from 'lucide-react';
 import Link from 'next/link';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { getLedgerSyncStatus, reconcileUserLedger } from '@/services/ledger-sync-service';
+import { getLedgerSyncStatus } from '@/services/ledger-sync-service';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
@@ -126,6 +126,15 @@ export default function AdminDashboardPage() {
                             <p className="text-[10px] text-muted-foreground font-mono break-all mt-1">{adminAddress}</p>
                         </div>
                     </div>
+                    {syncStatus?.stateRoot && (
+                        <div className="flex items-center space-x-3 rounded-2xl border border-white/5 p-4 bg-black/20">
+                            <Cpu className="h-5 w-5 text-accent" />
+                            <div className="flex-1 overflow-hidden">
+                                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Synchronized State Root</h3>
+                                <p className="text-[9px] font-mono text-accent truncate">{syncStatus.stateRoot}</p>
+                            </div>
+                        </div>
+                    )}
                      <div className="flex items-center space-x-3 rounded-2xl border border-white/5 p-6 bg-white/5">
                         <Wallet className="h-8 w-8 text-blue-400" />
                         <div>

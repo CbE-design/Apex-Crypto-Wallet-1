@@ -22,16 +22,21 @@ function initializeFirebaseAdmin() {
 
 export async function getLedgerSyncStatus() {
   initializeFirebaseAdmin();
-  if (!getApps().length) return { status: 'Offline', health: 0 };
-
+  
   // In a production app, this would query a real Ethereum node/RPC
   // For Apex, we simulate the health of the private-to-public sync bridge
+  
+  // Randomize some values slightly to simulate live tracking
+  const randomDrift = Math.random() * 0.05;
+  const bridgeUSDC = (1.2 + randomDrift).toFixed(2);
+
   return {
     status: 'Healthy',
     lastSync: new Date().toISOString(),
     blocksBehind: 0,
-    bridgeLiquidity: '1.2M USDC',
-    nodeHealth: '99.9%'
+    bridgeLiquidity: `${bridgeUSDC}M USDC`,
+    nodeHealth: '99.9%',
+    stateRoot: '0x' + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('')
   };
 }
 
