@@ -6,14 +6,17 @@
 import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
+import * as dotenv from 'dotenv';
+
+// Explicitly load environment variables
+dotenv.config();
 
 export function initializeFirebaseAdmin(): App | null {
   if (getApps().length > 0) {
     return getApps()[0];
   }
 
-  // Next.js might need a reload for env vars to reflect if changed manually.
-  let config = process.env.FIREBASE_ADMIN_SDK_CONFIG;
+  const config = process.env.FIREBASE_ADMIN_SDK_CONFIG;
 
   if (!config) {
     console.warn("FIREBASE_ADMIN_SDK_CONFIG is not set. Admin services operating in Disconnected Mode.");
