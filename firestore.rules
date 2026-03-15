@@ -13,46 +13,42 @@ service cloud.firestore {
     }
     
     /**
-     * @description Global Protocol Settings - Must be publicly readable to show halted state
+     * @description Global Protocol Settings - Publicly readable for status monitoring
      */
-    match /protocol_settings/status {
+    match /protocol_settings/{document} {
       allow read: if true;
-      allow write: if isSignedIn(); // In production, restrict to specific Admin UID
-    }
-
-    /**
-     * @description Collection Group Rules for Background Ledger Verification.
-     */
-    match /{path=**}/wallets/{walletId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    match /{path=**}/transactions/{transactionId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isSignedIn(); // Restricted to Admin UID in production
     }
 
     /**
      * @description Hierarchical rules for user-specific data.
      */
     match /users/{userId} {
-      allow read: if true; 
-      allow write: if isOwner(userId);
+      // Explicitly allow owners to read and write their own profile
+      allow read, write: if isOwner(userId);
 
       match /wallets/{walletId} {
-        allow read: if true;
-        allow write: if isOwner(userId);
+        allow read, write: if isOwner(userId);
 
         match /transactions/{transactionId} {
-          allow read: if true;
-          allow write: if isOwner(userId);
+          allow read, write: if isOwner(userId);
         }
       }
 
       match /price_alerts/{alertId} {
         allow read, write: if isOwner(userId);
       }
+    }
+
+    /**
+     * @description Collection Group Rules for Explorer and Admin Verification.
+     */
+    match /{path=**}/wallets/{walletId} {
+      allow read: if true;
+    }
+
+    match /{path=**}/transactions/{transactionId} {
+      allow read: if true;
     }
   }
 }

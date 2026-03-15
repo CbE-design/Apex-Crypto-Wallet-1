@@ -48,10 +48,10 @@ export interface PriceAlert {
 
 export interface ProtocolStatus {
   isActive: boolean;
-  isHalted: boolean;
   version: string;
-  lastUpdated: any;
+  lastUpdated: any; // Supports number or serverTimestamp
   maintenanceMode: boolean;
+  isHalted?: boolean;
 }
 
 export const GetExchangeRateInputSchema = z.object({
