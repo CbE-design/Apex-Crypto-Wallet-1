@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
     ShieldCheck, 
     DollarSign, 
@@ -24,7 +25,9 @@ import {
     Loader2, 
     CheckCircle, 
     Power,
-    AlertCircle
+    AlertCircle,
+    Info,
+    ExternalLink
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -235,6 +238,26 @@ export default function AdminDashboardPage() {
             </Button>
         </div>
 
+        {syncStatus?.isOffline && (
+            <Alert variant="destructive" className="bg-destructive/10 border-destructive/30 rounded-2xl animate-in fade-in slide-in-from-top-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle className="text-xs font-black uppercase tracking-widest">Admin SDK Disconnected</AlertTitle>
+                <AlertDescription className="text-[10px] uppercase font-bold text-muted-foreground flex flex-col gap-2 mt-1">
+                    <p>Real-time bridge liquidity and global broadcast protocols are currently inhibited. Please provide the Firebase Admin SDK configuration in your .env file.</p>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="h-7 text-[9px] uppercase font-black px-3 rounded-lg border-destructive/20 hover:bg-destructive/20" asChild>
+                            <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="mr-1 h-3 w-3" /> Get SDK Key
+                            </a>
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-[9px] uppercase font-black px-3 rounded-lg" onClick={() => toast({ title: "Check README", description: "Instructions for Admin SDK are in the root README.md file." })}>
+                            <Info className="mr-1 h-3 w-3" /> View Setup Guide
+                        </Button>
+                    </div>
+                </AlertDescription>
+            </Alert>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="glass-module border-primary/20 relative overflow-hidden group">
                 <CardHeader className="pb-2">
@@ -381,7 +404,13 @@ export default function AdminDashboardPage() {
                         <CardDescription className="text-[10px] uppercase font-bold">Dispatch a high-priority push notification to all active devices.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {broadcastStatus === 'processing' ? (
+                        {syncStatus?.isOffline ? (
+                            <div className="py-20 flex flex-col items-center gap-4 text-center">
+                                <AlertCircle className="h-12 w-12 text-destructive" />
+                                <h3 className="text-sm font-black uppercase tracking-widest text-destructive">Broadcast Rails Disabled</h3>
+                                <p className="text-xs text-muted-foreground max-w-xs">Global push broadcast requires a valid Firebase Admin SDK configuration.</p>
+                            </div>
+                        ) : broadcastStatus === 'processing' ? (
                             <div className="py-20 flex flex-col items-center gap-4">
                                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
                                 <p className="text-xs font-black uppercase tracking-widest">Broadcasting to Nodes...</p>
@@ -412,7 +441,13 @@ export default function AdminDashboardPage() {
                         <CardDescription className="text-[10px] uppercase font-bold">Deploy HTML-enriched system updates to the entire registry.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {emailStatus === 'processing' ? (
+                        {syncStatus?.isOffline ? (
+                            <div className="py-20 flex flex-col items-center gap-4 text-center">
+                                <AlertCircle className="h-12 w-12 text-destructive" />
+                                <h3 className="text-sm font-black uppercase tracking-widest text-destructive">SMTP Rails Disabled</h3>
+                                <p className="text-xs text-muted-foreground max-w-xs">Bulk email dispatching requires a valid Firebase Admin SDK configuration.</p>
+                            </div>
+                        ) : emailStatus === 'processing' ? (
                             <div className="py-20 flex flex-col items-center gap-4">
                                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
                                 <p className="text-xs font-black uppercase tracking-widest">Routing SMTP Traffic...</p>
