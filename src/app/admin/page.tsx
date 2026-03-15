@@ -37,6 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { marketCoins } from '@/lib/data';
 import { sendNotification } from '@/ai/flows/send-notification-flow';
 import { sendEmail } from '@/ai/flows/send-email-flow';
+import { cn } from '@/lib/utils';
 
 // --- Local Schemas for UI Validation ---
 const sendSchema = z.object({
