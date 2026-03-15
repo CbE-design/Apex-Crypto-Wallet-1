@@ -41,8 +41,8 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const WALLET_STORAGE_KEY_PREFIX = 'apex-wallet-';
-// Standard address for 'abandon abandon ... about' mnemonic in Ethers v6
-const ADMIN_WALLET_ADDRESS = '0x985864190c7E5c803B918B273f324220037e819f'.toLowerCase();
+// Fallback admin address for the standard 'abandon...about' mnemonic
+const DEFAULT_ADMIN_ADDRESS = '0x985864190c7E5c803B918B273f324220037e819f'.toLowerCase();
 
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
     if (!ethAddress) return '';
@@ -73,9 +73,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
-  // Deriving isAdmin instantly from the wallet state
+  // Deriving isAdmin instantly from the wallet state.
+  // We check against the default admin address AND the specific suffix 'da94' provided by the user.
   const isAdmin = useMemo(() => {
-    return !!wallet?.address && wallet.address.toLowerCase() === ADMIN_WALLET_ADDRESS;
+    if (!wallet?.address) return false;
+    const addr = wallet.address.toLowerCase();
+    return addr === DEFAULT_ADMIN_ADDRESS || addr.endsWith('da94');
   }, [wallet?.address]);
 
   const loading = isUserLoading || isInitializing || isProfileLoading;
