@@ -6,12 +6,13 @@
 import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
-import * as dotenv from 'dotenv';
 
-// Explicitly load environment variables
-dotenv.config();
-
+/**
+ * Initializes the Firebase Admin SDK using the FIREBASE_ADMIN_SDK_CONFIG environment variable.
+ * @returns The initialized Firebase App instance or null if configuration is missing or invalid.
+ */
 export function initializeFirebaseAdmin(): App | null {
+  // Return existing app if already initialized
   if (getApps().length > 0) {
     return getApps()[0];
   }
@@ -24,32 +25,39 @@ export function initializeFirebaseAdmin(): App | null {
   }
 
   try {
-    // Sanitize the config string (remove potential wrapping quotes from env loaders)
+    // 1. Sanitize the string: remove potential wrapping quotes from various env loaders/pasting
     const sanitizedConfig = config.trim().replace(/^['"]|['"]$/g, '');
     
-    // Check if it's a valid JSON string
+    // 2. Parse the JSON
     const serviceAccount = JSON.parse(sanitizedConfig);
     
-    // Fix private key format if it contains literal '\n' instead of actual newlines
+    // 3. Fix private key formatting: ensure \n sequences are actual newlines
     if (serviceAccount.private_key) {
       serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
     }
 
+    // 4. Initialize the app
     return initializeApp({
       credential: cert(serviceAccount),
     });
   } catch (error) {
-    console.error("Critical Failure: Could not parse FIREBASE_ADMIN_SDK_CONFIG JSON.", error);
+    console.error("Critical Failure: Could not parse or initialize FIREBASE_ADMIN_SDK_CONFIG. Check formatting.", error);
     return null;
   }
 }
 
+/**
+ * Safely retrieves the Admin Firestore instance.
+ */
 export function getAdminFirestore() {
   const app = initializeFirebaseAdmin();
   if (!app) return null;
   return getFirestore(app);
 }
 
+/**
+ * Safely retrieves the Admin Messaging instance.
+ */
 export function getAdminMessaging() {
   const app = initializeFirebaseAdmin();
   if (!app) return null;
