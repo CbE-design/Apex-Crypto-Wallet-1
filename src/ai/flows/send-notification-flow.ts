@@ -4,29 +4,18 @@
  * @fileOverview A flow for sending push notifications to all users.
  *
  * - sendNotification - A function that sends a message to all users with a valid FCM token.
- * - SendNotificationInput - The input type for the sendNotification function.
- * - SendNotificationOutput - The return type for the sendNotification function.
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
-import { initializeApp, getApps, cert, ServiceAccount } from 'firebase-admin/app';
-
-// Define Zod schemas for input and output
-export const SendNotificationInputSchema = z.object({
-  title: z.string().describe('The title of the notification.'),
-  body: z.string().describe('The body content of the notification.'),
-});
-export type SendNotificationInput = z.infer<typeof SendNotificationInputSchema>;
-
-export const SendNotificationOutputSchema = z.object({
-  successCount: z.number().describe('The number of messages that were sent successfully.'),
-  failureCount: z.number().describe('The number of messages that could not be sent.'),
-});
-export type SendNotificationOutput = z.infer<typeof SendNotificationOutputSchema>;
-
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { 
+  SendNotificationInputSchema, 
+  SendNotificationOutputSchema, 
+  type SendNotificationInput, 
+  type SendNotificationOutput 
+} from '@/lib/types';
 
 // Helper to initialize Firebase Admin SDK
 function initializeFirebaseAdmin() {

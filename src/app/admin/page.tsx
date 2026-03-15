@@ -19,12 +19,10 @@ import {
     Wallet, 
     Activity, 
     Database, 
-    Globe, 
     Bell, 
     Mail, 
     RefreshCw, 
     Loader2, 
-    Cpu, 
     Send, 
     CheckCircle, 
     XCircle 
@@ -35,13 +33,11 @@ import { collection, query, where, getDocs, limit, runTransaction, doc, serverTi
 import { getLedgerSyncStatus } from '@/services/ledger-sync-service';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { CryptoIcon } from '@/components/crypto-icon';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { marketCoins } from '@/lib/data';
 import { sendNotification } from '@/ai/flows/send-notification-flow';
 import { sendEmail } from '@/ai/flows/send-email-flow';
 
-// --- Schemas ---
+// --- Local Schemas for UI Validation ---
 const sendSchema = z.object({
   recipientAddress: z.string().min(1, "Recipient address is required."),
   amount: z.string().refine(val => parseFloat(val) > 0, {
@@ -71,17 +67,12 @@ export default function AdminDashboardPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  // --- Global States ---
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [isReconciling, setIsReconciling] = useState(false);
-  const [activeTab, setActiveTab] = useState('ledger');
 
-  // --- Form States ---
   const [fundingStatus, setFundingStatus] = useState<OperationStatus>('idle');
   const [broadcastStatus, setBroadcastStatus] = useState<OperationStatus>('idle');
   const [emailStatus, setEmailStatus] = useState<OperationStatus>('idle');
-
-  const adminAddress = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS || '0x985864190c7E5c803B918B273f324220037e819f';
 
   const ethWalletRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -91,7 +82,6 @@ export default function AdminDashboardPage() {
   const { data: ethWallet } = useDoc<{balance: number}>(ethWalletRef);
   const adminBalance = ethWallet?.balance ?? 0;
 
-  // --- Handlers ---
   const fetchStatus = async () => {
     const status = await getLedgerSyncStatus();
     setSyncStatus(status);
@@ -104,7 +94,7 @@ export default function AdminDashboardPage() {
   const handleForceSync = async () => {
     setIsReconciling(true);
     try {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
         await fetchStatus();
         toast({ title: "Ledger Synchronized", description: "State roots reconciled successfully." });
     } finally {
@@ -235,7 +225,7 @@ export default function AdminDashboardPage() {
                         <span className="text-2xl font-black text-white">{syncStatus?.status || 'Active'}</span>
                         <Badge className="bg-green-500/20 text-green-400 border-none h-5 px-1.5 uppercase text-[8px] font-black">Online</Badge>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-2 font-mono">ROOT: {syncStatus?.stateRoot?.substring(0, 16)}...</p>
+                    <p className="text-[10px] text-muted-foreground mt-2 font-mono truncate">ROOT: {syncStatus?.stateRoot?.substring(0, 24)}...</p>
                 </CardContent>
             </Card>
 
@@ -277,7 +267,6 @@ export default function AdminDashboardPage() {
                 </TabsTrigger>
             </TabsList>
 
-            {/* --- Ledger Funding Tab --- */}
             <TabsContent value="ledger" className="mt-6">
                 <Card className="glass-module">
                     <CardHeader>
@@ -291,7 +280,7 @@ export default function AdminDashboardPage() {
                                 <p className="text-xs font-black uppercase tracking-widest">Updating Ledger...</p>
                             </div>
                         ) : fundingStatus === 'success' ? (
-                            <div className="py-20 flex flex-col items-center gap-4">
+                            <div className="py-20 flex flex-col items-center gap-4 text-center">
                                 <CheckCircle className="h-12 w-12 text-accent" />
                                 <p className="text-xs font-black uppercase tracking-widest">Ledger State Finalized</p>
                                 <Button onClick={() => setFundingStatus('idle')} variant="outline">New Operation</Button>
@@ -330,7 +319,6 @@ export default function AdminDashboardPage() {
                 </Card>
             </TabsContent>
 
-            {/* --- Push Broadcast Tab --- */}
             <TabsContent value="broadcast" className="mt-6">
                 <Card className="glass-module">
                     <CardHeader>
@@ -362,7 +350,6 @@ export default function AdminDashboardPage() {
                 </Card>
             </TabsContent>
 
-            {/* --- Email Suite Tab --- */}
             <TabsContent value="marketing" className="mt-6">
                 <Card className="glass-module">
                     <CardHeader>

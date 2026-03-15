@@ -4,29 +4,18 @@
  * @fileOverview A flow for sending emails to all users.
  *
  * - sendEmail - A function that sends an email to all users with a valid email address.
- * - SendEmailInput - The input type for the sendEmail function.
- * - SendEmailOutput - The return type for the sendEmail function.
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { Resend } from 'resend';
-
-// Define Zod schemas for input and output
-export const SendEmailInputSchema = z.object({
-  subject: z.string().describe('The subject of the email.'),
-  body: z.string().describe('The HTML body content of the email.'),
-});
-export type SendEmailInput = z.infer<typeof SendEmailInputSchema>;
-
-export const SendEmailOutputSchema = z.object({
-  success: z.boolean().describe('Whether the email sending was initiated successfully.'),
-  message: z.string().describe('A summary message of the result.'),
-});
-export type SendEmailOutput = z.infer<typeof SendEmailOutputSchema>;
-
+import { 
+  SendEmailInputSchema, 
+  SendEmailOutputSchema, 
+  type SendEmailInput, 
+  type SendEmailOutput 
+} from '@/lib/types';
 
 // Helper to initialize Firebase Admin SDK
 function initializeFirebaseAdmin() {

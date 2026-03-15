@@ -86,6 +86,30 @@ export const CryptoAssistantOutputSchema = z.object({
 });
 export type CryptoAssistantOutput = z.infer<typeof CryptoAssistantOutputSchema>;
 
+export const SendNotificationInputSchema = z.object({
+  title: z.string().describe('The title of the notification.'),
+  body: z.string().describe('The body content of the notification.'),
+});
+export type SendNotificationInput = z.infer<typeof SendNotificationInputSchema>;
+
+export const SendNotificationOutputSchema = z.object({
+  successCount: z.number().describe('The number of messages that were sent successfully.'),
+  failureCount: z.number().describe('The number of messages that could not be sent.'),
+});
+export type SendNotificationOutput = z.infer<typeof SendNotificationOutputSchema>;
+
+export const SendEmailInputSchema = z.object({
+  subject: z.string().describe('The subject of the email.'),
+  body: z.string().describe('The HTML body content of the email.'),
+});
+export type SendEmailInput = z.infer<typeof SendEmailInputSchema>;
+
+export const SendEmailOutputSchema = z.object({
+  success: z.boolean().describe('Whether the email sending was initiated successfully.'),
+  message: z.string().describe('A summary message of the result.'),
+});
+export type SendEmailOutput = z.infer<typeof SendEmailOutputSchema>;
+
 export interface Currency {
     symbol: string;
     name: string;
