@@ -1,12 +1,15 @@
 
 'use client';
 
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/sidebar';
 import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
+import { useWallet } from '@/context/wallet-context';
+import { Loader2 } from 'lucide-react';
 
 export default function AppContent({
   children,
@@ -14,10 +17,22 @@ export default function AppContent({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { loading } = useWallet();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Prevent hydration mismatch by only rendering shell after mount
+  if (!mounted) {
+    return null;
+  }
+
   const isPublicPage = pathname === '/login';
 
   if (isPublicPage) {
-    return <div className="h-[100dvh] w-full overflow-y-auto">{children}</div>;
+    return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
   }
 
   const isAdminPage = pathname.startsWith('/admin');

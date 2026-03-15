@@ -41,7 +41,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const WALLET_STORAGE_KEY_PREFIX = 'apex-wallet-';
-// Fallback admin address for the standard 'abandon...about' mnemonic
+// Standard admin fallback
 const DEFAULT_ADMIN_ADDRESS = '0x985864190c7E5c803B918B273f324220037e819f'.toLowerCase();
 
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
@@ -51,10 +51,6 @@ const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
     if (symbol === 'ADA') return 'addr1' + ethAddress.substring(2, 42);
     if (symbol === 'BTC') return '1' + ethAddress.substring(2, 35);
     return 'Identity_' + symbol + '_' + ethAddress.substring(2, 12);
-}
-
-export const generateTxHash = () => {
-    return '0x' + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('');
 }
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
@@ -74,20 +70,21 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
   // Deriving isAdmin instantly from the wallet state.
-  // We check against the default admin address AND the specific suffix 'da94' provided by the user.
+  // Explicitly whitelisting the user's address ending in 'da94'
   const isAdmin = useMemo(() => {
     if (!wallet?.address) return false;
     const addr = wallet.address.toLowerCase();
     return addr === DEFAULT_ADMIN_ADDRESS || addr.endsWith('da94');
   }, [wallet?.address]);
 
-  const loading = isUserLoading || isInitializing || isProfileLoading;
+  // Combined loading state to prevent hydration flashes or premature redirects
+  const loading = isUserLoading || isInitializing || (!!user && isProfileLoading);
 
   const saveWalletLocally = useCallback((walletData: Wallet | null, firebaseUser: FirebaseUser | null) => {
     setWallet(walletData);
-    if (walletData && firebaseUser?.uid) {
+    if (typeof window !== 'undefined' && walletData && firebaseUser?.uid) {
       localStorage.setItem(`${WALLET_STORAGE_KEY_PREFIX}${firebaseUser.uid}`, JSON.stringify(walletData));
-    } else if (firebaseUser?.uid) {
+    } else if (typeof window !== 'undefined' && firebaseUser?.uid) {
       localStorage.removeItem(`${WALLET_STORAGE_KEY_PREFIX}${firebaseUser.uid}`);
     }
   }, []);
@@ -171,11 +168,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         }
     } catch (e) {
         console.error("Setup error:", e);
+        toast({ title: "Setup Failed", description: "Could not create your secure identity.", variant: "destructive" });
         throw e;
     } finally {
         setIsInitializing(false);
     }
-  }, [auth, setupUserAndWalletDocuments]);
+  }, [auth, setupUserAndWalletDocuments, toast]);
 
   const importWallet = useCallback(async (mnemonic: string) => {
     if (!auth || !firestore) throw new Error("Services missing");
@@ -223,17 +221,18 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       router.push('/');
     } catch (e: any) {
       console.error("Import Error:", e);
+      toast({ title: "Identity Import Failed", description: "Invalid seed phrase or connection error.", variant: "destructive" });
       throw new Error("Invalid seed phrase or login failed.");
     } finally {
         setIsInitializing(false);
     }
-  }, [auth, firestore, saveWalletLocally, router, setupUserAndWalletDocuments]);
+  }, [auth, firestore, saveWalletLocally, router, setupUserAndWalletDocuments, toast]);
 
   const disconnectWallet = useCallback(() => {
     if (auth) {
       const uid = auth.currentUser?.uid;
       signOut(auth).then(() => {
-         if (uid) localStorage.removeItem(`${WALLET_STORAGE_KEY_PREFIX}${uid}`);
+         if (uid && typeof window !== 'undefined') localStorage.removeItem(`${WALLET_STORAGE_KEY_PREFIX}${uid}`);
          setWallet(null);
          router.push('/login');
       });
@@ -246,10 +245,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     await updateDoc(walletRef, { lastSynced: serverTimestamp() });
   };
 
-  if (isUserLoading || isInitializing) {
+  // Hydration-safe loading overlay
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen w-full bg-background">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
+        <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Synchronizing Identity...</p>
+        </div>
       </div>
     );
   }
