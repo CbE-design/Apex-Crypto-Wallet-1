@@ -10,7 +10,7 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Settings, ShieldAlert, Bell, DollarSign, Mail } from "lucide-react";
+import { LayoutDashboard, Settings, ShieldAlert, Bell, DollarSign, Mail, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -50,6 +50,17 @@ export function AdminSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
+          
+          <div className="my-4 border-t border-white/5 mx-2" />
+          
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className="text-muted-foreground hover:text-white">
+              <Link href="/">
+                <ArrowLeft className="h-4 w-4" />
+                <span>Exit Terminal</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       

@@ -4,6 +4,7 @@
 import { usePathname } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/sidebar';
+import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
 
@@ -31,13 +32,11 @@ export default function AppContent({
 
         {/* Independent Scroll Area (Center) */}
         <div className="flex flex-1 overflow-hidden relative">
-          {!isAdminPage && (
-            <div className="hidden md:block">
-              <Sidebar collapsible="icon" className="border-r border-white/5">
-                <AppSidebar />
-              </Sidebar>
-            </div>
-          )}
+          <div className="hidden md:block">
+            <Sidebar collapsible="icon" className="border-r border-white/5">
+              {isAdminPage ? <AdminSidebar /> : <AppSidebar />}
+            </Sidebar>
+          </div>
 
           <SidebarInset className="flex flex-col h-full w-full overflow-hidden bg-transparent">
             <main className="independent-scroll aurora-bg p-4 md:p-6 lg:p-8 relative scroll-smooth">
