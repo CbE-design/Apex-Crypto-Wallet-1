@@ -22,13 +22,19 @@ export interface MarketCoin {
 
 export interface Transaction {
   id: string;
-  type: 'Buy' | 'Sell' | 'Withdrawal';
+  type: 'Buy' | 'Sell' | 'Withdrawal' | 'Swap' | 'Internal Transfer';
   amount: number;
   price: number;
-  status: 'Completed' | 'Pending' | 'Failed';
+  status: 'Completed' | 'Pending' | 'Failed' | 'Reconciling';
+  timestamp: any;
   notes?: string;
   sender?: string;
   recipient?: string;
+  metadata?: {
+    travelRuleVerified: boolean;
+    complianceId?: string;
+    protocol?: string;
+  };
 }
 
 export interface PriceAlert {
@@ -38,14 +44,8 @@ export interface PriceAlert {
   thresholdPrice: number;
   alertType: 'Above' | 'Below';
   triggered: boolean;
-  asset?: string; // These are for display only
-  targetPrice?: number;
-  type?: 'Above' | 'Below';
-  status?: 'Active' | 'Triggered';
-  icon?: string;
 }
 
-// Schema for GetExchangeRate flow
 export const GetExchangeRateInputSchema = z.object({
   fromAsset: z.string().describe('The symbol of the cryptocurrency to convert from.'),
   toAsset: z.string().describe('The symbol of the cryptocurrency to convert to.'),
@@ -58,7 +58,6 @@ export const GetExchangeRateOutputSchema = z.object({
 });
 export type GetExchangeRateOutput = z.infer<typeof GetExchangeRateOutputSchema>;
 
-// Schema for SupportAgent flow
 export const SupportAgentInputSchema = z.object({
   query: z.string().describe("The user's question for the support agent."),
   history: z.array(z.object({
@@ -75,7 +74,6 @@ export const SupportAgentOutputSchema = z.object({
 });
 export type SupportAgentOutput = z.infer<typeof SupportAgentOutputSchema>;
 
-// Schema for CryptoAssistant flow
 export const CryptoAssistantInputSchema = z.object({
   query: z.string().describe("The user's question about cryptocurrency."),
 });

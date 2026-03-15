@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,7 +20,10 @@ import {
   Activity,
   CreditCard,
   ChevronRight,
-  ShieldAlert
+  ShieldAlert,
+  Wallet,
+  Smartphone,
+  Banknote
 } from 'lucide-react';
 import { PrivateRoute } from '@/components/private-route';
 import { useWallet } from '@/context/wallet-context';
@@ -29,38 +32,43 @@ import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, runTransaction, collection, serverTimestamp } from 'firebase/firestore';
 import { getLivePrices } from '@/services/crypto-service';
 import { cn } from '@/lib/utils';
-import { RadioGroup } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Industrial Schemas
 const bankSchema = z.object({
-  protocol: z.enum(['local_sa', 'international']),
+  protocol: z.enum(['local_sa', 'international', 'cardless']),
   provider: z.string().min(1, "Please select a provider or bank"),
   accountName: z.string().min(2, "Full legal name and surname is required"),
   accountNumber: z.string().optional(),
   branchCode: z.string().optional(),
   iban: z.string().optional(),
   swiftBic: z.string().optional(),
+  phoneNumber: z.string().optional(),
   amount: z.string().refine(val => parseFloat(val) > 0, {
     message: "Amount must be greater than zero",
   }),
 }).refine((data) => {
   if (data.protocol === 'local_sa') {
-    return !!data.accountNumber && data.accountNumber.length >= 8 && !!data.branchCode;
+    return !!data.accountNumber && !!data.branchCode;
   }
-  return !!data.iban && data.iban.length >= 15 && !!data.swiftBic;
+  if (data.protocol === 'cardless') {
+    return !!data.phoneNumber && data.phoneNumber.length >= 10;
+  }
+  return !!data.iban && !!data.swiftBic;
 }, {
-  message: "Please fill in all required banking details",
+  message: "Please fill in all required details for the selected protocol",
   path: ["accountNumber"],
 });
 
 type BankFormValues = z.infer<typeof bankSchema>;
 
 const SA_BANKS = ["FNB", "Standard Bank", "Capitec", "Absa", "Nedbank", "Investec", "TymeBank", "Discovery Bank"];
-const INTL_PROVIDERS = ["Stripe Connect", "PayPal Payouts", "Wise Business", "Direct SWIFT Wire"];
+const INTL_PROVIDERS = ["Stablecoin Swap (USDC)", "Global Payout Rail", "Wise Business", "Direct SWIFT Wire"];
+const CARDLESS_OPTIONS = ["Standard Bank Instant Money", "FNB eWallet", "Absa CashSend"];
 
 type WithdrawalStep = 'input' | 'security' | 'tracking' | 'success';
 type TrackingStatus = 'initiated' | 'confirmed' | 'processing' | 'completed';
@@ -96,6 +104,7 @@ export default function CashOutPage() {
         branchCode: '', 
         iban: '', 
         swiftBic: '', 
+        phoneNumber: '',
         amount: '' 
     },
     mode: 'onChange',
@@ -107,7 +116,7 @@ export default function CashOutPage() {
   const fees = useMemo(() => {
     const val = parseFloat(watchAmount) || 0;
     const gasFee = 15.00 * currency.rate; 
-    const processingRate = watchProtocol === 'local_sa' ? 0.015 : 0.035;
+    const processingRate = watchProtocol === 'local_sa' ? 0.015 : watchProtocol === 'cardless' ? 0.025 : 0.035;
     const processingFee = val * processingRate;
     const totalFees = gasFee + processingFee;
     const netAmount = Math.max(0, val - totalFees);
@@ -178,7 +187,7 @@ export default function CashOutPage() {
           price: ethPriceUSD,
           timestamp: serverTimestamp(),
           status: 'Completed',
-          notes: `Payout to ${pendingData.provider} (${pendingData.protocol.toUpperCase()})`
+          notes: `Apex Orchestration: Payout via ${pendingData.provider} (${pendingData.protocol.toUpperCase()})`
         });
       });
       return true;
@@ -191,17 +200,17 @@ export default function CashOutPage() {
 
   const renderStatusTracker = () => {
     const statuses = [
-      { id: 'initiated', label: 'Initiated', icon: Activity },
-      { id: 'confirmed', label: 'Ledger Finalized', icon: ShieldCheck },
-      { id: 'processing', label: 'Bank Handshake', icon: Building2 },
-      { id: 'completed', label: 'Dispatched', icon: CheckCircle2 },
+      { id: 'initiated', label: 'Compliance Initiated', icon: Activity },
+      { id: 'confirmed', label: 'Ledger State Rooted', icon: ShieldCheck },
+      { id: 'processing', label: 'Partner Clearing', icon: Building2 },
+      { id: 'completed', label: 'Liquidity Dispatched', icon: CheckCircle2 },
     ];
 
     return (
       <div className="space-y-8 py-8 animate-in fade-in duration-500">
         <div className="text-center space-y-2">
-            <h3 className="text-2xl font-black tracking-tighter uppercase italic text-primary">Gateway Dispatch</h3>
-            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-[0.2em]">Processing Region: {watchProtocol === 'local_sa' ? 'ZAR/SA' : 'Global'}</p>
+            <h3 className="text-2xl font-black tracking-tighter uppercase italic text-primary">Apex Orchestration</h3>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-[0.2em]">Protocol: {watchProtocol.toUpperCase()}</p>
         </div>
 
         <div className="relative pt-8">
@@ -230,21 +239,6 @@ export default function CashOutPage() {
                 })}
             </div>
         </div>
-
-        <Card className="bg-black/20 border-white/5 p-6 rounded-2xl">
-            <div className="flex items-center gap-4">
-                <Loader2 className="h-5 w-5 text-primary animate-spin" />
-                <div className="space-y-1">
-                    <p className="text-xs font-bold text-white uppercase tracking-tight">Active Operation</p>
-                    <p className="text-[10px] text-muted-foreground font-mono">
-                        {trackingStatus === 'initiated' && 'Verifying identity keys against regional whitelist...'}
-                        {trackingStatus === 'confirmed' && 'Updating Apex Private Ledger state root...'}
-                        {trackingStatus === 'processing' && `Initiating ${watchProtocol === 'local_sa' ? 'RTC EFT' : 'SWIFT'} clearing process...`}
-                        {trackingStatus === 'completed' && 'Funds successfully routed to recipient portal.'}
-                    </p>
-                </div>
-            </div>
-        </Card>
       </div>
     );
   };
@@ -261,7 +255,7 @@ export default function CashOutPage() {
                 </div>
                 <div>
                   <CardTitle className="text-2xl font-black tracking-tight uppercase italic text-foreground">Cash Out</CardTitle>
-                  <CardDescription className="text-[10px] uppercase font-bold tracking-[0.2em] text-blue-400">Industrial Payout Gateway v4.5</CardDescription>
+                  <CardDescription className="text-[10px] uppercase font-bold tracking-[0.2em] text-blue-400">Liquidity Orchestration v2.0</CardDescription>
                 </div>
               </div>
               <Badge variant="outline" className="bg-primary/10 border-primary/40 text-[10px] font-black italic">
@@ -274,31 +268,40 @@ export default function CashOutPage() {
               <form onSubmit={form.handleSubmit(handleInitiate)} className="space-y-8">
                 
                 <div className="space-y-4">
-                  <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Select Payout Region</Label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Select Payout Protocol</Label>
+                  <div className="grid grid-cols-3 gap-3">
                     <button 
                       type="button"
                       onClick={() => form.setValue('protocol', 'local_sa', { shouldValidate: true })}
                       className={cn(
-                        "relative p-6 rounded-3xl border transition-all cursor-pointer text-left overflow-hidden",
+                        "relative p-4 rounded-2xl border transition-all cursor-pointer text-left overflow-hidden",
                         watchProtocol === 'local_sa' ? "bg-primary/10 border-primary ring-1 ring-primary shadow-2xl" : "bg-muted/20 border-white/5 hover:border-white/20"
                       )}
                     >
-                      <Flag className={cn("h-4 w-4 mb-3 transition-colors", watchProtocol === 'local_sa' ? "text-primary" : "text-muted-foreground")} />
-                      <div className="text-sm font-black uppercase tracking-tight">South Africa</div>
-                      <div className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">EFT / Local Transfer</div>
+                      <Flag className={cn("h-4 w-4 mb-2", watchProtocol === 'local_sa' ? "text-primary" : "text-muted-foreground")} />
+                      <div className="text-[10px] font-black uppercase tracking-tight">EFT / SA</div>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => form.setValue('protocol', 'cardless', { shouldValidate: true })}
+                      className={cn(
+                        "relative p-4 rounded-2xl border transition-all cursor-pointer text-left overflow-hidden",
+                        watchProtocol === 'cardless' ? "bg-primary/10 border-primary ring-1 ring-primary shadow-2xl" : "bg-muted/20 border-white/5 hover:border-white/20"
+                      )}
+                    >
+                      <Smartphone className={cn("h-4 w-4 mb-2", watchProtocol === 'cardless' ? "text-primary" : "text-muted-foreground")} />
+                      <div className="text-[10px] font-black uppercase tracking-tight">ATM / Cardless</div>
                     </button>
                     <button 
                       type="button"
                       onClick={() => form.setValue('protocol', 'international', { shouldValidate: true })}
                       className={cn(
-                        "relative p-6 rounded-3xl border transition-all cursor-pointer text-left overflow-hidden",
+                        "relative p-4 rounded-2xl border transition-all cursor-pointer text-left overflow-hidden",
                         watchProtocol === 'international' ? "bg-primary/10 border-primary ring-1 ring-primary shadow-2xl" : "bg-muted/20 border-white/5 hover:border-white/20"
                       )}
                     >
-                      <Globe className={cn("h-4 w-4 mb-3 transition-colors", watchProtocol === 'international' ? "text-primary" : "text-muted-foreground")} />
-                      <div className="text-sm font-black uppercase tracking-tight">International</div>
-                      <div className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">SWIFT / IBAN Protocol</div>
+                      <Globe className={cn("h-4 w-4 mb-2", watchProtocol === 'international' ? "text-primary" : "text-muted-foreground")} />
+                      <div className="text-[10px] font-black uppercase tracking-tight">Global / SWIFT</div>
                     </button>
                   </div>
                 </div>
@@ -306,14 +309,14 @@ export default function CashOutPage() {
                 <div className="space-y-5 animate-in slide-in-from-bottom-2 duration-300">
                     <div className="space-y-2">
                       <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        {watchProtocol === 'local_sa' ? 'Receiving Bank' : 'Payout Provider'}
+                        {watchProtocol === 'local_sa' ? 'Receiving Bank' : watchProtocol === 'cardless' ? 'ATM Provider' : 'Payout Provider'}
                       </Label>
                       <Select onValueChange={(val) => form.setValue('provider', val, { shouldValidate: true })}>
                         <SelectTrigger className="h-14 bg-white/5 border-white/10 rounded-2xl">
-                          <SelectValue placeholder="Choose financial entity" />
+                          <SelectValue placeholder="Choose entity" />
                         </SelectTrigger>
                         <SelectContent>
-                          {(watchProtocol === 'local_sa' ? SA_BANKS : INTL_PROVIDERS).map(p => (
+                          {(watchProtocol === 'local_sa' ? SA_BANKS : watchProtocol === 'cardless' ? CARDLESS_OPTIONS : INTL_PROVIDERS).map(p => (
                             <SelectItem key={p} value={p}>{p}</SelectItem>
                           ))}
                         </SelectContent>
@@ -321,11 +324,11 @@ export default function CashOutPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Account Holder Full Legal Name & Surname</Label>
+                      <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Legal Name & Surname</Label>
                       <Input className="h-14 bg-white/5 border-white/10 rounded-2xl text-sm" placeholder="e.g., John David Smith" {...form.register('accountName')} />
                     </div>
 
-                    {watchProtocol === 'local_sa' ? (
+                    {watchProtocol === 'local_sa' && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Account Number</Label>
@@ -336,7 +339,16 @@ export default function CashOutPage() {
                           <Input className="h-14 bg-white/5 border-white/10 rounded-2xl font-mono text-sm" placeholder="250655" {...form.register('branchCode')} />
                         </div>
                       </div>
-                    ) : (
+                    )}
+
+                    {watchProtocol === 'cardless' && (
+                        <div className="space-y-2">
+                            <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Voucher Recipient Phone Number</Label>
+                            <Input className="h-14 bg-white/5 border-white/10 rounded-2xl font-mono text-sm" placeholder="082 123 4567" {...form.register('phoneNumber')} />
+                        </div>
+                    )}
+
+                    {watchProtocol === 'international' && (
                       <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-2">
                           <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">IBAN Number</Label>
@@ -366,16 +378,16 @@ export default function CashOutPage() {
                    {parseFloat(watchAmount) > 0 && (
                       <div className="p-6 rounded-3xl bg-muted/30 border border-white/5 space-y-3 animate-in fade-in zoom-in-95">
                         <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
-                          <span className="text-muted-foreground">Blockchain Gas Cost</span>
+                          <span className="text-muted-foreground">Blockchain Processing</span>
                           <span className="text-white">{formatCurrency(fees.gasFee)}</span>
                         </div>
                         <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
-                          <span className="text-muted-foreground">Gateway Processing</span>
+                          <span className="text-muted-foreground">Partner Liquidity Fee</span>
                           <span className="text-white">{formatCurrency(fees.processingFee)}</span>
                         </div>
                         <div className="h-px bg-white/5" />
                         <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Expected Liquidity</span>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Settlement Total</span>
                           <span className="text-xl font-black italic text-accent">{formatCurrency(fees.netAmount)}</span>
                         </div>
                       </div>
@@ -383,7 +395,7 @@ export default function CashOutPage() {
                 </div>
 
                 <Button type="submit" className="w-full btn-premium py-8 rounded-3xl font-black uppercase tracking-[0.2em] text-sm italic group" disabled={!form.formState.isValid}>
-                  Authorize Dispatch <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  Authorize Liquidity Dispatch <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </form>
             )}
@@ -395,33 +407,22 @@ export default function CashOutPage() {
                     <CheckCircle2 className="h-12 w-12 text-accent" />
                   </div>
                   <div className="space-y-2">
-                    <h2 className="text-4xl font-black tracking-tighter uppercase italic text-foreground">Success</h2>
-                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest">Atomic State Dispatched</p>
+                    <h2 className="text-4xl font-black tracking-tighter uppercase italic text-foreground">Dispatched</h2>
+                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest">Liquidity Cleared via Partner Gateway</p>
                   </div>
-                  <div className="w-full bg-white/5 p-5 rounded-2xl border border-white/10 space-y-3 font-mono">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground uppercase">Recipient:</span>
-                      <span className="text-white truncate max-w-[150px]">{pendingData?.accountName}</span>
+                  {watchProtocol === 'cardless' && (
+                    <div className="w-full bg-primary/10 p-6 rounded-2xl border border-primary/30 space-y-2">
+                         <p className="text-[10px] font-black uppercase text-primary">Withdrawal PIN Generated</p>
+                         <p className="text-2xl font-black tracking-[0.5em] text-white">482015</p>
+                         <p className="text-[8px] text-muted-foreground">Keep this PIN secure. Use at any {pendingData?.provider} ATM.</p>
                     </div>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground uppercase">Settlement:</span>
-                      <span className="text-accent">{formatCurrency(parseFloat(pendingData?.amount || '0'))}</span>
-                    </div>
-                  </div>
+                  )}
                   <Button onClick={() => setStep('input')} className="w-full btn-premium py-7 rounded-2xl font-black uppercase tracking-widest">
-                    Return to Dashboard
+                    Return to Hub
                   </Button>
                 </div>
             )}
           </CardContent>
-          
-          <CardFooter className="bg-black/40 border-t border-white/5 py-6 flex flex-col items-center gap-2">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-3 w-3 text-accent" />
-              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em]">Verified Secure Handshake Protocol</span>
-            </div>
-            <p className="text-[8px] text-muted-foreground/50 font-mono">X-AUTH-NODE: {user?.uid.substring(0, 16).toUpperCase()}</p>
-          </CardFooter>
         </Card>
       </div>
 
@@ -432,9 +433,9 @@ export default function CashOutPage() {
               <ShieldAlert className="h-8 w-8 text-primary" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-2xl font-black italic uppercase italic text-foreground">Security Challenge</h3>
+              <h3 className="text-2xl font-black italic uppercase text-foreground">Security Challenge</h3>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Please enter your Secret PIN to authorize this withdrawal.
+                Authorize this high-value liquidity event via your Secret PIN.
               </p>
             </div>
           </div>
