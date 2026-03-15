@@ -1,4 +1,3 @@
-
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -27,14 +26,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Allow Replit and other development origins for cross-origin HMR and server actions
   allowedDevOrigins: [
     "*.replit.dev",
     "*.repl.co",
     "*.cloudworkstations.dev",
     "*.firebaseapp.com",
     "*.web.app",
-    "*.c9users.io"
   ],
   experimental: {
     serverActions: {
@@ -47,7 +44,6 @@ const nextConfig: NextConfig = {
         "localhost:5000",
         "*.firebaseapp.com",
         "*.web.app",
-        "*.c9users.io"
       ],
     },
   },
