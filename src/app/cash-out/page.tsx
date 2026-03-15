@@ -38,7 +38,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { currencies } from '@/lib/currencies';
 
-// Updated Schema: Removed cardless, kept local and international
 const bankSchema = z.object({
   protocol: z.enum(['local_sa', 'international']),
   provider: z.string().min(1, "Please select a provider or bank"),
@@ -128,8 +127,6 @@ export default function CashOutPage() {
       toast({ title: "Security Challenge Failed", description: "Identity PIN must be 6 digits.", variant: "destructive" });
       return;
     }
-    // Simulation check: For this prototype, any 6 digit pin passes, 
-    // but the logic is structured for real integration.
     setIsSecurityOpen(false);
     setStep('tracking');
     runTrackingSimulation();
@@ -355,15 +352,17 @@ export default function CashOutPage() {
                             </SelectContent>
                         </Select>
                    </div>
-                   <div className="relative">
+                   <div className="relative flex items-center">
+                      <div className="absolute left-5 text-primary font-bold text-lg pointer-events-none z-10">
+                        {currency.symbol}
+                      </div>
                       <Input 
-                        className="h-16 bg-primary/5 border-primary/20 rounded-2xl text-2xl font-bold text-white pl-12" 
+                        className="h-16 bg-primary/5 border-primary/20 rounded-2xl text-2xl font-bold text-white pl-20" 
                         type="number" 
                         step="any" 
                         placeholder="0.00" 
                         {...form.register('amount')} 
                       />
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-bold text-lg">{currency.symbol}</div>
                    </div>
 
                    {parseFloat(watchAmount) > 0 && (
@@ -405,7 +404,7 @@ export default function CashOutPage() {
                   <div className="w-full p-4 bg-muted/20 rounded-xl border border-white/5 text-left space-y-2">
                         <div className="flex justify-between text-[10px] uppercase font-bold text-muted-foreground">
                             <span>Reference</span>
-                            <span className="text-foreground">APX-{Math.random().toString(36).substring(7).toUpperCase()}</span>
+                            <span className="text-foreground">APX-REF-{Math.random().toString(36).substring(7).toUpperCase()}</span>
                         </div>
                         <div className="flex justify-between text-[10px] uppercase font-bold text-muted-foreground">
                             <span>Status</span>
