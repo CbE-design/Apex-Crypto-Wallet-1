@@ -30,8 +30,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Explicitly allow development workstation origins for cross-origin HMR and server actions
+  // Allow Replit and other development origins for cross-origin HMR and server actions
   allowedDevOrigins: [
+    "*.replit.dev",
+    "*.repl.co",
     "*.cloudworkstations.dev",
     "*.firebaseapp.com",
     "*.web.app",
@@ -41,9 +43,11 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '2mb',
       allowedOrigins: [
+        "*.replit.dev",
+        "*.repl.co",
         "*.cloudworkstations.dev",
         "localhost:3000",
-        "localhost:9002",
+        "localhost:5000",
         "*.firebaseapp.com",
         "*.web.app",
         "*.c9users.io"
