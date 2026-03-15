@@ -36,5 +36,5 @@ externalPort = 80
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["bash", "-c", "npx next start -p 5000 -H 0.0.0.0"]
-build = ["bash", "-c", "npm install && npx next build"]
+run = ["bash", "start.sh"]
+build = ["bash", "build.sh"]
