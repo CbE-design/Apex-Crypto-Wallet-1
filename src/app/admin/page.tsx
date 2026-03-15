@@ -224,7 +224,7 @@ export default function AdminDashboardPage() {
         <div className="flex justify-between items-start">
             <div>
                 <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Orchestration Terminal</h1>
-                <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400">Governance & Liquidity Controller v5.0</p>
+                <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400">Governance Controller v5.0</p>
             </div>
             <Button 
                 variant="outline" 
@@ -243,7 +243,7 @@ export default function AdminDashboardPage() {
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle className="text-xs font-black uppercase tracking-widest">Admin SDK Disconnected</AlertTitle>
                 <AlertDescription className="text-[10px] uppercase font-bold text-muted-foreground flex flex-col gap-2 mt-1">
-                    <p>Real-time bridge liquidity and global broadcast protocols are currently inhibited. Please provide the Firebase Admin SDK configuration in your .env file.</p>
+                    <p>Global broadcast protocols and system synchronization are currently inhibited. Please provide the Firebase Admin SDK configuration in your .env file.</p>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="h-7 text-[9px] uppercase font-black px-3 rounded-lg border-destructive/20 hover:bg-destructive/20" asChild>
                             <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">
@@ -258,7 +258,7 @@ export default function AdminDashboardPage() {
             </Alert>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card className="glass-module border-primary/20 relative overflow-hidden group">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center justify-between">
@@ -288,28 +288,6 @@ export default function AdminDashboardPage() {
                     <p className="text-[10px] text-muted-foreground mt-2 font-mono truncate">
                         ROOT: {syncStatus?.stateRoot?.substring(0, 32)}...
                     </p>
-                </CardContent>
-            </Card>
-
-            <Card className={cn("glass-module", syncStatus?.isOffline ? "border-destructive/20" : "border-accent/20")}>
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <Database className={cn("h-4 w-4", syncStatus?.isOffline ? "text-destructive" : "text-accent")} /> Bridge Liquidity
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className={cn("text-2xl font-black italic", syncStatus?.isOffline ? "text-destructive/50" : "text-white")}>
-                        {syncStatus?.bridgeLiquidity || '0.00 ETH'}
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-2">
-                        {syncStatus?.isOffline ? (
-                            <Badge variant="outline" className="text-[8px] border-destructive/30 text-destructive uppercase font-bold tracking-widest flex items-center gap-1">
-                                <AlertCircle className="h-2 w-2" /> Admin SDK Required
-                            </Badge>
-                        ) : (
-                            <Badge variant="outline" className="text-[8px] border-accent/30 text-accent uppercase font-bold tracking-widest">Aggregate Rail Supply</Badge>
-                        )}
-                    </div>
                 </CardContent>
             </Card>
 
