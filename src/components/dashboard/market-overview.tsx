@@ -25,7 +25,7 @@ import { getLivePrices, getLive24hChanges } from '@/services/crypto-service';
 import type { MarketCoin } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
-const REFRESH_INTERVAL = 60 * 1000; // 60 seconds
+const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 export function MarketOverview() {
   const { currency, formatCurrency } = useCurrency();
