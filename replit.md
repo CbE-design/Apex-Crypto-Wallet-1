@@ -1,6 +1,13 @@
 # Apex Crypto Wallet
 
-A modern cryptocurrency exchange and wallet app built with Next.js, Firebase, and Genkit AI.
+An institutional-grade cryptocurrency wallet and exchange app built with Next.js, Firebase, and Genkit AI.
+
+## Design System
+
+- **Theme**: Deep navy dark UI (`#080E1A` base), cobalt blue primary (`#3B8EF3`), emerald green accent (`#16C780`)
+- **Typography**: Inter, 4-level hierarchy — display / heading / body / caption
+- **Components**: Glass cards, premium gradient buttons, pill active states on nav
+- **Aurora background**: Radial gradient overlay across all dashboard pages
 
 ## Tech Stack
 

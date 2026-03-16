@@ -1,16 +1,15 @@
-
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/context/wallet-context';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Shield, Key, AlertTriangle, Activity, ArrowRight, Eye, EyeOff, Copy, CheckCircle2 } from 'lucide-react';
 import React, { useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 export default function ConnectWalletPage() {
   const router = useRouter();
@@ -20,42 +19,34 @@ export default function ConnectWalletPage() {
   const [mnemonic, setMnemonic] = useState('');
   const [newMnemonic, setNewMnemonic] = useState('');
   const [isNewWalletDialogOpen, setIsNewWalletDialogOpen] = useState(false);
+  const [mnemonicVisible, setMnemonicVisible] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   React.useEffect(() => {
-    if (user) {
-      router.push('/');
-    }
+    if (user) router.push('/');
   }, [user, router]);
 
   const handleCreateWallet = async () => {
     try {
-      const generatedMnemonic = await createWallet(); // Now just generates mnemonic
-      setNewMnemonic(generatedMnemonic);
+      const generated = await createWallet();
+      setNewMnemonic(generated);
       setIsNewWalletDialogOpen(true);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Could not create a new wallet. Please try again.',
-        variant: 'destructive',
-      });
+    } catch {
+      toast({ title: 'Error', description: 'Could not create wallet. Try again.', variant: 'destructive' });
     }
   };
 
   const handleImportWallet = async () => {
     if (!mnemonic.trim()) {
-      toast({ title: "Mnemonic is required", variant: 'destructive' });
+      toast({ title: 'Seed phrase required', variant: 'destructive' });
       return;
     }
     try {
       await importWallet(mnemonic);
-      toast({ title: 'Wallet Imported!', description: 'You have successfully logged in.' });
+      toast({ title: 'Wallet imported', description: 'Welcome back.' });
       router.push('/');
     } catch (error: any) {
-       toast({
-        title: 'Import Failed',
-        description: error.message || 'Could not import wallet. Please check your seed phrase and try again.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Import failed', description: error.message || 'Invalid seed phrase.', variant: 'destructive' });
     }
   };
 
@@ -64,77 +55,214 @@ export default function ConnectWalletPage() {
     try {
       await confirmAndCreateWallet(newMnemonic);
       setIsNewWalletDialogOpen(false);
-      toast({ title: 'Wallet Created!', description: 'Your new wallet has been successfully set up.' });
+      toast({ title: 'Wallet created', description: 'Your wallet is ready.' });
       router.push('/');
-    } catch (error) {
-       toast({
-        title: 'Creation Failed',
-        description: 'Could not finalize wallet creation.',
-        variant: 'destructive',
-      });
+    } catch {
+      toast({ title: 'Creation failed', description: 'Could not finalize wallet.', variant: 'destructive' });
     }
-  }
+  };
+
+  const copyMnemonic = () => {
+    navigator.clipboard.writeText(newMnemonic);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const words = newMnemonic.split(' ').filter(Boolean);
 
   return (
     <>
-      <div className="flex items-center justify-center min-h-screen bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Apex Crypto Wallet</CardTitle>
-            <CardDescription>Your gateway to the decentralized web.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isImporting ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="mnemonic">Seed Phrase (Mnemonic)</Label>
-                  <Textarea
-                    id="mnemonic"
-                    placeholder="Enter your 12 or 24 word seed phrase"
-                    value={mnemonic}
-                    onChange={(e) => setMnemonic(e.target.value)}
-                    rows={4}
+      {/* Full-screen dark background */}
+      <div className="min-h-screen w-full bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        {/* Background glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-[300px] h-[300px] bg-accent/5 rounded-full blur-[80px] pointer-events-none" />
+
+        {/* Logo / brand */}
+        <div className="flex flex-col items-center mb-10 relative z-10">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-blue-400 flex items-center justify-center shadow-xl shadow-primary/30 mb-4">
+            <Activity className="h-7 w-7 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Apex Wallet</h1>
+          <p className="text-sm text-muted-foreground mt-1">Institutional-grade crypto custody</p>
+        </div>
+
+        {/* Main card */}
+        <div className="w-full max-w-sm relative z-10">
+          <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl shadow-2xl overflow-hidden">
+            {/* Card header */}
+            <div className="px-6 pt-6 pb-5 border-b border-border/40">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+                <span className="text-[11px] uppercase tracking-widest font-semibold text-accent">Secure Connection</span>
+              </div>
+              <h2 className="text-[17px] font-semibold text-foreground">
+                {isImporting ? 'Import Wallet' : 'Access Your Wallet'}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {isImporting
+                  ? 'Enter your seed phrase to restore access'
+                  : 'Create a new wallet or restore from seed phrase'}
+              </p>
+            </div>
+
+            {/* Card body */}
+            <div className="px-6 py-6">
+              {isImporting ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
+                      Seed Phrase
+                    </label>
+                    <Textarea
+                      placeholder="Enter your 12 or 24 word seed phrase separated by spaces…"
+                      value={mnemonic}
+                      onChange={(e) => setMnemonic(e.target.value)}
+                      rows={4}
+                      disabled={loading}
+                      className="bg-muted/30 border-border/60 resize-none text-sm font-mono placeholder:text-muted-foreground/40 focus:border-primary/60 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                      Never share your seed phrase. Apex will never ask for it outside this setup screen.
+                    </p>
+                  </div>
+
+                  <Button
+                    onClick={handleImportWallet}
+                    className="w-full h-11 rounded-xl font-semibold btn-premium text-white"
+                    disabled={loading || !mnemonic.trim()}
+                  >
+                    {loading ? <Loader2 className="animate-spin h-4 w-4" /> : (
+                      <><Key className="h-4 w-4 mr-2" /> Restore Wallet</>
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setIsImporting(false)}
+                    className="w-full h-10 rounded-xl text-muted-foreground hover:text-foreground"
                     disabled={loading}
-                  />
+                  >
+                    Back
+                  </Button>
                 </div>
-                <Button onClick={handleImportWallet} className="w-full" disabled={loading}>
-                  {loading ? <Loader2 className="animate-spin" /> : 'Import Wallet'}
-                </Button>
-                <Button variant="link" onClick={() => setIsImporting(false)} className="w-full" disabled={loading}>
-                  Back
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4 pt-4 text-center">
-                <p className="text-sm text-muted-foreground">Create a new wallet or import an existing one.</p>
-                <Button onClick={handleCreateWallet} className="w-full" disabled={loading}>
-                  {loading ? <Loader2 className="animate-spin" /> : 'Create a New Wallet'}
-                </Button>
-                <Button variant="secondary" onClick={() => setIsImporting(true)} className="w-full" disabled={loading}>
-                  Import Existing Wallet
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              ) : (
+                <div className="space-y-3">
+                  <Button
+                    onClick={handleCreateWallet}
+                    className="w-full h-12 rounded-xl font-semibold btn-premium text-white text-[14px] group"
+                    disabled={loading}
+                  >
+                    {loading ? <Loader2 className="animate-spin h-4 w-4" /> : (
+                      <>
+                        Create New Wallet
+                        <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="relative flex items-center gap-3">
+                    <div className="flex-1 h-px bg-border/40" />
+                    <span className="text-[11px] text-muted-foreground uppercase tracking-widest">or</span>
+                    <div className="flex-1 h-px bg-border/40" />
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsImporting(true)}
+                    className="w-full h-12 rounded-xl font-semibold border-border/60 hover:border-primary/40 hover:bg-primary/5 text-[14px]"
+                    disabled={loading}
+                  >
+                    <Key className="h-4 w-4 mr-2" />
+                    Import Existing Wallet
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Trust indicators */}
+          <div className="flex items-center justify-center gap-4 mt-6 text-muted-foreground/50">
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <Shield className="h-3 w-3" />
+              <span>Non-custodial</span>
+            </div>
+            <div className="h-3 w-px bg-border/30" />
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <Shield className="h-3 w-3" />
+              <span>End-to-end encrypted</span>
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Seed phrase backup dialog */}
       <Dialog open={isNewWalletDialogOpen} onOpenChange={setIsNewWalletDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md rounded-2xl border-border/60 bg-card">
           <DialogHeader>
-            <DialogTitle>Your New Wallet's Seed Phrase</DialogTitle>
-            <DialogDescription>
-              This is your seed phrase. Write it down and store it in a safe place.
-              <strong className="text-destructive"> You will NOT be able to recover your wallet without it.</strong>
+            <div className="flex items-center gap-2 mb-1">
+              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              <Badge variant="outline" className="text-amber-400 border-amber-400/30 text-[10px] uppercase tracking-widest">
+                Critical Step
+              </Badge>
+            </div>
+            <DialogTitle className="text-[17px] font-semibold">Save Your Seed Phrase</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Write these words down in order and store them somewhere safe and offline.{' '}
+              <strong className="text-destructive">This is the only way to recover your wallet.</strong>
             </DialogDescription>
           </DialogHeader>
-          <div className="my-4 p-4 bg-muted rounded-lg font-mono text-center text-lg tracking-wider">
-            {newMnemonic}
+
+          {/* Word grid */}
+          <div className="my-2">
+            <div className={cn(
+              "relative rounded-xl border border-border/60 bg-muted/30 p-4 transition-all",
+              !mnemonicVisible && "select-none"
+            )}>
+              {!mnemonicVisible && (
+                <div className="absolute inset-0 rounded-xl bg-card/80 backdrop-blur-md flex flex-col items-center justify-center z-10 gap-2">
+                  <EyeOff className="h-5 w-5 text-muted-foreground" />
+                  <p className="text-[12px] text-muted-foreground">Click to reveal</p>
+                </div>
+              )}
+              <div
+                className="grid grid-cols-3 gap-2 cursor-pointer"
+                onClick={() => setMnemonicVisible(v => !v)}
+              >
+                {words.map((word, i) => (
+                  <div key={i} className="flex items-center gap-1.5 bg-background/60 rounded-lg px-2 py-1.5 border border-border/40">
+                    <span className="text-[10px] text-muted-foreground w-4 text-right flex-shrink-0">{i + 1}.</span>
+                    <span className="text-[12px] font-mono font-medium text-foreground truncate">{word}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full mt-2 h-8 text-[12px] text-muted-foreground hover:text-foreground rounded-lg"
+              onClick={copyMnemonic}
+            >
+              {copied ? (
+                <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-accent" />Copied!</>
+              ) : (
+                <><Copy className="h-3.5 w-3.5 mr-1.5" />Copy to clipboard</>
+              )}
+            </Button>
           </div>
+
           <DialogFooter>
-              <Button onClick={handleConfirmNewWallet} disabled={loading} className="w-full">
-                {loading ? <Loader2 className="animate-spin" /> : "I've Saved My Seed Phrase"}
-              </Button>
+            <Button
+              onClick={handleConfirmNewWallet}
+              disabled={loading}
+              className="w-full h-11 rounded-xl font-semibold btn-premium text-white"
+            >
+              {loading ? <Loader2 className="animate-spin h-4 w-4" /> : "I've Saved My Seed Phrase"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

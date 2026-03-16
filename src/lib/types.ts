@@ -113,4 +113,5 @@ export type SendEmailOutput = z.infer<typeof SendEmailOutputSchema>;
 export interface Currency {
     symbol: string;
     name: string;
+    flag?: string;
 }
