@@ -288,7 +288,7 @@ export default function CashOutPage() {
                     <CreditCard className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <CardTitle className="text-base font-bold tracking-tight">Cash Out</CardTitle>
+                    <CardTitle className="text-base font-bold tracking-tight">Withdrawal</CardTitle>
                     <CardDescription className="text-[11px]">Withdraw funds to your bank account</CardDescription>
                   </div>
                 </div>

@@ -24,7 +24,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/wallets':       'My Wallets',
   '/swap':          'Swap',
   '/send-receive':  'Send & Receive',
-  '/cash-out':      'Cash Out',
+  '/cash-out':      'Withdrawal',
   '/ai-assistant':  'Support',
   '/settings':      'Settings',
 };

@@ -34,7 +34,7 @@ const mainNav = [
   { href: "/wallets",      label: "My Wallets",   icon: Wallet,          desc: "Holdings"        },
   { href: "/swap",         label: "Swap",         icon: ArrowRightLeft,  desc: "Exchange assets" },
   { href: "/send-receive", label: "Send / Receive",icon: Send,           desc: "Transfer"        },
-  { href: "/cash-out",     label: "Cash Out",     icon: Banknote,        desc: "Withdraw"        },
+  { href: "/cash-out",     label: "Withdrawal",   icon: Banknote,        desc: "Withdraw funds"  },
   { href: "/ai-assistant", label: "AI Assistant", icon: Bot,             desc: "Ask anything"    },
 ];
 

@@ -21,7 +21,7 @@ interface Message {
 const QUICK_QUESTIONS = [
   'How do I swap one crypto for another?',
   'How do I send crypto to another wallet?',
-  'How does the Cash Out feature work?',
+  'How does the Withdrawal feature work?',
   'How do I set up a price alert?',
   'What does a "Pending" transaction status mean?',
   'How do I back up my recovery phrase?',

@@ -67,8 +67,11 @@ export function PortfolioOverview() {
       if (portfolioSymbols.length === 0) {
         setIsPriceLoading(false);
         return;
-      };
-      setIsPriceLoading(true);
+      }
+      // Only show the loading skeleton on the very first fetch (no prices yet).
+      // Subsequent re-fetches (triggered by Firestore snapshot updates) happen
+      // silently in the background — the current data stays visible.
+      setIsPriceLoading(prev => prev && Object.keys(livePrices).length === 0);
       try {
         const [prices, changes] = await Promise.all([
           getLivePrices(portfolioSymbols, 'USD'),
@@ -83,6 +86,7 @@ export function PortfolioOverview() {
       }
     }
     fetchPrices();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portfolioSymbols]);
 
 

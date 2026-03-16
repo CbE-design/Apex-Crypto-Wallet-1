@@ -39,7 +39,7 @@ SEND AND RECEIVE (/send-receive):
   require Travel Rule compliance verification. Network fee is deducted automatically.
 - RECEIVE: click Receive, select asset, share your address or QR code.
 
-CASH OUT (/cash-out):
+WITHDRAWAL (/cash-out):
 - Bank Transfer: select asset, enter amount, enter bank details, confirm. Arrives in 1-3 business days.
 - Crypto ATM: select asset, enter amount, receive a 6-digit PIN valid 30 minutes, use at ATM.
 - Minimum $10. Fees shown before confirmation.
@@ -78,7 +78,7 @@ TROUBLESHOOTING:
 - Wrong swap amount: slippage during volatility.
 - Forgot password: Forgot Password link on login page.
 - Lost seed phrase: cannot be recovered, always store offline.
-- ATM PIN expired: generate a new one in Cash Out.
+- ATM PIN expired: generate a new one in Withdrawal.
 
 CONTACT: support@apexwallet.io (24-48 hours). Security issues: security@apexwallet.io (4 hours).
 `;
