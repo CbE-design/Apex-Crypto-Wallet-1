@@ -1,10 +1,9 @@
 
 import type {Metadata} from 'next';
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster"
-import AppContent from './app-content';
 import { cn } from '@/lib/utils';
 import { Providers } from './providers';
+import { ClientShell } from './client-shell';
 
 export const metadata: Metadata = {
   title: 'Apex Crypto Wallet',
@@ -35,10 +34,9 @@ export default function RootLayout({
       </head>
       <body className={cn("font-body antialiased h-full")}>
         <Providers>
-          <AppContent>
+          <ClientShell>
             {children}
-          </AppContent>
-          <Toaster />
+          </ClientShell>
         </Providers>
       </body>
     </html>
