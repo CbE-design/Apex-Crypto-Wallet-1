@@ -9,6 +9,7 @@ import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
 import { useWallet } from '@/context/wallet-context';
 import { ShieldAlert, Loader2, Power } from 'lucide-react';
+import { EyeWatermark } from '@/components/eye-watermark';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
@@ -83,8 +84,13 @@ export default function AppContent({
           </div>
 
           <SidebarInset className="min-h-0 flex-1 flex flex-col overflow-hidden bg-transparent">
-            <main className="flex-1 overflow-y-auto overflow-x-hidden aurora-bg p-4 md:p-6 lg:p-8 scroll-smooth flex flex-col">
-              <div className="max-w-7xl mx-auto w-full pb-28 md:pb-10 flex-1 flex flex-col">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden aurora-bg p-4 md:p-6 lg:p-8 scroll-smooth flex flex-col relative">
+              {/* Subliminal all-seeing eye — lower-right quadrant */}
+              <EyeWatermark
+                className="absolute bottom-0 right-0 w-[560px] h-[560px] text-primary pointer-events-none translate-x-1/4 translate-y-1/4"
+                opacity={0.028}
+              />
+              <div className="max-w-7xl mx-auto w-full pb-28 md:pb-10 flex-1 flex flex-col relative z-10">
                 {children}
               </div>
             </main>

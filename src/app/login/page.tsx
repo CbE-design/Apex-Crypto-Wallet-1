@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/context/wallet-context';
 import { Loader2, Shield, Key, AlertTriangle, ArrowRight, Eye, EyeOff, Copy, CheckCircle2 } from 'lucide-react';
 import React, { useState } from 'react';
+import { EyeWatermark } from '@/components/eye-watermark';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -77,6 +78,9 @@ export default function ConnectWalletPage() {
         {/* Background glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-0 right-0 w-[300px] h-[300px] bg-accent/5 rounded-full blur-[80px] pointer-events-none" />
+
+        {/* Subliminal all-seeing eye watermark */}
+        <EyeWatermark className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] text-primary pointer-events-none" opacity={0.04} />
 
         {/* Logo / brand */}
         <div className="flex flex-col items-center mb-10 relative z-10">

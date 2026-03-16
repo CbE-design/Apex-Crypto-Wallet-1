@@ -23,6 +23,7 @@ import { useWallet } from "@/context/wallet-context";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { EyeWatermark } from "@/components/eye-watermark";
 
 const mainNav = [
   { href: "/",             label: "Dashboard",    icon: LayoutDashboard, desc: "Overview"        },
@@ -121,7 +122,12 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* ── Footer ── */}
-      <SidebarFooter className="p-2 border-t border-sidebar-border/60">
+      <SidebarFooter className="p-2 border-t border-sidebar-border/60 relative overflow-hidden">
+        {/* Subliminal eye watermark */}
+        <EyeWatermark
+          className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-28 h-28 text-primary pointer-events-none group-data-[collapsible=icon]:opacity-0 transition-opacity"
+          opacity={0.07}
+        />
         {/* Wallet address strip */}
         {truncatedAddress && (
           <div className="group-data-[collapsible=icon]:hidden mb-2 px-3 py-2.5 rounded-xl bg-sidebar-accent/40 border border-sidebar-border/50">
