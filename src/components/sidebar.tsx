@@ -14,11 +14,9 @@ import {
   Send,
   Settings,
   Bot,
-  Repeat,
   Banknote,
   Wallet,
   ShieldCheck,
-  TrendingUp,
   ArrowRightLeft,
   Activity,
 } from "lucide-react";
@@ -26,8 +24,6 @@ import { useWallet } from "@/context/wallet-context";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useCurrency } from "@/context/currency-context";
-import { getLivePrices } from "@/services/crypto-service";
 
 const mainNav = [
   { href: "/",             label: "Dashboard",    icon: LayoutDashboard, desc: "Overview"        },
@@ -41,21 +37,6 @@ const mainNav = [
 export function AppSidebar() {
   const { isAdmin, wallet, user } = useWallet();
   const pathname = usePathname();
-  const { formatCurrency, currency } = useCurrency();
-  const [portfolioUSD, setPortfolioUSD] = React.useState<number | null>(null);
-
-  // Fetch a quick BTC/ETH price to estimate portfolio value for the sidebar badge
-  React.useEffect(() => {
-    getLivePrices(["BTC", "ETH"], "USD")
-      .then((prices) => {
-        // We just want to display something — real value comes from wallets page
-        const btc = prices["BTC"] || 82000;
-        const eth = prices["ETH"] || 2000;
-        setPortfolioUSD(btc * 0.001 + eth * 0.05); // placeholder until we have wallet data
-      })
-      .catch(() => {});
-  }, []);
-
   const truncatedAddress = wallet?.address
     ? `${wallet.address.slice(0, 6)}···${wallet.address.slice(-4)}`
     : null;

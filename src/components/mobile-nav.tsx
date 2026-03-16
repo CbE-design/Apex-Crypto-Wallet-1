@@ -2,15 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Wallet, Send, ArrowRightLeft, Bot } from 'lucide-react';
+import { LayoutDashboard, Wallet, Send, ArrowRightLeft, Banknote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Home',   href: '/'             },
-  { icon: Wallet,          label: 'Wallets', href: '/wallets'      },
-  { icon: ArrowRightLeft,  label: 'Swap',    href: '/swap'         },
-  { icon: Send,            label: 'Send',    href: '/send-receive' },
-  { icon: Bot,             label: 'AI',      href: '/ai-assistant' },
+  { icon: LayoutDashboard, label: 'Home',       href: '/'             },
+  { icon: Wallet,          label: 'Wallets',     href: '/wallets'      },
+  { icon: ArrowRightLeft,  label: 'Swap',        href: '/swap'         },
+  { icon: Send,            label: 'Send',        href: '/send-receive' },
+  { icon: Banknote,        label: 'Withdraw',    href: '/cash-out'     },
 ];
 
 export function MobileNav() {
