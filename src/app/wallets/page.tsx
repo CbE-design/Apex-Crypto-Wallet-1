@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
-import { Copy, RefreshCw, Loader2, QrCode, Wallet, ExternalLink, Activity, Server, Database, TrendingUp, TrendingDown } from 'lucide-react';
+import { Copy, RefreshCw, Loader2, QrCode, Wallet, ExternalLink, TrendingUp, TrendingDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PrivateRoute } from '@/components/private-route';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,6 +43,7 @@ export default function MyWalletsPage() {
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [liveChanges, setLiveChanges] = useState<Record<string, number>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
+  const [initialPricesFetched, setInitialPricesFetched] = useState(false);
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -54,15 +55,18 @@ export default function MyWalletsPage() {
   useEffect(() => {
     if (!wallets || wallets.length === 0) return;
     const symbols = wallets.map(w => w.currency);
-    setPricesLoading(true);
+    if (!initialPricesFetched) {
+      setPricesLoading(true);
+    }
     Promise.all([
       getLivePrices(symbols, 'USD'),
       getLive24hChanges(symbols),
     ]).then(([prices, changes]) => {
       setLivePrices(prices);
       setLiveChanges(changes);
+      setInitialPricesFetched(true);
     }).catch(() => {}).finally(() => setPricesLoading(false));
-  }, [wallets]);
+  }, [wallets, initialPricesFetched]);
 
   useEffect(() => {
     if (selectedQrAddress?.address) {
@@ -84,26 +88,26 @@ export default function MyWalletsPage() {
     toast({ title: "Address Copied", description: "Wallet address copied to clipboard." });
   };
 
-  const NODE_STEPS: Record<string, string[]> = {
-    ETH: ['Connecting to Ethereum RPC Node...', 'Fetching State Root...', 'Validating Merkle Proofs...', 'Finalizing On-Chain Sync...'],
-    BTC: ['Connecting to Bitcoin Core Node...', 'Syncing Block Headers...', 'Verifying UTXO Set...', 'Confirming Tip Block...'],
-    SOL: ['Connecting to Solana Validator...', 'Fetching Epoch Info...', 'Validating Vote Accounts...', 'Confirming Slot Height...'],
-    ADA: ['Connecting to Cardano Shelley Node...', 'Fetching Epoch State...', 'Validating Slot Leaders...', 'Verifying UTXO Distribution...', 'Finalizing Ouroboros Sync...'],
-    DEFAULT: ['Connecting to RPC Node...', 'Verifying Chain State...', 'Confirming Finality...'],
+  const SYNC_STEPS: Record<string, string[]> = {
+    ETH: ['Connecting to network...', 'Fetching latest block...', 'Verifying balance...', 'Finalizing...'],
+    BTC: ['Connecting to network...', 'Syncing headers...', 'Verifying balance...', 'Finalizing...'],
+    SOL: ['Connecting to network...', 'Fetching account data...', 'Verifying balance...', 'Finalizing...'],
+    ADA: ['Connecting to network...', 'Fetching epoch data...', 'Verifying balance...', 'Finalizing...'],
+    DEFAULT: ['Connecting to network...', 'Verifying balance...', 'Finalizing...'],
   };
 
   const handleSync = async (currency: string) => {
     setSyncingId(currency);
-    const steps = NODE_STEPS[currency] || NODE_STEPS.DEFAULT;
+    const steps = SYNC_STEPS[currency] || SYNC_STEPS.DEFAULT;
     try {
       for (const step of steps) {
         setSyncStep(step);
         await new Promise(r => setTimeout(r, 800 + Math.random() * 400));
       }
       await syncWalletBalance(currency);
-      toast({ title: "Node Sync Complete", description: `${currency} ledger verified against a live node.` });
+      toast({ title: "Balance Updated", description: `${currency} balance has been refreshed.` });
     } catch {
-      toast({ title: "Sync Failed", description: "Node connection timed out.", variant: "destructive" });
+      toast({ title: "Refresh Failed", description: "Could not update balance. Please try again.", variant: "destructive" });
     } finally {
       setSyncingId(null);
       setSyncStep('');
@@ -137,26 +141,20 @@ export default function MyWalletsPage() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">My Assets</h1>
-            <p className="text-muted-foreground">Manage your holdings across the Apex Private Ledger.</p>
+            <h1 className="text-2xl font-bold">My Assets</h1>
+            <p className="text-sm text-muted-foreground">Manage your cryptocurrency holdings</p>
           </div>
           <div className="flex items-center gap-4">
             {!pricesLoading && totalPortfolioUSD > 0 && (
               <div className="text-right">
-                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Total Portfolio</p>
-                <p className="text-2xl font-black">{formatCurrency(totalPortfolioUSD * fiat.rate)}</p>
+                <p className="text-xs text-muted-foreground font-medium">Total Portfolio</p>
+                <p className="text-2xl font-bold">{formatCurrency(totalPortfolioUSD * fiat.rate)}</p>
               </div>
             )}
-            <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-lg border border-white/5">
-              <Activity className="h-4 w-4 text-green-400 animate-pulse" />
-              <span className="text-xs font-bold uppercase tracking-widest text-foreground">
-                Status: <span className="text-green-400">Live</span>
-              </span>
-            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {isLoading ? (
             [...Array(6)].map((_, i) => (
               <Card key={i} className="animate-pulse">
@@ -175,23 +173,23 @@ export default function MyWalletsPage() {
               const coinName = marketCoins.find(c => c.symbol === w.currency)?.name || w.currency;
 
               return (
-                <Card key={w.id} className="relative overflow-hidden bg-card/50 backdrop-blur-sm border-primary/10 group">
+                <Card key={w.id} className="relative overflow-hidden bg-card/50 backdrop-blur-sm border-border/60 group">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       <CryptoIcon name={coinName} className="h-7 w-7" />
                       <div>
-                        <CardTitle className="text-base font-bold leading-none">{coinName}</CardTitle>
-                        <span className="text-[10px] text-muted-foreground font-mono">{w.currency}</span>
+                        <CardTitle className="text-base font-semibold leading-none">{coinName}</CardTitle>
+                        <span className="text-xs text-muted-foreground font-mono">{w.currency}</span>
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-[9px] uppercase font-bold">
+                    <Badge variant="outline" className="text-xs font-medium">
                       {getChainType(w.currency)}
                     </Badge>
                   </CardHeader>
                   <CardContent className="space-y-4 pt-2">
                     <div>
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 tracking-widest">Public Address</p>
-                      <div className="flex items-center gap-2 bg-muted/30 p-2.5 rounded-md font-mono text-[10px] break-all relative border border-white/5 group/addr">
+                      <p className="text-xs text-muted-foreground font-medium mb-1">Address</p>
+                      <div className="flex items-center gap-2 bg-muted/20 p-2.5 rounded-lg font-mono text-xs break-all relative border border-border/40 group/addr">
                         <span className="truncate pr-8 text-muted-foreground">{w.address || 'Pending...'}</span>
                         <Button
                           variant="ghost" size="icon"
@@ -205,10 +203,10 @@ export default function MyWalletsPage() {
 
                     <div className="flex items-end justify-between">
                       <div>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 tracking-widest">Balance</p>
+                        <p className="text-xs text-muted-foreground font-medium mb-1">Balance</p>
                         <div className="flex items-baseline gap-2">
                           <p className="text-2xl font-bold tabular-nums">{w.balance.toFixed(w.currency === 'BTC' ? 6 : 4)}</p>
-                          <p className="text-sm font-bold text-muted-foreground">{w.currency}</p>
+                          <p className="text-sm font-medium text-muted-foreground">{w.currency}</p>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {pricesLoading ? '—' : formatCurrency(valueUSD * fiat.rate)}
@@ -216,7 +214,7 @@ export default function MyWalletsPage() {
                       </div>
                       {change !== undefined && !pricesLoading && (
                         <div className={cn(
-                          "flex items-center gap-1 text-xs font-bold",
+                          "flex items-center gap-1 text-xs font-semibold",
                           change >= 0 ? "text-green-400" : "text-red-400"
                         )}>
                           {change >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
@@ -226,12 +224,12 @@ export default function MyWalletsPage() {
                     </div>
 
                     {w.lastSynced && (
-                      <Badge variant="secondary" className="h-5 px-2 text-[8px] bg-green-500/20 text-green-400 border-none gap-1">
-                        <Server className="h-2 w-2" /> VERIFIED ON LEDGER
+                      <Badge variant="secondary" className="h-5 px-2 text-xs bg-green-500/15 text-green-400 border-none gap-1">
+                        Verified
                       </Badge>
                     )}
                   </CardContent>
-                  <CardFooter className="flex gap-2 bg-muted/20 border-t border-white/5 py-3">
+                  <CardFooter className="flex gap-2 bg-muted/10 border-t border-border/40 py-3">
                     <Button
                       className="flex-1 bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all duration-300"
                       variant="ghost" size="sm"
@@ -239,14 +237,14 @@ export default function MyWalletsPage() {
                       disabled={syncingId === w.currency}
                     >
                       {syncingId === w.currency ? (
-                        <><Loader2 className="mr-2 h-3 w-3 animate-spin" />{syncStep.substring(0, 18)}...</>
+                        <><Loader2 className="mr-2 h-3 w-3 animate-spin" /><span className="truncate">{syncStep}</span></>
                       ) : (
-                        <><RefreshCw className="mr-2 h-3 w-3" /> Sync Node</>
+                        <><RefreshCw className="mr-2 h-3 w-3" /> Refresh</>
                       )}
                     </Button>
                     <Button
                       variant="ghost" size="icon"
-                      className="h-8 w-8 border border-border hover:border-primary/50"
+                      className="h-8 w-8 border border-border/60 hover:border-primary/50"
                       onClick={() => { setSelectedQrAddress({ address: w.address, currency: w.currency }); setIsQrOpen(true); }}
                       disabled={!w.address}
                       title="Show QR Code"
@@ -256,9 +254,9 @@ export default function MyWalletsPage() {
                     <Link href={getExplorerLink(w.address, w.currency)} passHref target="_blank" rel="noopener noreferrer">
                       <Button
                         variant="ghost" size="icon"
-                        className="h-8 w-8 border border-border hover:border-primary/50"
+                        className="h-8 w-8 border border-border/60 hover:border-primary/50"
                         disabled={!w.address}
-                        title="View on Block Explorer"
+                        title="View on Explorer"
                       >
                         <ExternalLink className="h-4 w-4" />
                       </Button>
@@ -269,14 +267,14 @@ export default function MyWalletsPage() {
             })
           ) : (
             <div className="col-span-full py-20 text-center space-y-4">
-              <div className="bg-muted p-4 rounded-full w-fit mx-auto">
-                <Wallet className="h-12 w-12 text-muted-foreground" />
+              <div className="bg-muted/30 p-4 rounded-full w-fit mx-auto">
+                <Wallet className="h-10 w-10 text-muted-foreground" />
               </div>
-              <h3 className="text-xl font-bold">Initialization Required</h3>
-              <p className="text-muted-foreground max-w-sm mx-auto">
-                We are preparing your identity addresses. This usually takes a few seconds.
+              <h3 className="text-lg font-semibold">Setting Up Your Wallets</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                Your wallet addresses are being prepared. This usually takes a few seconds.
               </p>
-              <Button variant="outline" onClick={() => window.location.reload()}>
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
                 <RefreshCw className="mr-2 h-4 w-4" /> Refresh
               </Button>
             </div>
@@ -294,12 +292,12 @@ export default function MyWalletsPage() {
                 Share this address to receive {selectedQrAddress?.currency} into your wallet.
               </DialogDescription>
             </DialogHeader>
-            <div className="flex flex-col items-center p-8 bg-white rounded-xl border-4 my-4 shadow-inner">
+            <div className="flex flex-col items-center p-6 bg-white rounded-xl my-4">
               {qrDataUrl
-                ? <Image src={qrDataUrl} alt="Deposit QR" width={250} height={250} className="rounded-lg" />
+                ? <Image src={qrDataUrl} alt="Deposit QR" width={220} height={220} className="rounded-lg" />
                 : <Loader2 className="animate-spin text-muted-foreground h-10 w-10" />
               }
-              <div className="mt-6 p-3 bg-muted/80 rounded-lg w-full font-mono text-[10px] break-all text-center text-black border shadow-sm">
+              <div className="mt-4 p-3 bg-gray-100 rounded-lg w-full font-mono text-xs break-all text-center text-gray-900">
                 {selectedQrAddress?.address}
               </div>
             </div>

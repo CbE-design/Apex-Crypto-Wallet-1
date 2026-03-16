@@ -101,7 +101,7 @@ export function PriceAlerts() {
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">Asset</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Asset</Label>
                 <Select value={newAlertAsset} onValueChange={setNewAlertAsset}>
                   <SelectTrigger className="h-10 rounded-xl bg-muted/30 border-border/60 text-[13px]">
                     <SelectValue placeholder="Select cryptocurrency" />
@@ -120,7 +120,7 @@ export function PriceAlerts() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">Condition</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Condition</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {(['Above', 'Below'] as const).map(type => (
                     <button
@@ -145,7 +145,7 @@ export function PriceAlerts() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">Target Price (USD)</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Target Price (USD)</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[13px]">$</span>
                   <Input

@@ -26,7 +26,6 @@ import { getLivePrices, getLive24hChanges } from '@/services/crypto-service';
 import type { PortfolioAsset } from '@/lib/types';
 import { TrendingUp, Wallet } from 'lucide-react';
 
-// Build chart config from all known coins so BTC, ETH, etc. all get a colour slot
 const allKnownCoins = [...staticAssets, ...marketCoins].reduce((acc, c) => {
   if (!acc.find(x => x.symbol === c.symbol)) acc.push(c);
   return acc;
@@ -68,9 +67,6 @@ export function PortfolioOverview() {
         setIsPriceLoading(false);
         return;
       }
-      // Only show the loading skeleton on the very first fetch (no prices yet).
-      // Subsequent re-fetches (triggered by Firestore snapshot updates) happen
-      // silently in the background — the current data stays visible.
       setIsPriceLoading(prev => prev && Object.keys(livePrices).length === 0);
       try {
         const [prices, changes] = await Promise.all([
@@ -134,7 +130,7 @@ export function PortfolioOverview() {
 
   if (isLoading) {
     return (
-        <Card className="bg-card/40 backdrop-blur-xl border-white/10">
+        <Card className="bg-card/50 backdrop-blur-sm border-border/60">
             <CardHeader>
                 <Skeleton className="h-7 w-48" />
                 <Skeleton className="h-4 w-64" />
@@ -161,17 +157,17 @@ export function PortfolioOverview() {
   }
 
   return (
-    <Card className="glass-module glass-glow-blue overflow-hidden relative">
-      <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+    <Card className="bg-card/50 backdrop-blur-sm overflow-hidden relative border-border/60">
+      <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
           <Wallet className="h-32 w-32" />
       </div>
       <CardHeader>
         <div className="flex items-center gap-2 mb-1">
             <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-            <CardTitle className="text-xl">Net Worth</CardTitle>
+            <CardTitle className="text-xl font-bold">Net Worth</CardTitle>
         </div>
-        <CardDescription className="text-blue-300/60 uppercase tracking-tighter text-[10px] font-black">
-          Apex Private Ledger Account
+        <CardDescription className="text-sm text-muted-foreground">
+          Portfolio overview across all holdings
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col md:flex-row items-center gap-8 relative z-10">
@@ -192,8 +188,8 @@ export function PortfolioOverview() {
                                 return (
                                   <div className="w-full">
                                       <div className="flex items-center justify-between gap-4">
-                                        <span className="font-bold">{asset.name}</span>
-                                        <span className="font-black text-accent">{formatCurrency(asset.valueUSD * currency.rate)}</span>
+                                        <span className="font-semibold">{asset.name}</span>
+                                        <span className="font-bold text-accent">{formatCurrency(asset.valueUSD * currency.rate)}</span>
                                       </div>
                                   </div>
                                 )
@@ -215,24 +211,24 @@ export function PortfolioOverview() {
                     </Pie>
                 </PieChart>
             ) : (
-                <div className="flex justify-center items-center h-full text-muted-foreground italic text-xs">
+                <div className="flex justify-center items-center h-full text-muted-foreground text-sm">
                    Awaiting initial deposit...
                 </div>
             )}
           </ChartContainer>
           {totalBalance > 0 && (
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none space-y-0">
-              <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Total Assets</p>
-              <p className="text-4xl font-black tracking-tighter text-white">
+              <p className="text-xs font-semibold text-primary mb-1">Total Assets</p>
+              <p className="text-4xl font-bold tracking-tight text-foreground">
                 {formatCurrency(totalBalanceInSelectedCurrency).split('.')[0]}
                 <span className="text-xl opacity-50">.{formatCurrency(totalBalanceInSelectedCurrency).split('.')[1]}</span>
               </p>
             </div>
           )}
         </div>
-        <div className="w-full md:w-1/2 space-y-4">
+        <div className="w-full md:w-1/2 space-y-3">
           {portfolioAssets.length > 0 ? portfolioAssets.sort((a,b) => b.valueUSD - a.valueUSD).map((asset) => (
-            <div key={asset.symbol} className="flex items-center group cursor-pointer p-2 rounded-xl hover:bg-white/5 transition-all">
+            <div key={asset.symbol} className="flex items-center group cursor-pointer p-2.5 rounded-xl hover:bg-muted/30 transition-all">
               <div className="flex items-center gap-3 flex-1">
                 <div
                   className="w-1 h-8 rounded-full"
@@ -242,27 +238,27 @@ export function PortfolioOverview() {
                     }))`,
                   }}
                 />
-                <CryptoIcon name={asset.name} className="h-8 w-8 transition-transform group-hover:scale-110" />
+                <CryptoIcon name={asset.name} className="h-8 w-8 transition-transform group-hover:scale-105" />
                 <div>
-                    <span className="block font-black text-sm tracking-tight">{asset.name}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground">{asset.amount.toFixed(asset.symbol === 'BTC' ? 6 : 4)} {asset.symbol}</span>
+                    <span className="block font-semibold text-sm">{asset.name}</span>
+                    <span className="text-xs font-mono text-muted-foreground">{asset.amount.toFixed(asset.symbol === 'BTC' ? 6 : 4)} {asset.symbol}</span>
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-black text-sm">
+                <p className="font-semibold text-sm">
                   {formatCurrency(asset.valueUSD * currency.rate)}
                 </p>
                 <div className={cn(
-                    "flex items-center justify-end gap-0.5 text-[10px] font-bold",
+                    "flex items-center justify-end gap-0.5 text-xs font-medium",
                     asset.change24h >= 0 ? "text-accent" : "text-red-400"
                 )}>
                     <TrendingUp className={cn("h-2.5 w-2.5", asset.change24h < 0 && "rotate-180")} />
-                    {Math.abs(asset.change24h)}%
+                    {Math.abs(asset.change24h).toFixed(2)}%
                 </div>
               </div>
             </div>
           )) : (
-            <div className="text-center text-muted-foreground text-xs">No active ledger positions.</div>
+            <div className="text-center text-muted-foreground text-sm py-8">No holdings yet</div>
           )}
         </div>
       </CardContent>

@@ -56,13 +56,13 @@ export default function AppContent({
                   <ShieldAlert className="h-20 w-20 text-destructive" />
               </div>
           </div>
-          <h1 className="text-4xl font-black italic tracking-tighter uppercase mb-4">Protocol Halted</h1>
-          <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] mb-8 max-w-sm">
-              The Apex Private Ledger has been suspended by system governance. Inbound and outbound RPC traffic is currently inhibited.
+          <h1 className="text-3xl font-bold mb-3">Service Temporarily Unavailable</h1>
+          <p className="text-sm text-muted-foreground mb-8 max-w-sm">
+              Trading and transfers have been temporarily suspended for maintenance. Please check back shortly.
           </p>
-          <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl">
+          <div className="flex items-center gap-2 px-4 py-2 bg-destructive/5 border border-destructive/20 rounded-xl">
               <Power className="h-4 w-4 text-destructive animate-pulse" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-destructive">Network State: DISCONNECTED</span>
+              <span className="text-sm font-medium text-destructive">Disconnected</span>
           </div>
       </div>
     );

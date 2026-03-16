@@ -96,7 +96,7 @@ export default function SwapPage() {
     const temp = fromAsset;
     setFromAsset(toAsset);
     setToAsset(temp);
-    setFromAmount(''); // Reset amount on flip
+    setFromAmount('');
   };
   
   const handleSwap = async () => {
@@ -115,7 +115,6 @@ export default function SwapPage() {
 
     try {
         await runTransaction(firestore, async (transaction) => {
-            // 1. Debit 'from' asset
             const fromWalletRef = doc(firestore, 'users', user.uid, 'wallets', fromAsset);
             const fromWalletDoc = await transaction.get(fromWalletRef);
             
@@ -126,7 +125,6 @@ export default function SwapPage() {
             const newFromBalance = fromWalletDoc.data().balance - amountNum;
             transaction.update(fromWalletRef, { balance: newFromBalance });
 
-            // 2. Credit 'to' asset
             const toWalletRef = doc(firestore, 'users', user.uid, 'wallets', toAsset);
             const toWalletDoc = await transaction.get(toWalletRef);
 
@@ -141,7 +139,6 @@ export default function SwapPage() {
                 userId: user.uid,
             }, { merge: true });
 
-            // 3. Log transactions — fetch live prices for accurate record
             const livePriceMap = await getLivePrices([fromAsset, toAsset], 'USD');
             const fromAssetPrice = livePriceMap[fromAsset] || staticAssets.find(a => a.symbol === fromAsset)?.priceUSD || 0;
             const toAssetPrice = livePriceMap[toAsset] || marketCoins.find(m => m.symbol === toAsset)?.priceUSD || 0;
@@ -170,7 +167,7 @@ export default function SwapPage() {
         });
 
         setStatus('success');
-        toast({ title: 'Swap Successful!', description: `Swapped ${fromAmount} ${fromAsset} for ${toAmount} ${toAsset}.`});
+        toast({ title: 'Swap Successful', description: `Swapped ${fromAmount} ${fromAsset} for ${toAmount} ${toAsset}.`});
 
     } catch (error: any) {
         console.error("Swap failed:", error);
@@ -193,28 +190,36 @@ export default function SwapPage() {
     switch(status) {
         case 'processing':
             return (
-                <div className="flex flex-col items-center justify-center text-center space-y-4 h-96">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <h3 className="text-lg font-semibold capitalize">Processing Swap...</h3>
-                    <p className="text-muted-foreground">Please wait while the transaction is processed.</p>
+                <div className="flex flex-col items-center justify-center text-center space-y-4 py-16">
+                    <div className="p-4 bg-primary/10 rounded-full">
+                      <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold">Processing Swap</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs">Please wait while your transaction is being processed.</p>
                 </div>
             );
         case 'success':
             return (
-                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-96">
-                    <CheckCircle className="h-12 w-12 text-green-500" />
-                    <h3 className="text-lg font-semibold">Swap Successful!</h3>
-                    <p className="text-muted-foreground">You have successfully swapped {fromAmount} {fromAsset} for {toAmount} {toAsset}.</p>
-                     <Button onClick={resetFlow} className="w-full">Perform Another Swap</Button>
+                 <div className="flex flex-col items-center justify-center text-center space-y-4 py-16">
+                    <div className="p-4 bg-accent/10 rounded-full">
+                      <CheckCircle className="h-10 w-10 text-accent" />
+                    </div>
+                    <h3 className="text-lg font-semibold">Swap Successful</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                      You swapped <span className="font-semibold text-foreground">{fromAmount} {fromAsset}</span> for <span className="font-semibold text-foreground">{toAmount} {toAsset}</span>.
+                    </p>
+                    <Button onClick={resetFlow} className="w-full mt-2 btn-premium">New Swap</Button>
                 </div>
             );
         case 'failed':
              return (
-                 <div className="flex flex-col items-center justify-center text-center space-y-4 h-96">
-                    <XCircle className="h-12 w-12 text-destructive" />
+                 <div className="flex flex-col items-center justify-center text-center space-y-4 py-16">
+                    <div className="p-4 bg-destructive/10 rounded-full">
+                      <XCircle className="h-10 w-10 text-destructive" />
+                    </div>
                     <h3 className="text-lg font-semibold">Swap Failed</h3>
-                    <p className="text-muted-foreground text-xs break-all">{errorMessage}</p>
-                    <Button onClick={resetFlow} variant="outline" className="w-full">Try Again</Button>
+                    <p className="text-sm text-muted-foreground max-w-xs break-all">{errorMessage}</p>
+                    <Button onClick={resetFlow} variant="outline" className="w-full mt-2">Try Again</Button>
                 </div>
             );
         default:
@@ -223,12 +228,12 @@ export default function SwapPage() {
   }
   
   const renderSwapForm = () => (
-    <div className="space-y-4">
+    <div className="space-y-5">
         <div className="space-y-2">
-            <Label htmlFor="from-asset">From</Label>
+            <Label htmlFor="from-asset" className="text-xs font-medium text-muted-foreground">From</Label>
             <div className="flex gap-2">
                 <Select value={fromAsset} onValueChange={setFromAsset}>
-                    <SelectTrigger id="from-asset" className="w-2/3">
+                    <SelectTrigger id="from-asset" className="w-2/3 h-12 rounded-xl bg-muted/20 border-border/60">
                         <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
                     <SelectContent>
@@ -246,29 +251,29 @@ export default function SwapPage() {
                     id="from-amount" 
                     type="number" 
                     placeholder="0.00" 
-                    className="w-1/3 text-right"
+                    className="w-1/3 text-right h-12 rounded-xl bg-muted/20 border-border/60 font-semibold"
                     value={fromAmount}
                     onChange={(e) => setFromAmount(e.target.value)}
                 />
             </div>
-            <p className="text-xs text-muted-foreground mt-1 h-4">
-                {`Balance: ${fromAssetBalance.toFixed(4)}`}
+            <p className="text-xs text-muted-foreground mt-1">
+                Balance: <span className="font-medium text-foreground">{fromAssetBalance.toFixed(4)}</span>
             </p>
         </div>
         
         <div className="flex justify-center items-center">
-            <div className="w-full h-px bg-border"></div>
-            <Button variant="ghost" size="icon" onClick={handleFlipAssets} className="mx-2 flex-shrink-0">
+            <div className="w-full h-px bg-border/40"></div>
+            <Button variant="outline" size="icon" onClick={handleFlipAssets} className="mx-3 flex-shrink-0 h-10 w-10 rounded-xl border-border/60 hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all">
                 <ArrowLeftRight className="h-4 w-4" />
             </Button>
-            <div className="w-full h-px bg-border"></div>
+            <div className="w-full h-px bg-border/40"></div>
         </div>
 
         <div className="space-y-2">
-            <Label htmlFor="to-asset">To</Label>
+            <Label htmlFor="to-asset" className="text-xs font-medium text-muted-foreground">To</Label>
             <div className="flex gap-2">
                 <Select value={toAsset} onValueChange={setToAsset}>
-                    <SelectTrigger id="to-asset" className="w-2/3">
+                    <SelectTrigger id="to-asset" className="w-2/3 h-12 rounded-xl bg-muted/20 border-border/60">
                         <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
                     <SelectContent>
@@ -286,54 +291,53 @@ export default function SwapPage() {
                     id="to-amount" 
                     type="text" 
                     placeholder="0.00"
-                    className="w-1/3 text-right bg-muted/50"
+                    className="w-1/3 text-right h-12 rounded-xl bg-muted/10 border-border/40 font-semibold text-muted-foreground"
                     value={toAmount}
                     readOnly
                 />
             </div>
-             <p className="text-xs text-muted-foreground mt-1 h-4">
-                 &nbsp;
-            </p>
         </div>
         
         <div className="text-sm text-muted-foreground text-center h-5 flex items-center justify-center">
             {isLoadingRate && <Loader2 className="h-4 w-4 animate-spin" />}
-            {!isLoadingRate && exchangeRate !== null && exchangeRate > 0 && fromAsset !== toAsset && `1 ${fromAsset} ≈ ${exchangeRate.toFixed(5)} ${toAsset}`}
-            {!isLoadingRate && exchangeRate === 0 && <span className="text-destructive">Could not fetch rate</span>}
+            {!isLoadingRate && exchangeRate !== null && exchangeRate > 0 && fromAsset !== toAsset && (
+              <span className="font-medium">1 {fromAsset} ≈ {exchangeRate.toFixed(5)} {toAsset}</span>
+            )}
+            {!isLoadingRate && exchangeRate === 0 && <span className="text-destructive text-xs">Could not fetch rate</span>}
         </div>
 
         <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button className="w-full" disabled={isButtonDisabled}>
-                    <Repeat className="mr-2" /> Swap
+                <Button className="w-full h-12 rounded-xl btn-premium font-semibold" disabled={isButtonDisabled}>
+                    <Repeat className="mr-2 h-4 w-4" /> Swap
                 </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogContent className="rounded-2xl">
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Swap</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Review the details below before confirming. This action updates your ledger balances and cannot be reversed.
+                    <AlertDialogTitle className="text-lg font-bold">Confirm Swap</AlertDialogTitle>
+                    <AlertDialogDescription className="text-sm">
+                        Review the details below. This action cannot be reversed.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
-                 <div className="space-y-4 py-4 text-sm">
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">From</span>
-                        <span className="font-medium flex items-center gap-2">
-                            <CryptoIcon name={allAssets.find(a => a.symbol === fromAsset)?.name || ''} />
+                 <div className="space-y-3 py-4">
+                    <div className="flex justify-between items-center p-3 bg-muted/20 rounded-xl">
+                        <span className="text-sm text-muted-foreground">From</span>
+                        <span className="font-semibold flex items-center gap-2">
+                            <CryptoIcon name={allAssets.find(a => a.symbol === fromAsset)?.name || ''} className="h-4 w-4" />
                             {fromAmount} {fromAsset}
                         </span>
                     </div>
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">To</span>
-                        <span className="font-medium flex items-center gap-2">
-                            <CryptoIcon name={allAssets.find(a => a.symbol === toAsset)?.name || ''} />
+                    <div className="flex justify-between items-center p-3 bg-muted/20 rounded-xl">
+                        <span className="text-sm text-muted-foreground">To</span>
+                        <span className="font-semibold flex items-center gap-2">
+                            <CryptoIcon name={allAssets.find(a => a.symbol === toAsset)?.name || ''} className="h-4 w-4" />
                             {toAmount} {toAsset}
                         </span>
                     </div>
                  </div>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleSwap}>Confirm Swap</AlertDialogAction>
+                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSwap} className="rounded-xl">Confirm Swap</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -342,13 +346,20 @@ export default function SwapPage() {
 
   return (
     <PrivateRoute>
-      <div className="flex justify-center items-start pt-8">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Swap Crypto</CardTitle>
-            <CardDescription>Exchange one cryptocurrency for another instantly.</CardDescription>
+      <div className="flex justify-center items-start pt-4">
+        <Card className="w-full max-w-md bg-card/60 backdrop-blur-sm border-border/60">
+          <CardHeader className="border-b border-border/40 pb-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20">
+                <ArrowLeftRight className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-xl font-bold">Swap</CardTitle>
+                <CardDescription className="text-sm">Exchange one cryptocurrency for another</CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="pt-6">
             {status === 'idle' ? renderSwapForm() : getStatusContent()}
           </CardContent>
         </Card>
@@ -356,4 +367,3 @@ export default function SwapPage() {
     </PrivateRoute>
   );
 }
-    

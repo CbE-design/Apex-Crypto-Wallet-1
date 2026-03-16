@@ -74,7 +74,7 @@ export function AppSidebar() {
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
             <p className="text-[15px] font-bold tracking-tight text-white leading-none">Apex Wallet</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Private Ledger</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Crypto Wallet</p>
           </div>
         </div>
       </SidebarHeader>
