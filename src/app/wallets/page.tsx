@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
-import { Copy, RefreshCw, Loader2, QrCode, Wallet, ExternalLink, TrendingUp, TrendingDown } from 'lucide-react';
+import { Copy, RefreshCw, Loader2, QrCode, Wallet, ExternalLink, TrendingUp, TrendingDown, ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PrivateRoute } from '@/components/private-route';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -41,6 +41,93 @@ interface WalletDoc {
   lastSynced?: any;
 }
 
+interface TransactionDoc {
+  id: string;
+  type: string;
+  amount: number;
+  amountFiat?: number;
+  currency?: string;
+  netFiat?: number;
+  price?: number;
+  timestamp?: any;
+  status?: string;
+  referenceNo?: string;
+  carfReference?: string;
+  method?: string;
+  beneficiaryName?: string;
+}
+
+function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string; userId: string }) {
+  const firestore = useFirestore();
+  const { formatCurrency, currency: fiat } = useCurrency();
+
+  const txQuery = useMemoFirebase(() => {
+    if (!firestore || !userId) return null;
+    return query(
+      collection(firestore, 'users', userId, 'wallets', walletCurrency, 'transactions'),
+      orderBy('timestamp', 'desc'),
+      firestoreLimit(10)
+    );
+  }, [firestore, userId, walletCurrency]);
+
+  const { data: transactions, isLoading } = useCollection<TransactionDoc>(txQuery);
+
+  if (isLoading) {
+    return (
+      <div className="px-4 py-3 space-y-2">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!transactions || transactions.length === 0) {
+    return (
+      <div className="px-4 py-4 text-center">
+        <p className="text-[11px] text-muted-foreground">No transactions yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-3 py-2 space-y-1.5 max-h-[300px] overflow-y-auto">
+      {transactions.map(tx => {
+        const date = tx.timestamp?.toDate?.() ?? new Date();
+        const fiatAmount = tx.amountFiat ?? (tx.amount * (tx.price ?? 0));
+        return (
+          <div key={tx.id} className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-background/30 border border-border/20 hover:border-border/40 transition-colors">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn('text-[9px] h-4 px-1.5', tx.type === 'Withdrawal' ? 'text-amber-400 border-amber-400/30' : 'text-accent border-accent/30')}>
+                  {tx.type}
+                </Badge>
+                <span className="text-[10px] text-muted-foreground">
+                  {date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                {tx.referenceNo && <span className="text-[9px] font-mono text-muted-foreground/60 truncate">{tx.referenceNo}</span>}
+              </div>
+            </div>
+            <div className="text-right shrink-0 ml-3">
+              <p className="text-[11px] font-bold tabular-nums">
+                {tx.type === 'Withdrawal' ? '−' : '+'}{tx.amount.toFixed(walletCurrency === 'BTC' ? 6 : 4)} {walletCurrency}
+              </p>
+              <p className="text-[10px] text-muted-foreground tabular-nums">
+                {formatCurrency(fiatAmount * fiat.rate)}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function MyWalletsPage() {
   const { user, syncWalletBalance } = useWallet();
   const firestore = useFirestore();
@@ -57,6 +144,7 @@ export default function MyWalletsPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const initialPricesFetched = useRef(false);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [expandedTx, setExpandedTx] = useState<Set<string>>(new Set());
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -87,7 +175,6 @@ export default function MyWalletsPage() {
         setLastUpdated(new Date());
         initialPricesFetched.current = true;
       } catch {
-        // Keep existing prices on error
       } finally {
         setPricesLoading(false);
       }
@@ -169,6 +256,15 @@ export default function MyWalletsPage() {
     return `/explorer/${address}`;
   };
 
+  const toggleTx = (currency: string) => {
+    setExpandedTx(prev => {
+      const next = new Set(prev);
+      if (next.has(currency)) next.delete(currency);
+      else next.add(currency);
+      return next;
+    });
+  };
+
   const totalPortfolioUSD = wallets?.reduce((sum, w) => {
     const priceUSD = livePrices[w.currency] || marketCoins.find(c => c.symbol === w.currency)?.priceUSD || 0;
     return sum + w.balance * priceUSD;
@@ -214,9 +310,10 @@ export default function MyWalletsPage() {
               const valueUSD = w.balance * priceUSD;
               const change = liveChanges[w.currency];
               const coinName = marketCoins.find(c => c.symbol === w.currency)?.name || w.currency;
+              const isTxExpanded = expandedTx.has(w.currency);
 
               return (
-                <Card key={w.id} className="relative overflow-hidden bg-card/50 backdrop-blur-sm border-border/60 group">
+                <Card key={w.id} className="relative overflow-hidden bg-card/50 backdrop-blur-sm border-border/60 group flex flex-col">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <div className="flex items-center gap-2.5">
                       <CryptoIcon name={coinName} className="h-7 w-7" />
@@ -229,7 +326,7 @@ export default function MyWalletsPage() {
                       {getChainType(w.currency)}
                     </Badge>
                   </CardHeader>
-                  <CardContent className="space-y-4 pt-2">
+                  <CardContent className="space-y-4 pt-2 flex-1">
                     <div>
                       <p className="text-xs text-muted-foreground font-medium mb-1">Address</p>
                       <div className="flex items-center gap-2 bg-muted/20 p-2.5 rounded-lg font-mono text-xs break-all relative border border-border/40 group/addr">
@@ -272,6 +369,23 @@ export default function MyWalletsPage() {
                       </Badge>
                     )}
                   </CardContent>
+
+                  <div className="border-t border-border/30">
+                    <button
+                      onClick={() => toggleTx(w.currency)}
+                      className="w-full flex items-center justify-between px-4 py-2.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <FileText className="h-3 w-3" />
+                        <span>Transactions</span>
+                      </div>
+                      {isTxExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    </button>
+                    {isTxExpanded && user && (
+                      <TransactionHistory walletCurrency={w.currency} userId={user.uid} />
+                    )}
+                  </div>
+
                   <CardFooter className="flex gap-2 bg-muted/10 border-t border-border/40 py-3">
                     <Button
                       className="flex-1 bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all duration-300"
