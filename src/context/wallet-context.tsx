@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
-import { Loader2 } from 'lucide-react';
+
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, User as FirebaseUser } from 'firebase/auth';
@@ -244,18 +244,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     const walletRef = doc(firestore, 'users', user.uid, 'wallets', currency);
     await updateDoc(walletRef, { lastSynced: serverTimestamp() });
   };
-
-  // Hydration-safe loading overlay
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
-        <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-xs font-medium text-muted-foreground animate-pulse">Loading your wallet...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <WalletContext.Provider value={{ wallet, user, userProfile: userProfile as UserProfile | null, loading, isAdmin, createWallet, importWallet, confirmAndCreateWallet, disconnectWallet, syncWalletBalance }}>

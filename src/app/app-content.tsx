@@ -18,7 +18,7 @@ export default function AppContent({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { isAdmin } = useWallet();
+  const { isAdmin, loading } = useWallet();
   const firestore = useFirestore();
 
   const protocolSettingsRef = useMemoFirebase(() => {
@@ -33,6 +33,17 @@ export default function AppContent({
 
   if (isPublicPage) {
     return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-xs font-medium text-muted-foreground animate-pulse">Loading your wallet...</p>
+        </div>
+      </div>
+    );
   }
 
   const isAdminPage = pathname.startsWith('/admin');
