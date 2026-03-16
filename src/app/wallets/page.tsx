@@ -97,7 +97,7 @@ function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string
     <div className="px-3 py-2 space-y-1.5 max-h-[300px] overflow-y-auto">
       {transactions.map(tx => {
         const date = tx.timestamp ? tx.timestamp.toDate() : new Date();
-        const fiatAmount = tx.amountFiat ?? (tx.amount * (tx.price ?? 0));
+        const fiatAmountUSD = tx.amount * (tx.price ?? 0);
         return (
           <div key={tx.id} className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-background/30 border border-border/20 hover:border-border/40 transition-colors">
             <div className="min-w-0 flex-1">
@@ -105,6 +105,15 @@ function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string
                 <Badge variant="outline" className={cn('text-[9px] h-4 px-1.5', tx.type === 'Withdrawal' ? 'text-amber-400 border-amber-400/30' : 'text-accent border-accent/30')}>
                   {tx.type}
                 </Badge>
+                {tx.status && (
+                  <Badge variant="outline" className={cn('text-[9px] h-4 px-1.5',
+                    tx.status === 'Completed' ? 'text-green-400 border-green-400/30' :
+                    tx.status === 'Failed' ? 'text-red-400 border-red-400/30' :
+                    'text-yellow-400 border-yellow-400/30'
+                  )}>
+                    {tx.status}
+                  </Badge>
+                )}
                 <span className="text-[10px] text-muted-foreground">
                   {date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </span>
@@ -118,7 +127,7 @@ function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string
                 {tx.type === 'Withdrawal' ? '−' : '+'}{tx.amount.toFixed(walletCurrency === 'BTC' ? 6 : 4)} {walletCurrency}
               </p>
               <p className="text-[10px] text-muted-foreground tabular-nums">
-                {formatCurrency(fiatAmount * fiat.rate)}
+                {formatCurrency(fiatAmountUSD * fiat.rate)}
               </p>
             </div>
           </div>
