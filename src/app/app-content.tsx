@@ -82,9 +82,9 @@ export default function AppContent({
             </Sidebar>
           </div>
 
-          <SidebarInset className="flex flex-col h-full w-full overflow-hidden bg-transparent">
-            <main className="independent-scroll aurora-bg p-4 md:p-6 lg:p-8 relative scroll-smooth">
-              <div className="max-w-7xl mx-auto w-full pb-20 md:pb-0">
+          <SidebarInset className="min-h-0 flex-1 flex flex-col overflow-hidden bg-transparent">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden aurora-bg p-4 md:p-6 lg:p-8 scroll-smooth">
+              <div className="max-w-7xl mx-auto w-full pb-28 md:pb-10">
                 {children}
               </div>
             </main>

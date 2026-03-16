@@ -91,13 +91,6 @@
   flex-direction: column;
 }
 
-.independent-scroll {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  position: relative;
-  z-index: 1;
-}
 
 .fixed-border {
   flex: none;
