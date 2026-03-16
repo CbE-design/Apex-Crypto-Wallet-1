@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -14,9 +14,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import {
   CheckCircle2, ShieldCheck, Globe, Building2, Loader2,
-  CreditCard, ChevronRight, Wallet, Smartphone, Banknote,
+  CreditCard, ChevronRight, ChevronDown, Wallet, Smartphone, Banknote,
   AlertTriangle, Info, Clock, FileText, ArrowLeft,
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { currencies } from '@/lib/currencies';
 import { PrivateRoute } from '@/components/private-route';
 import { useWallet } from '@/context/wallet-context';
 import { useCurrency } from '@/context/currency-context';
@@ -93,10 +95,10 @@ const schema = baseSchema.superRefine((data, ctx) => {
   const fee = FEES[data.method];
 
   if (amt < fee.minAmount) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Minimum withdrawal is R${fee.minAmount.toLocaleString()}`, path: ['amount'] });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Minimum withdrawal is ${fee.minAmount.toLocaleString()}`, path: ['amount'] });
   }
   if (amt > fee.maxAmount) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Maximum withdrawal is R${fee.maxAmount.toLocaleString()}`, path: ['amount'] });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Maximum withdrawal is ${fee.maxAmount.toLocaleString()}`, path: ['amount'] });
   }
   if (data.method === 'eft') {
     if (!data.bankName)      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Select a bank', path: ['bankName'] });
@@ -129,7 +131,7 @@ const generateRef = () => {
 export default function CashOutPage() {
   const { toast } = useToast();
   const { user } = useWallet();
-  const { currency, formatCurrency } = useCurrency();
+  const { currency } = useCurrency();
   const firestore = useFirestore();
 
   const [step, setStep]         = useState<PageStep>('details');
@@ -143,6 +145,37 @@ export default function CashOutPage() {
     sars:     false,
     sarb:     false,
   });
+
+  const [withdrawCurrencySymbol, setWithdrawCurrencySymbol] = useState(currency.symbol);
+  const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
+  const [fiatRates, setFiatRates] = useState<Record<string, number>>({
+    USD: 1, EUR: 0.92, GBP: 0.79, ZAR: 18.62, AUD: 1.53,
+    CAD: 1.36, JPY: 149.50, CHF: 0.90, CNY: 7.24, INR: 83.10,
+    NGN: 1580.00, BRL: 4.97, MXN: 17.15, SGD: 1.34, HKD: 7.82,
+    NZD: 1.63, SEK: 10.45, NOK: 10.52, DKK: 6.87, PLN: 3.95,
+  });
+
+  useEffect(() => {
+    const syms = currencies.filter(c => c.symbol !== 'USD').map(c => c.symbol).join(',');
+    fetch(`https://api.frankfurter.app/latest?from=USD&to=${syms}`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(({ rates }: { rates: Record<string, number> }) => {
+        setFiatRates({ USD: 1, ...rates });
+      })
+      .catch(() => {});
+  }, []);
+
+  const withdrawCurrencyInfo = currencies.find(c => c.symbol === withdrawCurrencySymbol) ?? currencies[0];
+  const withdrawRate = fiatRates[withdrawCurrencySymbol] ?? 1;
+
+  const formatWithdrawCurrency = useCallback((value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: withdrawCurrencySymbol,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }, [withdrawCurrencySymbol]);
   const allCompliant = Object.values(compliance).every(Boolean);
 
   const ethWalletRef = useMemoFirebase(() => {
@@ -172,12 +205,12 @@ export default function CashOutPage() {
   const fees = useMemo(() => {
     const val = parseFloat(watchAmount) || 0;
     const cfg = FEES[method];
-    const networkFee    = cfg.networkFee * currency.rate;
+    const networkFee    = cfg.networkFee * withdrawRate;
     const processingFee = val * cfg.processingRate;
     const total         = networkFee + processingFee;
     const net           = Math.max(0, val - total);
     return { networkFee, processingFee, total, net };
-  }, [watchAmount, method, currency.rate]);
+  }, [watchAmount, method, withdrawRate]);
 
   const handleDetailsSubmit = (data: FormValues) => {
     setConfirmedData(data);
@@ -219,9 +252,9 @@ export default function CashOutPage() {
   const executeLedgerDebit = async (data: FormValues, ref: string): Promise<boolean> => {
     try {
       const ethPriceUSD  = await fetchUsdPrice('ETH', 3500);
-      const amountInUSD  = parseFloat(data.amount) / currency.rate;
+      const amountInUSD  = parseFloat(data.amount) / withdrawRate;
       const ethToDeduct  = amountInUSD / ethPriceUSD;
-      const netInUSD     = (fees.net) / currency.rate;
+      const netInUSD     = (fees.net) / withdrawRate;
       const netEthSent   = netInUSD / ethPriceUSD;
 
       if (ethToDeduct > ethBalance) {
@@ -244,7 +277,7 @@ export default function CashOutPage() {
           type:          'Withdrawal',
           amount:        ethToDeduct,
           amountFiat:    parseFloat(data.amount),
-          currency:      currency.symbol,
+          currency:      withdrawCurrencySymbol,
           netFiat:       fees.net,
           price:         ethPriceUSD,
           timestamp:     serverTimestamp(),
@@ -518,14 +551,48 @@ export default function CashOutPage() {
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Withdrawal Amount</p>
                     <span className="text-[11px] text-muted-foreground">
-                      Limits: <span className="text-foreground font-medium">R{methodCfg.minAmount.toLocaleString()} – R{methodCfg.maxAmount.toLocaleString()}</span>
+                      Limits: <span className="text-foreground font-medium">{withdrawCurrencySymbol} {methodCfg.minAmount.toLocaleString()} – {withdrawCurrencySymbol} {methodCfg.maxAmount.toLocaleString()}</span>
                     </span>
                   </div>
 
-                  <div className="relative">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold text-sm">{currency.symbol}</div>
+                  <div className="flex h-14 rounded-xl border border-border/60 bg-background/50 overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
+                    <Popover open={currencyPickerOpen} onOpenChange={setCurrencyPickerOpen}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 px-3 border-r border-border/60 text-sm font-semibold shrink-0 hover:bg-muted/40 transition-colors min-w-[80px]"
+                        >
+                          <span className="text-base leading-none">{withdrawCurrencyInfo.flag}</span>
+                          <span className="tabular-nums">{withdrawCurrencySymbol}</span>
+                          <ChevronDown className="h-3 w-3 opacity-50 ml-auto" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-64 p-2" sideOffset={4}>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-2 pb-1.5">Select currency</p>
+                        <div className="max-h-60 overflow-y-auto space-y-0.5">
+                          {currencies.map(c => (
+                            <button
+                              key={c.symbol}
+                              type="button"
+                              onClick={() => {
+                                setWithdrawCurrencySymbol(c.symbol);
+                                setCurrencyPickerOpen(false);
+                              }}
+                              className={cn(
+                                'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm hover:bg-muted/60 transition-colors text-left',
+                                withdrawCurrencySymbol === c.symbol && 'bg-primary/10 text-primary font-medium',
+                              )}
+                            >
+                              <span className="text-base leading-none w-5">{c.flag}</span>
+                              <span className="font-medium w-10">{c.symbol}</span>
+                              <span className="text-muted-foreground text-xs">{c.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     <Input
-                      className="h-14 pl-12 bg-background/50 border-border/60 text-2xl font-bold tracking-tight"
+                      className="h-full border-0 bg-transparent pl-3 text-2xl font-bold tracking-tight flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none"
                       type="number"
                       step="any"
                       placeholder="0.00"
@@ -540,19 +607,19 @@ export default function CashOutPage() {
                     <div className="rounded-xl border border-border/50 bg-background/30 divide-y divide-border/30">
                       <div className="flex justify-between items-center px-4 py-2.5 text-[12px]">
                         <span className="text-muted-foreground">Gross amount</span>
-                        <span className="font-medium">{formatCurrency(parseFloat(watchAmount))}</span>
+                        <span className="font-medium">{formatWithdrawCurrency(parseFloat(watchAmount))}</span>
                       </div>
                       <div className="flex justify-between items-center px-4 py-2.5 text-[12px]">
                         <span className="text-muted-foreground">Network / processing fee</span>
-                        <span className="text-destructive/80">− {formatCurrency(fees.networkFee)}</span>
+                        <span className="text-destructive/80">− {formatWithdrawCurrency(fees.networkFee)}</span>
                       </div>
                       <div className="flex justify-between items-center px-4 py-2.5 text-[12px]">
                         <span className="text-muted-foreground">Apex service fee ({methodCfg.label})</span>
-                        <span className="text-destructive/80">− {formatCurrency(fees.processingFee)}</span>
+                        <span className="text-destructive/80">− {formatWithdrawCurrency(fees.processingFee)}</span>
                       </div>
                       <div className="flex justify-between items-center px-4 py-3 text-[13px] bg-accent/5 rounded-b-xl">
                         <span className="font-semibold text-accent">You will receive</span>
-                        <span className="font-bold text-accent text-base">{formatCurrency(fees.net)}</span>
+                        <span className="font-bold text-accent text-base">{formatWithdrawCurrency(fees.net)}</span>
                       </div>
                     </div>
                   )}
@@ -602,9 +669,9 @@ export default function CashOutPage() {
                       ['SWIFT / BIC', confirmedData.swiftCode ?? ''],
                       ['Destination Country', confirmedData.bankCountry ?? ''],
                     ] : []),
-                    ['Gross Amount', formatCurrency(parseFloat(confirmedData.amount))],
-                    ['Total Fees', `− ${formatCurrency(fees.total)}`],
-                    ['Amount to Receive', formatCurrency(fees.net)],
+                    ['Gross Amount', formatWithdrawCurrency(parseFloat(confirmedData.amount))],
+                    ['Total Fees', `− ${formatWithdrawCurrency(fees.total)}`],
+                    ['Amount to Receive', formatWithdrawCurrency(fees.net)],
                     ['Estimated Settlement', methodCfg.eta],
                   ].map(([label, value]) => (
                     <div key={label} className="flex justify-between items-start py-1.5 border-b border-border/20 last:border-0">
@@ -763,8 +830,8 @@ export default function CashOutPage() {
                 {/* Details */}
                 <div className="rounded-xl border border-border/40 divide-y divide-border/30 mb-6">
                   {[
-                    ['Amount Submitted', formatCurrency(parseFloat(confirmedData.amount))],
-                    ['Amount to Receive', formatCurrency(fees.net)],
+                    ['Amount Submitted', formatWithdrawCurrency(parseFloat(confirmedData.amount))],
+                    ['Amount to Receive', formatWithdrawCurrency(fees.net)],
                     ['Method', method === 'eft' ? 'EFT Bank Transfer' : method === 'cardless' ? 'Cardless ATM Cash' : 'International SWIFT Wire'],
                     ['Beneficiary', confirmedData.accountName],
                     ['Estimated Settlement', methodCfg.eta],
