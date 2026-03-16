@@ -41,6 +41,7 @@ export default function SwapPage() {
   const [isLoadingRate, setIsLoadingRate] = useState(false);
   const [status, setStatus] = useState<SwapStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isSwapping, setIsSwapping] = useState(false);
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -100,14 +101,16 @@ export default function SwapPage() {
   };
   
   const handleSwap = async () => {
-     if (!user || !firestore || !fromAmount || !exchangeRate) {
+     if (!user || !firestore || !fromAmount || !exchangeRate || isSwapping) {
       toast({ title: 'Cannot process swap', description: 'Missing required information.', variant: 'destructive'});
       return;
     }
+    setIsSwapping(true);
 
     const amountNum = parseFloat(fromAmount);
     if (amountNum <= 0 || amountNum > fromAssetBalance) {
         toast({ title: 'Invalid Amount', description: 'Please enter a valid amount to swap.', variant: 'destructive'});
+        setIsSwapping(false);
         return;
     }
 
@@ -175,6 +178,8 @@ export default function SwapPage() {
         setStatus('failed');
         setErrorMessage(message);
         toast({ title: 'Swap Failed', description: message, variant: 'destructive'});
+    } finally {
+        setIsSwapping(false);
     }
   }
 
@@ -337,8 +342,10 @@ export default function SwapPage() {
                     </div>
                  </div>
                 <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleSwap} className="rounded-xl">Confirm Swap</AlertDialogAction>
+                    <AlertDialogCancel className="rounded-xl" disabled={isSwapping}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSwap} className="rounded-xl" disabled={isSwapping}>
+                        {isSwapping ? <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Swapping...</> : 'Confirm Swap'}
+                    </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

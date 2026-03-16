@@ -13,7 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowRight, Copy, Loader2, ShieldCheck, Send, ArrowDownToLine } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ArrowRight, Copy, Loader2, ShieldCheck, Send, ArrowDownToLine, QrCode } from 'lucide-react';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
@@ -44,6 +45,7 @@ export default function SendReceivePage() {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const [selectedAsset, setSelectedAsset] = useState('ETH');
   const [isComplianceRequired, setIsComplianceRequired] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   const userAddress = wallet?.address || '...';
   
@@ -106,10 +108,12 @@ export default function SendReceivePage() {
   }, [wallet?.address]);
 
   const executeSend = async (data: SendFormValues) => {
-    if (!wallet || !user || !firestore) return;
+    if (!wallet || !user || !firestore || isSending) return;
+    setIsSending(true);
 
     if (data.recipientAddress.toLowerCase() === userAddress.toLowerCase()) {
         toast({ title: "Invalid Recipient", description: "You cannot send to your own address.", variant: "destructive"});
+        setIsSending(false);
         return;
     }
     
@@ -165,6 +169,8 @@ export default function SendReceivePage() {
     } catch (err) {
         const message = err instanceof Error ? err.message : 'An unknown error occurred.';
         toast({ title: 'Transfer Failed', description: message, variant: 'destructive' });
+    } finally {
+        setIsSending(false);
     }
   };
 
@@ -264,31 +270,52 @@ export default function SendReceivePage() {
                                 </div>
                             </div>
                             <AlertDialogFooter>
-                                <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleSubmit(executeSend)} className="rounded-xl bg-primary">Confirm</AlertDialogAction>
+                                <AlertDialogCancel className="rounded-xl" disabled={isSending}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleSubmit(executeSend)} className="rounded-xl bg-primary" disabled={isSending}>
+                                    {isSending ? <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Sending...</> : 'Confirm'}
+                                </AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
                   </form>
               </TabsContent>
-              <TabsContent value="receive" className="pt-6 flex flex-col items-center">
-                    <div className="p-5 bg-white rounded-2xl shadow-lg mb-6">
-                        {qrCodeDataUrl ? <Image src={qrCodeDataUrl} alt="Deposit QR Code" width={200} height={200} className="rounded-lg" /> : <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />}
+              <TabsContent value="receive" className="pt-6 space-y-5">
+                    <div className="flex flex-col items-center gap-2">
+                        <p className="text-xs font-medium text-muted-foreground">Your Wallet Address</p>
+                        <div className="w-full p-3 bg-muted/20 border border-border/40 rounded-xl flex items-center gap-3">
+                            <code className="text-xs font-mono break-all flex-1 text-center">{userAddress}</code>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg flex-shrink-0" onClick={() => { navigator.clipboard.writeText(userAddress); toast({ title: 'Address Copied' }); }}>
+                                <Copy className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
-                    <div className="w-full space-y-3">
-                         <div className="flex flex-col items-center gap-2">
-                            <p className="text-xs font-medium text-muted-foreground">Your Wallet Address</p>
-                            <div className="w-full p-3 bg-muted/20 border border-border/40 rounded-xl flex items-center gap-3">
-                                <code className="text-xs font-mono break-all flex-1 text-center">{userAddress}</code>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg flex-shrink-0" onClick={() => { navigator.clipboard.writeText(userAddress); toast({ title: 'Address Copied' }); }}>
-                                    <Copy className="h-4 w-4" />
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="w-full h-12 rounded-xl border-border/60 font-semibold text-sm gap-2">
+                                <QrCode className="h-4 w-4" />
+                                Show QR Code
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-xs rounded-2xl">
+                            <DialogHeader>
+                                <DialogTitle className="text-center text-lg font-bold">Receive Crypto</DialogTitle>
+                            </DialogHeader>
+                            <div className="flex flex-col items-center gap-4 py-4">
+                                <div className="p-4 bg-white rounded-2xl shadow-lg">
+                                    {qrCodeDataUrl ? <Image src={qrCodeDataUrl} alt="Deposit QR Code" width={200} height={200} className="rounded-lg" /> : <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />}
+                                </div>
+                                <div className="w-full p-3 bg-muted/20 border border-border/40 rounded-xl">
+                                    <code className="text-[11px] font-mono break-all block text-center">{userAddress}</code>
+                                </div>
+                                <Button variant="outline" className="w-full rounded-xl gap-2" onClick={() => { navigator.clipboard.writeText(userAddress); toast({ title: 'Address Copied' }); }}>
+                                    <Copy className="h-4 w-4" /> Copy Address
                                 </Button>
                             </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground text-center">
-                            Share this address to receive crypto from other Apex wallets.
-                        </p>
-                    </div>
+                        </DialogContent>
+                    </Dialog>
+                    <p className="text-xs text-muted-foreground text-center">
+                        Share your address or QR code to receive crypto from other Apex wallets.
+                    </p>
               </TabsContent>
             </Tabs>
           </CardContent>
