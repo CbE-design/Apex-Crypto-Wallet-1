@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import {
   CheckCircle2, ShieldCheck, Globe, Building2, Loader2,
-  CreditCard, ChevronRight, ChevronDown, Wallet, Smartphone, Banknote,
+  CreditCard, ChevronRight, ChevronDown, Wallet, Smartphone,
   AlertTriangle, Info, Clock, FileText, ArrowLeft,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -22,29 +22,24 @@ import { currencies } from '@/lib/currencies';
 import { PrivateRoute } from '@/components/private-route';
 import { useWallet } from '@/context/wallet-context';
 import { useCurrency } from '@/context/currency-context';
-import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, runTransaction, collection, serverTimestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-
-async function fetchUsdPrice(symbol: string, fallback: number): Promise<number> {
-  try {
-    const res = await fetch(`/api/prices?symbols=${symbol}&currency=USD`, { cache: 'no-store' });
-    if (!res.ok) return fallback;
-    const { prices } = await res.json() as { prices: Record<string, number> };
-    return prices[symbol] || fallback;
-  } catch {
-    return fallback;
-  }
-}
+import { marketCoins } from '@/lib/data';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type WithdrawalMethod = 'eft' | 'cardless' | 'swift';
 type PageStep = 'details' | 'review' | 'processing' | 'success';
 type ProcessingStage = 'received' | 'compliance' | 'transfer' | 'settled';
+
+interface WalletDoc {
+  currency: string;
+  balance: number;
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const SA_BANKS: { name: string; branch: string }[] = [
@@ -70,20 +65,17 @@ const FEES = {
   swift:    { networkFee: 250,processingRate: 0.035, label: '3.50% + R250 wire fee', eta: '3–5 business days', minAmount: 1_000, maxAmount: 1_000_000 },
 };
 
-// ─── Validation Schemas ───────────────────────────────────────────────────────
+// ─── Validation Schema ────────────────────────────────────────────────────────
 const baseSchema = z.object({
   method:      z.enum(['eft', 'cardless', 'swift']),
   accountName: z.string().min(3, 'Full legal name is required'),
   amount:      z.string().refine(v => parseFloat(v) > 0, 'Enter a valid amount'),
-  // EFT fields
   bankName:       z.string().optional(),
   accountNumber:  z.string().optional(),
   branchCode:     z.string().optional(),
   accountType:    z.string().optional(),
-  // Cardless fields
   cardlessProvider: z.string().optional(),
   phoneNumber:      z.string().optional(),
-  // SWIFT fields
   iban:      z.string().optional(),
   swiftCode: z.string().optional(),
   bankCountry: z.string().optional(),
@@ -140,14 +132,13 @@ export default function CashOutPage() {
   const [refNumber, setRefNumber] = useState('');
   const [confirmedData, setConfirmedData] = useState<FormValues | null>(null);
   const [compliance, setCompliance] = useState({
-    source:   false,
-    fica:     false,
-    sars:     false,
-    sarb:     false,
+    source: false, fica: false, sars: false, sarb: false,
   });
 
   const [withdrawCurrencySymbol, setWithdrawCurrencySymbol] = useState(currency.symbol);
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
+
+  // ── Fiat exchange rates ──────────────────────────────────────────────────────
   const [fiatRates, setFiatRates] = useState<Record<string, number>>({
     USD: 1, EUR: 0.92, GBP: 0.79, ZAR: 18.62, AUD: 1.53,
     CAD: 1.36, JPY: 149.50, CHF: 0.90, CNY: 7.24, INR: 83.10,
@@ -159,14 +150,52 @@ export default function CashOutPage() {
     const syms = currencies.filter(c => c.symbol !== 'USD').map(c => c.symbol).join(',');
     fetch(`https://api.frankfurter.app/latest?from=USD&to=${syms}`)
       .then(r => r.ok ? r.json() : Promise.reject())
-      .then(({ rates }: { rates: Record<string, number> }) => {
-        setFiatRates({ USD: 1, ...rates });
-      })
+      .then(({ rates }: { rates: Record<string, number> }) => setFiatRates({ USD: 1, ...rates }))
       .catch(() => {});
   }, []);
 
+  // ── Live crypto prices (USD) ─────────────────────────────────────────────────
+  const [livePrices, setLivePrices] = useState<Record<string, number>>(() =>
+    Object.fromEntries(marketCoins.map(c => [c.symbol, c.priceUSD]))
+  );
+  const pricesRef = useRef(livePrices);
+  pricesRef.current = livePrices;
+
+  useEffect(() => {
+    const symbols = marketCoins.map(c => c.symbol).join(',');
+    const load = () => {
+      fetch(`/api/prices?symbols=${symbols}&currency=USD`, { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(({ prices }: { prices: Record<string, number> }) => {
+          if (prices && Object.keys(prices).length) setLivePrices(prices);
+        })
+        .catch(() => {});
+    };
+    load();
+    const id = setInterval(load, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── All wallet balances (real-time) ──────────────────────────────────────────
+  const walletsColRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return collection(firestore, 'users', user.uid, 'wallets');
+  }, [user, firestore]);
+
+  const { data: walletDocs } = useCollection<WalletDoc>(walletsColRef);
+
+  // ── Portfolio totals ─────────────────────────────────────────────────────────
+  const portfolioUSD = useMemo(() => {
+    if (!walletDocs) return 0;
+    return walletDocs.reduce((sum, w) => {
+      const price = livePrices[w.currency] ?? 0;
+      return sum + (w.balance * price);
+    }, 0);
+  }, [walletDocs, livePrices]);
+
   const withdrawCurrencyInfo = currencies.find(c => c.symbol === withdrawCurrencySymbol) ?? currencies[0];
   const withdrawRate = fiatRates[withdrawCurrencySymbol] ?? 1;
+  const availableInWithdrawCurrency = portfolioUSD * withdrawRate;
 
   const formatWithdrawCurrency = useCallback((value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -176,14 +205,8 @@ export default function CashOutPage() {
       maximumFractionDigits: 2,
     }).format(value);
   }, [withdrawCurrencySymbol]);
-  const allCompliant = Object.values(compliance).every(Boolean);
 
-  const ethWalletRef = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return doc(firestore, 'users', user.uid, 'wallets', 'ETH');
-  }, [user, firestore]);
-  const { data: ethWallet } = useDoc<{ balance: number }>(ethWalletRef);
-  const ethBalance = ethWallet?.balance ?? 0;
+  const allCompliant = Object.values(compliance).every(Boolean);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -199,50 +222,65 @@ export default function CashOutPage() {
   const method      = form.watch('method');
   const watchAmount = form.watch('amount');
   const watchBank   = form.watch('bankName');
-
   const selectedBank = SA_BANKS.find(b => b.name === watchBank);
 
   const fees = useMemo(() => {
     const val = parseFloat(watchAmount) || 0;
     const cfg = FEES[method];
-    const networkFee    = cfg.networkFee * withdrawRate;
+    const networkFee    = cfg.networkFee;
     const processingFee = val * cfg.processingRate;
     const total         = networkFee + processingFee;
     const net           = Math.max(0, val - total);
     return { networkFee, processingFee, total, net };
-  }, [watchAmount, method, withdrawRate]);
+  }, [watchAmount, method]);
+
+  // For the "max" button — fill in the max withdrawable after fees
+  const handleFillMax = useCallback(() => {
+    const cfg = FEES[method];
+    const gross = availableInWithdrawCurrency;
+    const netAfterFees = gross - cfg.networkFee - gross * cfg.processingRate;
+    const capped = Math.min(Math.max(0, netAfterFees), cfg.maxAmount);
+    const gross2 = capped / (1 - cfg.processingRate) + cfg.networkFee;
+    const finalGross = Math.min(gross2, cfg.maxAmount, availableInWithdrawCurrency);
+    if (finalGross > 0) {
+      form.setValue('amount', finalGross.toFixed(2), { shouldValidate: true });
+    }
+  }, [availableInWithdrawCurrency, method, form]);
 
   const handleDetailsSubmit = (data: FormValues) => {
+    const amountUSD = parseFloat(data.amount) / withdrawRate;
+    if (amountUSD > portfolioUSD + 0.001) {
+      form.setError('amount', {
+        message: `Exceeds available balance of ${formatWithdrawCurrency(availableInWithdrawCurrency)}`,
+      });
+      return;
+    }
     setConfirmedData(data);
     setStep('review');
     setCompliance({ source: false, fica: false, sars: false, sarb: false });
   };
 
   const handleConfirm = async () => {
-    if (!allCompliant || !confirmedData || !user || !firestore || !ethWalletRef) return;
+    if (!allCompliant || !confirmedData || !user || !firestore || !walletsColRef) return;
 
     const ref = generateRef();
     setRefNumber(ref);
     setStep('processing');
 
-    // Stage 1: received
     setStage('received');
     setProgress(12);
     await delay(1800);
 
-    // Stage 2: compliance check + ledger debit
     setStage('compliance');
     setProgress(40);
     const ok = await executeLedgerDebit(confirmedData, ref);
     if (!ok) return;
     await delay(2200);
 
-    // Stage 3: bank transfer initiated
     setStage('transfer');
     setProgress(75);
     await delay(method === 'cardless' ? 2000 : 2800);
 
-    // Stage 4: settled
     setStage('settled');
     setProgress(100);
     await delay(1000);
@@ -251,55 +289,108 @@ export default function CashOutPage() {
 
   const executeLedgerDebit = async (data: FormValues, ref: string): Promise<boolean> => {
     try {
-      const ethPriceUSD  = await fetchUsdPrice('ETH', 3500);
-      const amountInUSD  = parseFloat(data.amount) / withdrawRate;
-      const ethToDeduct  = amountInUSD / ethPriceUSD;
-      const netInUSD     = (fees.net) / withdrawRate;
-      const netEthSent   = netInUSD / ethPriceUSD;
+      // Fetch the freshest prices right at settlement time
+      const symbols = marketCoins.map(c => c.symbol).join(',');
+      const priceRes = await fetch(`/api/prices?symbols=${symbols}&currency=USD`, { cache: 'no-store' });
+      const freshPrices: Record<string, number> = priceRes.ok
+        ? (await priceRes.json() as { prices: Record<string, number> }).prices ?? pricesRef.current
+        : pricesRef.current;
 
-      if (ethToDeduct > ethBalance) {
+      const amountInUSD = parseFloat(data.amount) / withdrawRate;
+
+      // Build coin positions sorted by USD value descending (deduct from largest first)
+      const positions = (walletDocs ?? [])
+        .map(w => {
+          const price = freshPrices[w.currency] ?? livePrices[w.currency] ?? 0;
+          return { symbol: w.currency, balance: w.balance, priceUSD: price, valueUSD: w.balance * price };
+        })
+        .filter(p => p.balance > 0 && p.priceUSD > 0)
+        .sort((a, b) => b.valueUSD - a.valueUSD);
+
+      const totalValueUSD = positions.reduce((sum, p) => sum + p.valueUSD, 0);
+
+      if (amountInUSD > totalValueUSD + 0.001) {
         setStep('details');
-        toast({ title: 'Insufficient Balance', description: 'Your wallet balance is too low for this withdrawal.', variant: 'destructive' });
+        toast({
+          title: 'Insufficient Balance',
+          description: `Your portfolio value is ${formatWithdrawCurrency(totalValueUSD * withdrawRate)}. Please enter a lower amount.`,
+          variant: 'destructive',
+        });
         return false;
       }
 
+      // Calculate how much to deduct from each coin (cascade from largest position)
+      let remainingUSD = amountInUSD;
+      const deductions: { symbol: string; coinAmount: number; priceUSD: number; usdContribution: number }[] = [];
+
+      for (const pos of positions) {
+        if (remainingUSD <= 0) break;
+        const usdFromThisCoin = Math.min(remainingUSD, pos.valueUSD);
+        const coinAmount = usdFromThisCoin / pos.priceUSD;
+        deductions.push({ symbol: pos.symbol, coinAmount, priceUSD: pos.priceUSD, usdContribution: usdFromThisCoin });
+        remainingUSD -= usdFromThisCoin;
+      }
+
+      // Collect doc refs for all affected coins
+      const coinRefs = deductions.map(d => doc(firestore!, 'users', user!.uid, 'wallets', d.symbol));
+
       await runTransaction(firestore!, async (tx) => {
-        const walletSnap = await tx.get(ethWalletRef!);
-        if (!walletSnap.exists()) throw new Error('Wallet not found.');
-        const current = walletSnap.data().balance as number;
-        if (ethToDeduct > current) throw new Error('Insufficient balance.');
+        // Read all affected wallet docs inside the transaction for consistency
+        const snapshots = await Promise.all(coinRefs.map(r => tx.get(r)));
 
-        tx.update(ethWalletRef!, { balance: current - ethToDeduct });
+        // Verify each balance is still sufficient (guard against race conditions)
+        for (let i = 0; i < deductions.length; i++) {
+          const snap = snapshots[i];
+          if (!snap.exists()) throw new Error(`${deductions[i].symbol} wallet not found.`);
+          const current = snap.data().balance as number;
+          if (deductions[i].coinAmount > current + 1e-10) {
+            throw new Error(`Insufficient ${deductions[i].symbol} balance. Please try again.`);
+          }
+        }
 
-        const txRef = doc(collection(ethWalletRef!, 'transactions'));
-        tx.set(txRef, {
-          userId:        user!.uid,
-          type:          'Withdrawal',
-          amount:        ethToDeduct,
-          amountFiat:    parseFloat(data.amount),
-          currency:      withdrawCurrencySymbol,
-          netFiat:       fees.net,
-          price:         ethPriceUSD,
-          timestamp:     serverTimestamp(),
-          status:        'Completed',
-          referenceNo:   ref,
-          method:        data.method,
-          beneficiaryName: data.accountName,
-          ...(data.method === 'eft'      && { bankName: data.bankName, accountNumber: data.accountNumber }),
-          ...(data.method === 'cardless' && { provider: data.cardlessProvider, phone: data.phoneNumber }),
-          ...(data.method === 'swift'    && { iban: data.iban, swiftCode: data.swiftCode }),
-          compliance: {
-            ficaReported: parseFloat(data.amount) >= 24999.99,
-            amlCleared:   true,
-            sarb:         data.method === 'swift',
-          },
-          notes: `Apex Wallet withdrawal — Ref: ${ref}`,
-        });
+        // Apply deductions and write a transaction record for each coin
+        for (let i = 0; i < deductions.length; i++) {
+          const current = snapshots[i].data()!.balance as number;
+          const d = deductions[i];
+          const proportion = d.usdContribution / amountInUSD;
+
+          tx.update(coinRefs[i], { balance: current - d.coinAmount });
+
+          const txRef = doc(collection(coinRefs[i], 'transactions'));
+          tx.set(txRef, {
+            userId:          user!.uid,
+            type:            'Withdrawal',
+            amount:          d.coinAmount,
+            amountFiat:      parseFloat(data.amount) * proportion,
+            currency:        withdrawCurrencySymbol,
+            netFiat:         fees.net * proportion,
+            price:           d.priceUSD,
+            timestamp:       serverTimestamp(),
+            status:          'Completed',
+            referenceNo:     ref,
+            method:          data.method,
+            beneficiaryName: data.accountName,
+            ...(data.method === 'eft'      && { bankName: data.bankName, accountNumber: data.accountNumber }),
+            ...(data.method === 'cardless' && { provider: data.cardlessProvider, phone: data.phoneNumber }),
+            ...(data.method === 'swift'    && { iban: data.iban, swiftCode: data.swiftCode }),
+            compliance: {
+              ficaReported: parseFloat(data.amount) >= 24999.99,
+              amlCleared:   true,
+              sarb:         data.method === 'swift',
+            },
+            notes: `Apex Wallet withdrawal — Ref: ${ref}`,
+          });
+        }
       });
+
       return true;
     } catch (e: any) {
       setStep('details');
-      toast({ title: 'Transaction Error', description: e.message || 'Unable to process withdrawal. Please try again.', variant: 'destructive' });
+      toast({
+        title: 'Transaction Error',
+        description: e.message || 'Unable to process withdrawal. Please try again.',
+        variant: 'destructive',
+      });
       return false;
     }
   };
@@ -307,14 +398,16 @@ export default function CashOutPage() {
   const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
   const STAGES: { id: ProcessingStage; label: string; sub: string; icon: typeof CheckCircle2 }[] = [
-    { id: 'received',   label: 'Request Received',          sub: 'Withdrawal logged on ledger',     icon: FileText     },
-    { id: 'compliance', label: 'Compliance Verified',        sub: 'AML & FICA checks passed',        icon: ShieldCheck  },
-    { id: 'transfer',   label: 'Transfer Initiated',         sub: 'Funds dispatched to beneficiary', icon: Building2    },
-    { id: 'settled',    label: 'Settlement Complete',        sub: 'Funds cleared for payout',        icon: CheckCircle2 },
+    { id: 'received',   label: 'Request Received',     sub: 'Withdrawal logged on ledger',     icon: FileText     },
+    { id: 'compliance', label: 'Compliance Verified',  sub: 'AML & FICA checks passed',        icon: ShieldCheck  },
+    { id: 'transfer',   label: 'Transfer Initiated',   sub: 'Funds dispatched to beneficiary', icon: Building2    },
+    { id: 'settled',    label: 'Settlement Complete',  sub: 'Funds cleared for payout',        icon: CheckCircle2 },
   ];
 
   const stageIdx  = STAGES.findIndex(s => s.id === stage);
   const methodCfg = FEES[method];
+  const amountVal = parseFloat(watchAmount) || 0;
+  const exceedsBalance = amountVal > availableInWithdrawCurrency && availableInWithdrawCurrency > 0;
 
   return (
     <PrivateRoute>
@@ -341,18 +434,19 @@ export default function CashOutPage() {
                   </Badge>
                 )}
                 {(step === 'review' || step === 'processing') && (
-                  <button onClick={() => step === 'review' && setStep('details')} className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
-                    {step === 'review' && <><ArrowLeft className="h-3 w-3" /> Edit details</>}
-                    {step === 'processing' && <span className="text-primary font-medium">Processing…</span>}
+                  <button
+                    onClick={() => step === 'review' && setStep('details')}
+                    className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                  >
+                    {step === 'review'      && <><ArrowLeft className="h-3 w-3" /> Edit details</>}
+                    {step === 'processing'  && <span className="text-primary font-medium">Processing…</span>}
                   </button>
                 )}
               </div>
             </CardHeader>
           </Card>
 
-          {/* ══════════════════════════════════════════════════════════════════
-              STEP 1 — WITHDRAWAL DETAILS
-          ══════════════════════════════════════════════════════════════════ */}
+          {/* ══ STEP 1 — DETAILS ═══════════════════════════════════════════════ */}
           {step === 'details' && (
             <form onSubmit={form.handleSubmit(handleDetailsSubmit)} className="space-y-4">
 
@@ -362,9 +456,9 @@ export default function CashOutPage() {
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Withdrawal Method</p>
                   <div className="grid grid-cols-3 gap-2.5">
                     {([
-                      { id: 'eft',      label: 'EFT / Bank Transfer', sub: 'SA Banks — 1–2 days',     icon: Building2  },
-                      { id: 'cardless', label: 'Cardless ATM Cash',   sub: 'Instant — up to R3,000',  icon: Smartphone },
-                      { id: 'swift',    label: 'International Wire',  sub: 'SWIFT — 3–5 days',        icon: Globe      },
+                      { id: 'eft',      label: 'EFT / Bank Transfer', sub: 'SA Banks — 1–2 days',    icon: Building2  },
+                      { id: 'cardless', label: 'Cardless ATM Cash',   sub: 'Instant — up to R3,000', icon: Smartphone },
+                      { id: 'swift',    label: 'International Wire',  sub: 'SWIFT — 3–5 days',       icon: Globe      },
                     ] as const).map(opt => (
                       <button
                         key={opt.id}
@@ -386,12 +480,11 @@ export default function CashOutPage() {
                 </CardContent>
               </Card>
 
-              {/* Bank details */}
+              {/* Beneficiary details */}
               <Card className="border-border/50 bg-card/60 backdrop-blur-sm">
                 <CardContent className="pt-5 pb-5 space-y-4">
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Beneficiary Details</p>
 
-                  {/* Full legal name */}
                   <div className="space-y-1.5">
                     <Label className="text-[11px] font-medium text-muted-foreground">Full Legal Name & Surname</Label>
                     <Input
@@ -435,7 +528,9 @@ export default function CashOutPage() {
                       {selectedBank && (
                         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/5 border border-accent/20">
                           <Info className="h-3.5 w-3.5 text-accent shrink-0" />
-                          <span className="text-[11px] text-muted-foreground">Universal branch code: <span className="font-mono font-bold text-foreground">{selectedBank.branch}</span> — auto-populated</span>
+                          <span className="text-[11px] text-muted-foreground">
+                            Universal branch code: <span className="font-mono font-bold text-foreground">{selectedBank.branch}</span> — auto-populated
+                          </span>
                         </div>
                       )}
 
@@ -474,6 +569,9 @@ export default function CashOutPage() {
                             <SelectItem value="transmission">Transmission Account</SelectItem>
                           </SelectContent>
                         </Select>
+                        {form.formState.errors.accountType && (
+                          <p className="text-[11px] text-destructive">{form.formState.errors.accountType.message}</p>
+                        )}
                       </div>
                     </>
                   )}
@@ -516,11 +614,13 @@ export default function CashOutPage() {
                       <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
                         <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
                         <p className="text-[11px] text-muted-foreground leading-relaxed">
-                          International wire transfers are subject to South African Reserve Bank (SARB) regulations. Your annual Single Discretionary Allowance is <strong className="text-foreground">R1,000,000</strong>. Amounts exceeding this require a SARB Foreign Capital Allowance approval.
+                          International wire transfers are subject to South African Reserve Bank (SARB) regulations.
+                          Your annual Single Discretionary Allowance is <strong className="text-foreground">R1,000,000</strong>.
+                          Amounts exceeding this require a SARB Foreign Capital Allowance approval.
                         </p>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] font-medium text-muted-foreground">IBAN (International Bank Account Number)</Label>
+                        <Label className="text-[11px] font-medium text-muted-foreground">IBAN</Label>
                         <Input className="h-11 bg-background/50 border-border/60 font-mono text-sm uppercase" placeholder="e.g. GB29 NWBK 6016 1331 9268 19" {...form.register('iban')} />
                         {form.formState.errors.iban && <p className="text-[11px] text-destructive">{form.formState.errors.iban.message}</p>}
                       </div>
@@ -548,14 +648,40 @@ export default function CashOutPage() {
               {/* Amount */}
               <Card className="border-border/50 bg-card/60 backdrop-blur-sm">
                 <CardContent className="pt-5 pb-5 space-y-4">
+
+                  {/* Available balance banner */}
+                  <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-accent/5 border border-accent/20">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="h-3.5 w-3.5 text-accent" />
+                      <span className="text-[11px] text-muted-foreground">Available balance</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-bold text-accent">
+                        {formatWithdrawCurrency(availableInWithdrawCurrency)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleFillMax}
+                        className="text-[10px] font-semibold text-primary hover:text-primary/80 border border-primary/30 rounded px-1.5 py-0.5 transition-colors"
+                      >
+                        MAX
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Withdrawal Amount</p>
                     <span className="text-[11px] text-muted-foreground">
-                      Limits: <span className="text-foreground font-medium">{withdrawCurrencySymbol} {methodCfg.minAmount.toLocaleString()} – {withdrawCurrencySymbol} {methodCfg.maxAmount.toLocaleString()}</span>
+                      Limits: <span className="text-foreground font-medium">
+                        {withdrawCurrencySymbol} {methodCfg.minAmount.toLocaleString()} – {withdrawCurrencySymbol} {methodCfg.maxAmount.toLocaleString()}
+                      </span>
                     </span>
                   </div>
 
-                  <div className="flex h-14 rounded-xl border border-border/60 bg-background/50 overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
+                  <div className={cn(
+                    'flex h-14 rounded-xl border overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0',
+                    exceedsBalance ? 'border-destructive/60 bg-destructive/5' : 'border-border/60 bg-background/50',
+                  )}>
                     <Popover open={currencyPickerOpen} onOpenChange={setCurrencyPickerOpen}>
                       <PopoverTrigger asChild>
                         <button
@@ -599,18 +725,25 @@ export default function CashOutPage() {
                       {...form.register('amount')}
                     />
                   </div>
-                  {form.formState.errors.amount && (
+
+                  {exceedsBalance && (
+                    <p className="text-[11px] text-destructive flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      Amount exceeds your available balance of {formatWithdrawCurrency(availableInWithdrawCurrency)}
+                    </p>
+                  )}
+                  {form.formState.errors.amount && !exceedsBalance && (
                     <p className="text-[11px] text-destructive">{form.formState.errors.amount.message}</p>
                   )}
 
-                  {parseFloat(watchAmount) >= methodCfg.minAmount && (
+                  {amountVal >= methodCfg.minAmount && amountVal <= availableInWithdrawCurrency && (
                     <div className="rounded-xl border border-border/50 bg-background/30 divide-y divide-border/30">
                       <div className="flex justify-between items-center px-4 py-2.5 text-[12px]">
                         <span className="text-muted-foreground">Gross amount</span>
-                        <span className="font-medium">{formatWithdrawCurrency(parseFloat(watchAmount))}</span>
+                        <span className="font-medium">{formatWithdrawCurrency(amountVal)}</span>
                       </div>
                       <div className="flex justify-between items-center px-4 py-2.5 text-[12px]">
-                        <span className="text-muted-foreground">Network / processing fee</span>
+                        <span className="text-muted-foreground">Network fee</span>
                         <span className="text-destructive/80">− {formatWithdrawCurrency(fees.networkFee)}</span>
                       </div>
                       <div className="flex justify-between items-center px-4 py-2.5 text-[12px]">
@@ -634,24 +767,19 @@ export default function CashOutPage() {
               <Button
                 type="submit"
                 className="w-full h-12 font-semibold tracking-wide"
-                disabled={!form.formState.isValid}
+                disabled={!form.formState.isValid || exceedsBalance || availableInWithdrawCurrency <= 0}
               >
                 Review Withdrawal <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </form>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════════
-              STEP 2 — REVIEW & COMPLIANCE
-          ══════════════════════════════════════════════════════════════════ */}
+          {/* ══ STEP 2 — REVIEW & COMPLIANCE ═══════════════════════════════════ */}
           {step === 'review' && confirmedData && (
             <div className="space-y-4">
-
-              {/* Summary */}
               <Card className="border-border/50 bg-card/60 backdrop-blur-sm">
                 <CardContent className="pt-5 pb-5 space-y-3">
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Withdrawal Summary</p>
-
                   {[
                     ['Method', method === 'eft' ? 'EFT — South African Bank Transfer' : method === 'cardless' ? 'Cardless ATM Cash' : 'International SWIFT Wire'],
                     ['Beneficiary', confirmedData.accountName],
@@ -686,27 +814,27 @@ export default function CashOutPage() {
                 </CardContent>
               </Card>
 
-              {/* FICA notice for large amounts */}
               {parseFloat(confirmedData.amount) >= 25000 && (
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
                   <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-[12px] font-semibold text-amber-500">FICA Reporting Threshold Reached</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                      In accordance with Section 29 of the Financial Intelligence Centre Act (FICA) No. 38 of 2001, this transaction will be reported to the Financial Intelligence Centre (FIC) as it meets or exceeds the R25,000 threshold.
+                      In accordance with Section 29 of the Financial Intelligence Centre Act (FICA) No. 38 of 2001,
+                      this transaction will be reported to the Financial Intelligence Centre (FIC) as it meets or
+                      exceeds the R25,000 threshold.
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Compliance declarations */}
               <Card className="border-border/50 bg-card/60 backdrop-blur-sm">
                 <CardContent className="pt-5 pb-5 space-y-4">
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Regulatory Declarations</p>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    In compliance with South African law and international financial regulations, you must confirm each declaration below before proceeding.
+                    In compliance with South African law and international financial regulations, you must confirm
+                    each declaration below before proceeding.
                   </p>
-
                   {([
                     {
                       key: 'source' as const,
@@ -727,7 +855,7 @@ export default function CashOutPage() {
                       key: 'sarb' as const,
                       title: 'SARB Exchange Control Regulations',
                       text: method === 'swift'
-                        ? 'I confirm that this international transfer is within my permitted SARB Single Discretionary Allowance (R1,000,000 per calendar year) or that I have obtained a SARB Foreign Capital Allowance approval for amounts exceeding this limit, as required under the South African Reserve Bank\'s Currency and Exchanges Act No. 9 of 1933.'
+                        ? "I confirm that this international transfer is within my permitted SARB Single Discretionary Allowance (R1,000,000 per calendar year) or that I have obtained a SARB Foreign Capital Allowance approval for amounts exceeding this limit, as required under the South African Reserve Bank's Currency and Exchanges Act No. 9 of 1933."
                         : 'I confirm that this domestic transaction complies with applicable South African Reserve Bank (SARB) regulations and exchange control rules.',
                     },
                   ]).map(item => (
@@ -757,14 +885,13 @@ export default function CashOutPage() {
               </Button>
 
               <p className="text-[10px] text-muted-foreground text-center leading-relaxed px-4">
-                By confirming, you agree to Apex Wallet's Terms of Service and Privacy Policy. This withdrawal is final and cannot be reversed once processed.
+                By confirming, you agree to Apex Wallet's Terms of Service and Privacy Policy.
+                This withdrawal is final and cannot be reversed once processed.
               </p>
             </div>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════════
-              STEP 3 — PROCESSING
-          ══════════════════════════════════════════════════════════════════ */}
+          {/* ══ STEP 3 — PROCESSING ════════════════════════════════════════════ */}
           {step === 'processing' && (
             <Card className="border-border/50 bg-card/60 backdrop-blur-sm">
               <CardContent className="pt-8 pb-8">
@@ -773,21 +900,25 @@ export default function CashOutPage() {
                     <Loader2 className="h-7 w-7 text-primary animate-spin" />
                   </div>
                   <h3 className="text-base font-bold">Processing Your Withdrawal</h3>
-                  <p className="text-[12px] text-muted-foreground mt-1">Reference: <span className="font-mono font-semibold text-foreground">{refNumber}</span></p>
+                  <p className="text-[12px] text-muted-foreground mt-1">
+                    Reference: <span className="font-mono font-semibold text-foreground">{refNumber}</span>
+                  </p>
                 </div>
 
                 <Progress value={progress} className="h-1.5 mb-8 bg-muted/30" />
 
                 <div className="space-y-4">
                   {STAGES.map((s, idx) => {
-                    const passed  = stageIdx >= idx;
-                    const active  = stageIdx === idx;
+                    const passed = stageIdx >= idx;
+                    const active = stageIdx === idx;
                     return (
-                      <div key={s.id} className={cn('flex items-center gap-4 p-3.5 rounded-xl transition-all duration-500',
-                        active  ? 'bg-primary/10 border border-primary/20' :
-                        passed  ? 'bg-accent/5  border border-accent/15'   : 'opacity-40'
+                      <div key={s.id} className={cn(
+                        'flex items-center gap-4 p-3.5 rounded-xl transition-all duration-500',
+                        active ? 'bg-primary/10 border border-primary/20' :
+                        passed ? 'bg-accent/5  border border-accent/15'   : 'opacity-40'
                       )}>
-                        <div className={cn('h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-all',
+                        <div className={cn(
+                          'h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-all',
                           active ? 'bg-primary text-primary-foreground' :
                           passed ? 'bg-accent/20 text-accent'           : 'bg-muted/30 text-muted-foreground'
                         )}>
@@ -806,9 +937,7 @@ export default function CashOutPage() {
             </Card>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════════
-              STEP 4 — SUCCESS
-          ══════════════════════════════════════════════════════════════════ */}
+          {/* ══ STEP 4 — SUCCESS ═══════════════════════════════════════════════ */}
           {step === 'success' && confirmedData && (
             <Card className="border-border/50 bg-card/60 backdrop-blur-sm">
               <CardContent className="pt-8 pb-8">
@@ -820,14 +949,12 @@ export default function CashOutPage() {
                   <p className="text-[12px] text-muted-foreground">Your request has been accepted and is being processed</p>
                 </div>
 
-                {/* Reference block */}
                 <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-6 text-center">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Reference Number</p>
                   <p className="font-mono font-bold text-lg tracking-widest text-primary">{refNumber}</p>
                   <p className="text-[10px] text-muted-foreground mt-1">Keep this reference for your records and any queries</p>
                 </div>
 
-                {/* Details */}
                 <div className="rounded-xl border border-border/40 divide-y divide-border/30 mb-6">
                   {[
                     ['Amount Submitted', formatWithdrawCurrency(parseFloat(confirmedData.amount))],
@@ -843,23 +970,27 @@ export default function CashOutPage() {
                   ))}
                 </div>
 
-                {/* Tax reminder */}
                 <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/15 mb-6">
                   <Info className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-[11px] font-semibold text-amber-500">SARS Tax Reminder</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                      Please retain this reference number and your transaction record for your tax return. Cryptocurrency gains may be subject to income tax or capital gains tax (CGT). Consult a registered tax practitioner for advice specific to your situation.
+                      Please retain this reference number and your transaction record for your tax return.
+                      Cryptocurrency gains may be subject to income tax or capital gains tax (CGT).
+                      Consult a registered tax practitioner for advice specific to your situation.
                     </p>
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <Button onClick={() => {
-                    setStep('details');
-                    form.reset();
-                    setCompliance({ source: false, fica: false, sars: false, sarb: false });
-                  }} className="w-full h-11 font-semibold">
+                  <Button
+                    onClick={() => {
+                      setStep('details');
+                      form.reset();
+                      setCompliance({ source: false, fica: false, sars: false, sarb: false });
+                    }}
+                    className="w-full h-11 font-semibold"
+                  >
                     New Withdrawal
                   </Button>
                   <p className="text-center text-[10px] text-muted-foreground">
@@ -875,7 +1006,10 @@ export default function CashOutPage() {
             <div className="px-1 pb-2 space-y-1.5">
               <Separator className="opacity-20" />
               <p className="text-[10px] text-muted-foreground/60 leading-relaxed text-center">
-                Apex Wallet operates in accordance with FICA No. 38 of 2001, the Currency and Exchanges Act No. 9 of 1933 (SARB), the Income Tax Act No. 58 of 1962 (SARS), POCA No. 121 of 1998, and applicable FATF guidelines. All withdrawals are subject to compliance review. Apex Wallet is not a registered bank. Fiat disbursements are facilitated through licensed payment service providers.
+                Apex Wallet operates in accordance with FICA No. 38 of 2001, the Currency and Exchanges Act No. 9 of 1933 (SARB),
+                the Income Tax Act No. 58 of 1962 (SARS), POCA No. 121 of 1998, and applicable FATF guidelines.
+                All withdrawals are subject to compliance review. Apex Wallet is not a registered bank.
+                Fiat disbursements are facilitated through licensed payment service providers.
               </p>
             </div>
           )}
