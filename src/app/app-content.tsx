@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/sidebar';
@@ -20,7 +19,6 @@ export default function AppContent({
 }) {
   const pathname = usePathname();
   const { isAdmin } = useWallet();
-  const [mounted, setMounted] = useState(false);
   const firestore = useFirestore();
 
   const protocolSettingsRef = useMemoFirebase(() => {
@@ -30,14 +28,6 @@ export default function AppContent({
 
   const { data: protocolStatus } = useDoc<{ isHalted: boolean }>(protocolSettingsRef);
   const isProtocolHalted = protocolStatus?.isHalted ?? false;
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return null;
-  }
 
   const isPublicPage = pathname === '/login';
 
