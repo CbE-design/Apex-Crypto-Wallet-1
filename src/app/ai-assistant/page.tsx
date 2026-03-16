@@ -6,8 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supportAgent } from '@/ai/flows/support-agent-flow';
 import {
-  Bot, Send, Loader2, User, Sparkles, ChevronRight,
-  ShieldCheck, Clock, Zap,
+  Bot, Send, Loader2, User, ChevronRight,
+  ShieldCheck, Clock, MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PrivateRoute } from '@/components/private-route';
@@ -23,8 +23,8 @@ const QUICK_QUESTIONS = [
   'How do I send crypto to another wallet?',
   'How does the Cash Out feature work?',
   'How do I set up a price alert?',
-  'What does "Pending" transaction status mean?',
-  'How do I back up my seed phrase?',
+  'What does a "Pending" transaction status mean?',
+  'How do I back up my recovery phrase?',
 ];
 
 export default function AIAssistantPage() {
@@ -61,7 +61,7 @@ export default function AIAssistantPage() {
       console.error('Support agent error:', err);
       setMessages([...updatedMessages, {
         role: 'model',
-        content: "I'm having trouble connecting right now. Please try again in a moment, or email us at support@apexwallet.io.",
+        content: "We're unable to connect at this moment. Please try again shortly, or reach our team directly at support@apexwallet.io.",
         timestamp: new Date(),
       }]);
       toast({ title: 'Connection issue', description: 'Could not reach the support agent.', variant: 'destructive' });
@@ -85,53 +85,55 @@ export default function AIAssistantPage() {
 
   return (
     <PrivateRoute>
-      <div className="flex flex-col h-[calc(100vh-10rem)] md:h-[calc(100vh-8rem)] max-w-3xl mx-auto">
+      {/* Fill all available layout height */}
+      <div className="flex flex-col flex-1 min-h-0 max-w-3xl mx-auto w-full">
 
-        {/* ── Chat area ── */}
-        <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+        {/* ── Chat / welcome area ── */}
+        <div className="flex-1 overflow-y-auto min-h-0">
 
           {/* Welcome state */}
           {isEmpty && (
-            <div className="flex flex-col items-center justify-center h-full gap-8 py-8">
+            <div className="flex flex-col items-center justify-center min-h-full gap-6 py-8 px-2">
+
               {/* Avatar */}
-              <div className="relative">
-                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary/30 via-primary/20 to-accent/20 border border-primary/20 flex items-center justify-center shadow-lg shadow-primary/10">
-                  <Bot className="h-10 w-10 text-primary" />
+              <div className="relative shrink-0">
+                <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/30 via-primary/20 to-accent/20 border border-primary/20 flex items-center justify-center shadow-lg shadow-primary/10">
+                  <Bot className="h-8 w-8 text-primary" />
                 </div>
-                <span className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-accent border-2 border-background flex items-center justify-center">
-                  <Sparkles className="h-2.5 w-2.5 text-background" />
-                </span>
+                <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-accent border-2 border-background" />
               </div>
 
-              {/* Intro text */}
-              <div className="text-center max-w-sm">
-                <h2 className="text-xl font-bold text-foreground mb-2">Apex Support</h2>
+              {/* Heading & description */}
+              <div className="text-center max-w-md">
+                <h2 className="text-lg font-bold text-foreground mb-1.5 tracking-tight">
+                  Apex Client Support
+                </h2>
                 <p className="text-[13px] text-muted-foreground leading-relaxed">
-                  I'm your 24/7 AI support agent — trained on every feature of Apex Wallet.
-                  Ask me anything, from how to swap assets to backing up your seed phrase.
+                  Your dedicated support channel, available around the clock.
+                  Ask us anything — from platform navigation to account management and security guidance.
                 </p>
               </div>
 
-              {/* Trust badges */}
-              <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+              {/* Trust indicators */}
+              <div className="flex items-center gap-5 text-[11px] text-muted-foreground">
                 <div className="flex items-center gap-1.5">
-                  <Zap className="h-3 w-3 text-accent" />
+                  <MessageSquare className="h-3 w-3 text-accent" />
                   <span>Instant responses</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <ShieldCheck className="h-3 w-3 text-accent" />
-                  <span>Private & secure</span>
+                  <span>Confidential</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Clock className="h-3 w-3 text-accent" />
-                  <span>Available 24/7</span>
+                  <span>24 / 7</span>
                 </div>
               </div>
 
               {/* Quick questions */}
               <div className="w-full max-w-lg">
-                <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-3 text-center">
-                  Common questions
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2.5 text-center">
+                  Frequently asked
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {QUICK_QUESTIONS.map((q) => (
@@ -151,7 +153,7 @@ export default function AIAssistantPage() {
 
           {/* Messages */}
           {!isEmpty && (
-            <div className="py-4 space-y-5">
+            <div className="py-4 space-y-5 px-1">
               {messages.map((msg, i) => (
                 <div
                   key={i}
@@ -190,7 +192,7 @@ export default function AIAssistantPage() {
                 </div>
               ))}
 
-              {/* Loading indicator */}
+              {/* Typing indicator */}
               {isLoading && (
                 <div className="flex items-end gap-3">
                   <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary/30 to-accent/20 border border-primary/20 flex items-center justify-center shrink-0">
@@ -211,11 +213,12 @@ export default function AIAssistantPage() {
           )}
         </div>
 
-        {/* ── Input bar ── */}
-        <div className="pt-4 border-t border-border/40 mt-2">
-          {/* Quick questions (compact) shown after first message */}
+        {/* ── Input bar — always pinned to the bottom ── */}
+        <div className="shrink-0 pt-3 border-t border-border/40 mt-2">
+
+          {/* Compact quick-question chips after first message */}
           {!isEmpty && (
-            <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-none">
+            <div className="flex gap-2 overflow-x-auto pb-2.5 scrollbar-none">
               {QUICK_QUESTIONS.slice(0, 4).map((q) => (
                 <button
                   key={q}
@@ -234,7 +237,7 @@ export default function AIAssistantPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask me anything about Apex Wallet..."
+              placeholder="Type your question here..."
               disabled={isLoading}
               rows={1}
               className="flex-1 resize-none min-h-[42px] max-h-32 rounded-xl bg-card border-border/60 focus:border-primary/40 text-[13px] py-2.5 leading-relaxed"
@@ -253,7 +256,8 @@ export default function AIAssistantPage() {
           </div>
 
           <p className="text-[10px] text-muted-foreground mt-2 text-center">
-            For urgent security issues email <span className="text-foreground/60">security@apexwallet.io</span>
+            For urgent account or security matters, contact{' '}
+            <span className="text-foreground/60">security@apexwallet.io</span>
           </p>
         </div>
 
