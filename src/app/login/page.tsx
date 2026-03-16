@@ -255,20 +255,20 @@ export default function ConnectWalletPage() {
           </DialogHeader>
 
           <div className="my-2">
-            <div className={cn(
-              'relative rounded-xl border border-border/60 bg-muted/30 p-4 transition-all',
-              !mnemonicVisible && 'select-none',
-            )}>
+            <div
+              className={cn(
+                'relative rounded-xl border border-border/60 bg-muted/30 p-4 transition-all cursor-pointer',
+                !mnemonicVisible && 'select-none',
+              )}
+              onClick={() => setMnemonicVisible(v => !v)}
+            >
               {!mnemonicVisible && (
-                <div className="absolute inset-0 rounded-xl bg-card/80 backdrop-blur-md flex flex-col items-center justify-center z-10 gap-2">
+                <div className="absolute inset-0 rounded-xl bg-card/80 backdrop-blur-md flex flex-col items-center justify-center z-10 gap-2 pointer-events-none">
                   <EyeOff className="h-5 w-5 text-muted-foreground" />
                   <p className="text-[12px] text-muted-foreground">Click to reveal</p>
                 </div>
               )}
-              <div
-                className="grid grid-cols-3 gap-2 cursor-pointer"
-                onClick={() => setMnemonicVisible(v => !v)}
-              >
+              <div className="grid grid-cols-3 gap-2">
                 {words.map((word, i) => (
                   <div key={i} className="flex items-center gap-1.5 bg-background/60 rounded-lg px-2 py-1.5 border border-border/40">
                     <span className="text-[10px] text-muted-foreground w-4 text-right flex-shrink-0">{i + 1}.</span>
