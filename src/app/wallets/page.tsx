@@ -17,10 +17,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import Image from 'next/image';
 import Link from 'next/link';
 import QRCode from 'qrcode';
-import { getLivePrices, getLive24hChanges } from '@/services/crypto-service';
 import { useCurrency } from '@/context/currency-context';
 import { cn } from '@/lib/utils';
 import { marketCoins } from '@/lib/data';
+
+async function fetchPricesFromApi(
+  symbols: string[],
+  currency: string,
+): Promise<{ prices: Record<string, number>; changes: Record<string, number> }> {
+  const res = await fetch(
+    `/api/prices?symbols=${symbols.join(',')}&currency=${currency}`,
+    { cache: 'no-store' },
+  );
+  if (!res.ok) throw new Error('Price fetch failed');
+  return res.json() as Promise<{ prices: Record<string, number>; changes: Record<string, number> }>;
+}
 
 interface WalletDoc {
   id: string;
@@ -43,7 +54,9 @@ export default function MyWalletsPage() {
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [liveChanges, setLiveChanges] = useState<Record<string, number>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const initialPricesFetched = useRef(false);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -62,23 +75,35 @@ export default function MyWalletsPage() {
       setPricesLoading(false);
       return;
     }
+
     const symbols = symbolsKey.split(',');
-    if (!initialPricesFetched.current) {
-      setPricesLoading(true);
+
+    async function loadPrices(showSkeleton: boolean) {
+      if (showSkeleton) setPricesLoading(true);
+      try {
+        const { prices, changes } = await fetchPricesFromApi(symbols, 'USD');
+        setLivePrices(prices);
+        setLiveChanges(changes);
+        setLastUpdated(new Date());
+        initialPricesFetched.current = true;
+      } catch {
+        // Keep existing prices on error
+      } finally {
+        setPricesLoading(false);
+      }
     }
-    let cancelled = false;
-    Promise.all([
-      getLivePrices(symbols, 'USD'),
-      getLive24hChanges(symbols),
-    ]).then(([prices, changes]) => {
-      if (cancelled) return;
-      setLivePrices(prices);
-      setLiveChanges(changes);
-      initialPricesFetched.current = true;
-    }).catch(() => {}).finally(() => {
-      if (!cancelled) setPricesLoading(false);
-    });
-    return () => { cancelled = true; };
+
+    loadPrices(!initialPricesFetched.current);
+
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    pollingIntervalRef.current = setInterval(() => loadPrices(false), 60_000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
   }, [symbolsKey]);
 
   useEffect(() => {
@@ -158,6 +183,11 @@ export default function MyWalletsPage() {
             <p className="text-sm text-muted-foreground">Manage your cryptocurrency holdings</p>
           </div>
           <div className="flex items-center gap-4">
+            {lastUpdated && (
+              <p className="text-[11px] text-muted-foreground/60 hidden sm:block">
+                Prices updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
             {!pricesLoading && totalPortfolioUSD > 0 && (
               <div className="text-right">
                 <p className="text-xs text-muted-foreground font-medium">Total Portfolio</p>
