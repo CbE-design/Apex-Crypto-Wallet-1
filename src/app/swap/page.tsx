@@ -11,14 +11,23 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeftRight, Repeat, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { CryptoIcon } from '@/components/crypto-icon';
-import { getExchangeRate } from '@/ai/flows/get-exchange-rate-flow';
 import { cn } from '@/lib/utils';
 import { PrivateRoute } from '@/components/private-route';
 import { useWallet } from '@/context/wallet-context';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { marketCoins, portfolioAssets as staticAssets } from '@/lib/data';
-import { getLivePrices } from '@/services/crypto-service';
+
+async function getPrices(symbols: string[]): Promise<Record<string, number>> {
+  try {
+    const res = await fetch(`/api/prices?symbols=${symbols.join(',')}&currency=USD`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('price fetch failed');
+    const { prices } = await res.json() as { prices: Record<string, number>; changes: Record<string, number> };
+    return prices;
+  } catch {
+    return {};
+  }
+}
 
 const allAssets = [...staticAssets, ...marketCoins].reduce((acc, current) => {
     if (!acc.find(item => item.symbol === current.symbol)) {
@@ -58,33 +67,34 @@ export default function SwapPage() {
 
 
   useEffect(() => {
-    async function fetchRate() {
-      if (!fromAsset || !toAsset) return;
-      if (fromAsset === toAsset) {
-        setExchangeRate(1);
-        return;
-      }
+    if (!fromAsset || !toAsset) return;
+    if (fromAsset === toAsset) { setExchangeRate(1); return; }
 
-      setIsLoadingRate(true);
-      setExchangeRate(null);
-      try {
-        const result = await getExchangeRate({ fromAsset, toAsset });
-        setExchangeRate(result.rate);
-      } catch (error) {
-        console.error("Failed to fetch exchange rate:", error);
-        toast({
-          title: 'Error Fetching Rate',
-          description: 'Could not retrieve live exchange rate. Please try again.',
-          variant: 'destructive',
-        });
-        setExchangeRate(0);
-      } finally {
-        setIsLoadingRate(false);
-      }
-    }
+    let cancelled = false;
+    setIsLoadingRate(true);
+    setExchangeRate(null);
 
-    fetchRate();
-  }, [fromAsset, toAsset, toast]);
+    getPrices([fromAsset, toAsset]).then(prices => {
+      if (cancelled) return;
+      const fromPrice = prices[fromAsset];
+      const toPrice   = prices[toAsset];
+      if (fromPrice && toPrice && toPrice > 0) {
+        setExchangeRate(fromPrice / toPrice);
+      } else {
+        const fallbackFrom = staticAssets.find(a => a.symbol === fromAsset)?.priceUSD
+          || marketCoins.find(c => c.symbol === fromAsset)?.priceUSD || 0;
+        const fallbackTo = staticAssets.find(a => a.symbol === toAsset)?.priceUSD
+          || marketCoins.find(c => c.symbol === toAsset)?.priceUSD || 1;
+        setExchangeRate(fallbackTo > 0 ? fallbackFrom / fallbackTo : 0);
+      }
+    }).catch(() => {
+      if (!cancelled) setExchangeRate(0);
+    }).finally(() => {
+      if (!cancelled) setIsLoadingRate(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [fromAsset, toAsset]);
 
 
   const toAmount = useMemo(() => {
@@ -117,6 +127,13 @@ export default function SwapPage() {
     setStatus('processing');
 
     try {
+        // Fetch prices BEFORE entering the Firestore transaction
+        const livePriceMap = await getPrices([fromAsset, toAsset]);
+        const fromAssetPrice = livePriceMap[fromAsset] || staticAssets.find(a => a.symbol === fromAsset)?.priceUSD || 0;
+        const toAssetPrice   = livePriceMap[toAsset]   || marketCoins.find(m => m.symbol === toAsset)?.priceUSD || 0;
+
+        const toAmountNum = parseFloat(toAmount);
+
         await runTransaction(firestore, async (transaction) => {
             const fromWalletRef = doc(firestore, 'users', user.uid, 'wallets', fromAsset);
             const fromWalletDoc = await transaction.get(fromWalletRef);
@@ -131,7 +148,6 @@ export default function SwapPage() {
             const toWalletRef = doc(firestore, 'users', user.uid, 'wallets', toAsset);
             const toWalletDoc = await transaction.get(toWalletRef);
 
-            const toAmountNum = parseFloat(toAmount);
             const currentToBalance = toWalletDoc.exists() ? toWalletDoc.data().balance : 0;
             const newToBalance = currentToBalance + toAmountNum;
             
@@ -142,10 +158,6 @@ export default function SwapPage() {
                 userId: user.uid,
             }, { merge: true });
 
-            const livePriceMap = await getLivePrices([fromAsset, toAsset], 'USD');
-            const fromAssetPrice = livePriceMap[fromAsset] || staticAssets.find(a => a.symbol === fromAsset)?.priceUSD || 0;
-            const toAssetPrice = livePriceMap[toAsset] || marketCoins.find(m => m.symbol === toAsset)?.priceUSD || 0;
-            
             const sellTxLogRef = doc(collection(fromWalletRef, 'transactions'));
             transaction.set(sellTxLogRef, {
                 userId: user.uid,

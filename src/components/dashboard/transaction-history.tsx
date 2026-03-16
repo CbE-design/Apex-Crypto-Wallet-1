@@ -22,7 +22,6 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query, orderBy, limit } from 'firebase/firestore'
 import { useCurrency } from "@/context/currency-context";
 import { CryptoIcon } from "../crypto-icon";
-import { getLivePrices } from '@/services/crypto-service';
 import { Loader2, Activity, ArrowUpRight, ArrowDownLeft, Inbox } from "lucide-react";
 import { marketCoins } from '@/lib/data';
 
@@ -109,8 +108,9 @@ export function TransactionHistory() {
   React.useEffect(() => {
     const symbols = [...new Set(allTransactions.map(t => t.currency).filter(Boolean))] as string[];
     if (symbols.length === 0) return;
-    getLivePrices(symbols, 'USD')
-      .then(setLivePrices)
+    fetch(`/api/prices?symbols=${symbols.join(',')}&currency=USD`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(({ prices }: { prices: Record<string, number> }) => setLivePrices(prices))
       .catch(() => {});
   }, [allTransactions]);
 

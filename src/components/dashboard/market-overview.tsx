@@ -21,7 +21,6 @@ import { CryptoIcon } from "../crypto-icon"
 import { cn } from "@/lib/utils"
 import { ArrowDown, ArrowUp, TrendingUp } from "lucide-react"
 import { useCurrency } from "@/context/currency-context"
-import { getLivePrices, getLive24hChanges } from '@/services/crypto-service';
 import type { MarketCoin } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
@@ -37,15 +36,20 @@ export function MarketOverview() {
   const fetchMarketData = async () => {
     const symbols = staticMarketCoins.map(c => c.symbol);
     try {
-      const [livePrices, liveChanges] = await Promise.all([
-        getLivePrices(symbols, currency.symbol),
-        getLive24hChanges(symbols),
-      ]);
+      const res = await fetch(
+        `/api/prices?symbols=${symbols.join(',')}&currency=${currency.symbol}`,
+        { cache: 'no-store' },
+      );
+      if (!res.ok) throw new Error('price fetch failed');
+      const { prices, changes } = await res.json() as {
+        prices: Record<string, number>;
+        changes: Record<string, number>;
+      };
 
       setMarketData(staticMarketCoins.map(coin => ({
         ...coin,
-        priceUSD: livePrices[coin.symbol] ?? coin.priceUSD * currency.rate,
-        change24h: liveChanges[coin.symbol] ?? coin.change24h,
+        priceUSD: prices[coin.symbol] ?? coin.priceUSD * currency.rate,
+        change24h: changes[coin.symbol] ?? coin.change24h,
       })));
       setLastUpdated(new Date());
     } catch {

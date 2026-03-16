@@ -22,12 +22,22 @@ import { useWallet } from '@/context/wallet-context';
 import { useCurrency } from '@/context/currency-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, runTransaction, collection, serverTimestamp } from 'firebase/firestore';
-import { getLivePrices } from '@/services/crypto-service';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+
+async function fetchUsdPrice(symbol: string, fallback: number): Promise<number> {
+  try {
+    const res = await fetch(`/api/prices?symbols=${symbol}&currency=USD`, { cache: 'no-store' });
+    if (!res.ok) return fallback;
+    const { prices } = await res.json() as { prices: Record<string, number> };
+    return prices[symbol] || fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type WithdrawalMethod = 'eft' | 'cardless' | 'swift';
@@ -208,8 +218,7 @@ export default function CashOutPage() {
 
   const executeLedgerDebit = async (data: FormValues, ref: string): Promise<boolean> => {
     try {
-      const prices = await getLivePrices(['ETH'], 'USD');
-      const ethPriceUSD  = prices.ETH || 3500;
+      const ethPriceUSD  = await fetchUsdPrice('ETH', 3500);
       const amountInUSD  = parseFloat(data.amount) / currency.rate;
       const ethToDeduct  = amountInUSD / ethPriceUSD;
       const netInUSD     = (fees.net) / currency.rate;

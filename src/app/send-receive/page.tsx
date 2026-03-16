@@ -81,11 +81,12 @@ export default function SendReceivePage() {
 
   useEffect(() => {
     if (!selectedAsset) return;
-    import('@/services/crypto-service').then(({ getLivePrices }) => {
-      getLivePrices([selectedAsset], 'USD').then(prices => {
+    fetch(`/api/prices?symbols=${selectedAsset}&currency=USD`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(({ prices }: { prices: Record<string, number> }) => {
         setLiveAssetPriceUSD(prev => ({ ...prev, [selectedAsset]: prices[selectedAsset] || 0 }));
-      }).catch(() => {});
-    });
+      })
+      .catch(() => {});
   }, [selectedAsset]);
 
   useEffect(() => {

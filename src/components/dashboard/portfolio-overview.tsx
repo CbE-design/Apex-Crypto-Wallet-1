@@ -22,7 +22,6 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrency } from '@/context/currency-context';
-import { getLivePrices, getLive24hChanges } from '@/services/crypto-service';
 import type { PortfolioAsset } from '@/lib/types';
 import { TrendingUp, Wallet } from 'lucide-react';
 
@@ -69,14 +68,19 @@ export function PortfolioOverview() {
       }
       setIsPriceLoading(prev => prev && Object.keys(livePrices).length === 0);
       try {
-        const [prices, changes] = await Promise.all([
-          getLivePrices(portfolioSymbols, 'USD'),
-          getLive24hChanges(portfolioSymbols),
-        ]);
+        const res = await fetch(
+          `/api/prices?symbols=${portfolioSymbols.join(',')}&currency=USD`,
+          { cache: 'no-store' },
+        );
+        if (!res.ok) throw new Error('price fetch failed');
+        const { prices, changes } = await res.json() as {
+          prices: Record<string, number>;
+          changes: Record<string, number>;
+        };
         setLivePrices(prices);
         setLiveChanges(changes);
-      } catch (error) {
-        console.error("Failed to fetch live prices for portfolio", error);
+      } catch {
+        // Keep existing prices on error
       } finally {
         setIsPriceLoading(false);
       }
