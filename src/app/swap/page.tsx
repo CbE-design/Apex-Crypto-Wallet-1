@@ -169,11 +169,12 @@ export default function SwapPage() {
         setStatus('success');
         toast({ title: 'Swap Successful', description: `Swapped ${fromAmount} ${fromAsset} for ${toAmount} ${toAsset}.`});
 
-    } catch (error: any) {
-        console.error("Swap failed:", error);
+    } catch (err) {
+        console.error("Swap failed:", err);
+        const message = err instanceof Error ? err.message : 'An unknown error occurred during the swap.';
         setStatus('failed');
-        setErrorMessage(error.message || 'An unknown error occurred during the swap.');
-        toast({ title: 'Swap Failed', description: error.message || 'An unknown error occurred during the swap.', variant: 'destructive'});
+        setErrorMessage(message);
+        toast({ title: 'Swap Failed', description: message, variant: 'destructive'});
     }
   }
 

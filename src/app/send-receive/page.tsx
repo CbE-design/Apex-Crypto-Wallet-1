@@ -162,8 +162,9 @@ export default function SendReceivePage() {
         toast({ title: 'Transfer Complete', description: `Successfully sent ${data.amount} ${data.asset}.` });
         reset({ asset: selectedAsset, amount: '', recipientAddress: '' });
 
-    } catch (error: any) {
-        toast({ title: 'Transfer Failed', description: error.message, variant: 'destructive' });
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+        toast({ title: 'Transfer Failed', description: message, variant: 'destructive' });
     }
   };
 

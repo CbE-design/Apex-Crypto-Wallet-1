@@ -89,11 +89,11 @@ export default function MyWalletsPage() {
   };
 
   const SYNC_STEPS: Record<string, string[]> = {
-    ETH: ['Connecting to network...', 'Fetching latest block...', 'Verifying balance...', 'Finalizing...'],
-    BTC: ['Connecting to network...', 'Syncing headers...', 'Verifying balance...', 'Finalizing...'],
-    SOL: ['Connecting to network...', 'Fetching account data...', 'Verifying balance...', 'Finalizing...'],
-    ADA: ['Connecting to network...', 'Fetching epoch data...', 'Verifying balance...', 'Finalizing...'],
-    DEFAULT: ['Connecting to network...', 'Verifying balance...', 'Finalizing...'],
+    ETH: ['Connecting...', 'Checking for updates...', 'Verifying balance...', 'Almost done...'],
+    BTC: ['Connecting...', 'Checking for updates...', 'Verifying balance...', 'Almost done...'],
+    SOL: ['Connecting...', 'Checking for updates...', 'Verifying balance...', 'Almost done...'],
+    ADA: ['Connecting...', 'Checking for updates...', 'Verifying balance...', 'Almost done...'],
+    DEFAULT: ['Connecting...', 'Verifying balance...', 'Almost done...'],
   };
 
   const handleSync = async (currency: string) => {
