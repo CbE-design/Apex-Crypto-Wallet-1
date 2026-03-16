@@ -4,29 +4,52 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/context/wallet-context';
-import { Loader2, Shield, Key, AlertTriangle, ArrowRight, Eye, EyeOff, Copy, CheckCircle2 } from 'lucide-react';
+import {
+  Loader2, Shield, Key, AlertTriangle, ArrowRight,
+  Eye, EyeOff, Copy, CheckCircle2,
+} from 'lucide-react';
 import React, { useState } from 'react';
 import { EyeWatermark } from '@/components/eye-watermark';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { PinSetupDialog } from '@/components/pin-setup-dialog';
+import { PinUnlockScreen } from '@/components/pin-unlock-screen';
 
 export default function ConnectWalletPage() {
-  const router = useRouter();
-  const { toast } = useToast();
-  const { createWallet, importWallet, loading, user, confirmAndCreateWallet } = useWallet();
-  const [isImporting, setIsImporting] = useState(false);
-  const [mnemonic, setMnemonic] = useState('');
-  const [newMnemonic, setNewMnemonic] = useState('');
-  const [isNewWalletDialogOpen, setIsNewWalletDialogOpen] = useState(false);
-  const [mnemonicVisible, setMnemonicVisible] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const router       = useRouter();
+  const { toast }    = useToast();
+  const {
+    createWallet, importWallet, loading, user, confirmAndCreateWallet,
+    vaultLocked, pendingVaultSetup, hasPasskey, passkeySupported, addressHint,
+    setupVault, unlockWithPin, setupPasskey, unlockWithPasskey, disconnectWallet, wallet,
+  } = useWallet();
 
+  const [isImporting,            setIsImporting]            = useState(false);
+  const [mnemonic,               setMnemonic]               = useState('');
+  const [newMnemonic,            setNewMnemonic]            = useState('');
+  const [isNewWalletDialogOpen,  setIsNewWalletDialogOpen]  = useState(false);
+  const [mnemonicVisible,        setMnemonicVisible]        = useState(false);
+  const [copied,                 setCopied]                 = useState(false);
+  const [pinSetupOpen,           setPinSetupOpen]           = useState(false);
+
+  // Open PIN setup dialog as soon as wallet is pending vault
   React.useEffect(() => {
-    if (user) router.push('/');
-  }, [user, router]);
+    if (pendingVaultSetup) setPinSetupOpen(true);
+  }, [pendingVaultSetup]);
 
+  // Redirect once wallet is unlocked and ready
+  React.useEffect(() => {
+    if (user && wallet && !vaultLocked && !pendingVaultSetup) {
+      router.push('/');
+    }
+  }, [user, wallet, vaultLocked, pendingVaultSetup, router]);
+
+  // ── handlers ─────────────────────────────────────────────────────────
   const handleCreateWallet = async () => {
     try {
       const generated = await createWallet();
@@ -44,8 +67,7 @@ export default function ConnectWalletPage() {
     }
     try {
       await importWallet(mnemonic);
-      toast({ title: 'Wallet imported', description: 'Welcome back.' });
-      router.push('/');
+      // PIN setup dialog opens automatically via pendingVaultSetup
     } catch (error: any) {
       toast({ title: 'Import failed', description: error.message || 'Invalid seed phrase.', variant: 'destructive' });
     }
@@ -56,11 +78,18 @@ export default function ConnectWalletPage() {
     try {
       await confirmAndCreateWallet(newMnemonic);
       setIsNewWalletDialogOpen(false);
-      toast({ title: 'Wallet created', description: 'Your wallet is ready.' });
-      router.push('/');
+      // PIN setup dialog opens automatically via pendingVaultSetup
     } catch {
-      toast({ title: 'Creation failed', description: 'Could not finalize wallet.', variant: 'destructive' });
+      toast({ title: 'Creation failed', description: 'Could not finalise wallet.', variant: 'destructive' });
     }
+  };
+
+  const handleUnlockWithPin = async (pin: string) => {
+    await unlockWithPin(pin); // throws on wrong PIN
+  };
+
+  const handleUnlockWithPasskey = async () => {
+    await unlockWithPasskey();
   };
 
   const copyMnemonic = () => {
@@ -71,18 +100,30 @@ export default function ConnectWalletPage() {
 
   const words = newMnemonic.split(' ').filter(Boolean);
 
+  // ── vault locked → show PIN screen ───────────────────────────────────
+  if (vaultLocked) {
+    return (
+      <PinUnlockScreen
+        addressHint={addressHint}
+        hasPasskey={hasPasskey}
+        passkeySupported={passkeySupported}
+        onUnlockWithPin={handleUnlockWithPin}
+        onUnlockWithPasskey={handleUnlockWithPasskey}
+        onDisconnect={disconnectWallet}
+      />
+    );
+  }
+
+  // ── main login UI ─────────────────────────────────────────────────────
   return (
     <>
-      {/* Full-screen dark background */}
       <div className="min-h-screen w-full bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
         {/* Background glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-0 right-0 w-[300px] h-[300px] bg-accent/5 rounded-full blur-[80px] pointer-events-none" />
-
-        {/* Subliminal all-seeing eye watermark */}
         <EyeWatermark className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] text-primary pointer-events-none" opacity={0.04} />
 
-        {/* Logo / brand */}
+        {/* Logo */}
         <div className="flex flex-col items-center mb-10 relative z-10">
           <div className="mb-4">
             <img src="/apex-icon.png" alt="Apex Wallet" className="h-16 w-16 rounded-2xl shadow-xl shadow-primary/30" />
@@ -91,10 +132,10 @@ export default function ConnectWalletPage() {
           <p className="text-sm text-muted-foreground mt-1">Institutional-grade crypto custody</p>
         </div>
 
-        {/* Main card */}
+        {/* Card */}
         <div className="w-full max-w-sm relative z-10">
           <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl shadow-2xl overflow-hidden">
-            {/* Card header */}
+            {/* Header */}
             <div className="px-6 pt-6 pb-5 border-b border-border/40">
               <div className="flex items-center gap-2 mb-1">
                 <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
@@ -110,7 +151,7 @@ export default function ConnectWalletPage() {
               </p>
             </div>
 
-            {/* Card body */}
+            {/* Body */}
             <div className="px-6 py-6">
               {isImporting ? (
                 <div className="space-y-4">
@@ -121,28 +162,26 @@ export default function ConnectWalletPage() {
                     <Textarea
                       placeholder="Enter your 12 or 24 word seed phrase separated by spaces…"
                       value={mnemonic}
-                      onChange={(e) => setMnemonic(e.target.value)}
+                      onChange={e => setMnemonic(e.target.value)}
                       rows={4}
                       disabled={loading}
                       className="bg-muted/30 border-border/60 resize-none text-sm font-mono placeholder:text-muted-foreground/40 focus:border-primary/60 rounded-xl"
                     />
                   </div>
-
                   <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
                     <p className="text-[11px] text-amber-300/80 leading-relaxed">
                       Never share your seed phrase. Apex will never ask for it outside this setup screen.
                     </p>
                   </div>
-
                   <Button
                     onClick={handleImportWallet}
                     className="w-full h-11 rounded-xl font-semibold btn-premium text-white"
                     disabled={loading || !mnemonic.trim()}
                   >
-                    {loading ? <Loader2 className="animate-spin h-4 w-4" /> : (
-                      <><Key className="h-4 w-4 mr-2" /> Restore Wallet</>
-                    )}
+                    {loading
+                      ? <Loader2 className="animate-spin h-4 w-4" />
+                      : <><Key className="h-4 w-4 mr-2" />Restore Wallet</>}
                   </Button>
                   <Button
                     variant="ghost"
@@ -160,20 +199,15 @@ export default function ConnectWalletPage() {
                     className="w-full h-12 rounded-xl font-semibold btn-premium text-white text-[14px] group"
                     disabled={loading}
                   >
-                    {loading ? <Loader2 className="animate-spin h-4 w-4" /> : (
-                      <>
-                        Create New Wallet
-                        <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
-                      </>
-                    )}
+                    {loading
+                      ? <Loader2 className="animate-spin h-4 w-4" />
+                      : <>Create New Wallet <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-0.5 transition-transform" /></>}
                   </Button>
-
                   <div className="relative flex items-center gap-3">
                     <div className="flex-1 h-px bg-border/40" />
                     <span className="text-[11px] text-muted-foreground uppercase tracking-widest">or</span>
                     <div className="flex-1 h-px bg-border/40" />
                   </div>
-
                   <Button
                     variant="outline"
                     onClick={() => setIsImporting(true)}
@@ -220,11 +254,10 @@ export default function ConnectWalletPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Word grid */}
           <div className="my-2">
             <div className={cn(
-              "relative rounded-xl border border-border/60 bg-muted/30 p-4 transition-all",
-              !mnemonicVisible && "select-none"
+              'relative rounded-xl border border-border/60 bg-muted/30 p-4 transition-all',
+              !mnemonicVisible && 'select-none',
             )}>
               {!mnemonicVisible && (
                 <div className="absolute inset-0 rounded-xl bg-card/80 backdrop-blur-md flex flex-col items-center justify-center z-10 gap-2">
@@ -244,18 +277,14 @@ export default function ConnectWalletPage() {
                 ))}
               </div>
             </div>
-
             <Button
-              variant="ghost"
-              size="sm"
+              variant="ghost" size="sm"
               className="w-full mt-2 h-8 text-[12px] text-muted-foreground hover:text-foreground rounded-lg"
               onClick={copyMnemonic}
             >
-              {copied ? (
-                <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-accent" />Copied!</>
-              ) : (
-                <><Copy className="h-3.5 w-3.5 mr-1.5" />Copy to clipboard</>
-              )}
+              {copied
+                ? <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-accent" />Copied!</>
+                : <><Copy className="h-3.5 w-3.5 mr-1.5" />Copy to clipboard</>}
             </Button>
           </div>
 
@@ -270,6 +299,25 @@ export default function ConnectWalletPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* PIN vault setup dialog — shown after seed phrase is confirmed */}
+      <PinSetupDialog
+        open={pinSetupOpen}
+        passkeySupported={passkeySupported}
+        onPinConfirmed={async (pin) => {
+          await setupVault(pin);
+          toast({ title: 'PIN set', description: 'Your wallet is now protected.' });
+          // dialog stays open for passkey step — handled inside PinSetupDialog
+        }}
+        onPasskeySetup={async () => {
+          await setupPasskey();
+          toast({ title: 'Passkey enabled', description: 'Biometric unlock is ready.' });
+        }}
+        onSkipPasskey={() => {
+          setPinSetupOpen(false);
+          router.push('/');
+        }}
+      />
     </>
   );
 }
