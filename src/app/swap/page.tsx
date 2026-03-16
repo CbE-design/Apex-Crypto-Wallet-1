@@ -18,6 +18,7 @@ import { useWallet } from '@/context/wallet-context';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { marketCoins, portfolioAssets as staticAssets } from '@/lib/data';
+import { getLivePrices } from '@/services/crypto-service';
 
 const allAssets = [...staticAssets, ...marketCoins].reduce((acc, current) => {
     if (!acc.find(item => item.symbol === current.symbol)) {
@@ -140,9 +141,10 @@ export default function SwapPage() {
                 userId: user.uid,
             }, { merge: true });
 
-            // 3. Log transactions
-            const fromAssetPrice = staticAssets.find(a => a.symbol === fromAsset)?.priceUSD || 0;
-            const toAssetPrice = staticAssets.find(a => a.symbol === toAsset)?.priceUSD || marketCoins.find(m => m.symbol === toAsset)?.priceUSD || 0;
+            // 3. Log transactions — fetch live prices for accurate record
+            const livePriceMap = await getLivePrices([fromAsset, toAsset], 'USD');
+            const fromAssetPrice = livePriceMap[fromAsset] || staticAssets.find(a => a.symbol === fromAsset)?.priceUSD || 0;
+            const toAssetPrice = livePriceMap[toAsset] || marketCoins.find(m => m.symbol === toAsset)?.priceUSD || 0;
             
             const sellTxLogRef = doc(collection(fromWalletRef, 'transactions'));
             transaction.set(sellTxLogRef, {
@@ -310,7 +312,7 @@ export default function SwapPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Confirm Swap</AlertDialogTitle>
                     <AlertDialogDescription>
-                        You are about to swap your assets. This action is for simulation purposes and cannot be undone.
+                        Review the details below before confirming. This action updates your ledger balances and cannot be reversed.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                  <div className="space-y-4 py-4 text-sm">

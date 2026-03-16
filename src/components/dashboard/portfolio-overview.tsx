@@ -15,28 +15,29 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { portfolioAssets as staticAssets } from '@/lib/data';
+import { portfolioAssets as staticAssets, marketCoins } from '@/lib/data';
 import { CryptoIcon } from '../crypto-icon';
 import { cn } from '@/lib/utils';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrency } from '@/context/currency-context';
-import { getLivePrices } from '@/services/crypto-service';
+import { getLivePrices, getLive24hChanges } from '@/services/crypto-service';
 import type { PortfolioAsset } from '@/lib/types';
 import { TrendingUp, Wallet } from 'lucide-react';
 
+// Build chart config from all known coins so BTC, ETH, etc. all get a colour slot
+const allKnownCoins = [...staticAssets, ...marketCoins].reduce((acc, c) => {
+  if (!acc.find(x => x.symbol === c.symbol)) acc.push(c);
+  return acc;
+}, [] as typeof staticAssets);
+
 const chartConfig = {
-  value: {
-    label: 'Value',
-  },
+  value: { label: 'Value' },
   ...Object.fromEntries(
-    staticAssets.map((asset, index) => [
+    allKnownCoins.map((asset, index) => [
       asset.symbol.toLowerCase(),
-      {
-        label: asset.name,
-        color: `hsl(var(--chart-${index + 1}))`,
-      },
+      { label: asset.name, color: `hsl(var(--chart-${(index % 5) + 1}))` },
     ])
   ),
 };
@@ -46,6 +47,7 @@ export function PortfolioOverview() {
   const firestore = useFirestore();
   const { currency, formatCurrency } = useCurrency();
   const [livePrices, setLivePrices] = React.useState<Record<string, number>>({});
+  const [liveChanges, setLiveChanges] = React.useState<Record<string, number>>({});
   const [isPriceLoading, setIsPriceLoading] = React.useState(true);
 
   const walletsQuery = useMemoFirebase(() => {
@@ -68,8 +70,12 @@ export function PortfolioOverview() {
       };
       setIsPriceLoading(true);
       try {
-        const prices = await getLivePrices(portfolioSymbols, 'USD');
+        const [prices, changes] = await Promise.all([
+          getLivePrices(portfolioSymbols, 'USD'),
+          getLive24hChanges(portfolioSymbols),
+        ]);
         setLivePrices(prices);
+        setLiveChanges(changes);
       } catch (error) {
         console.error("Failed to fetch live prices for portfolio", error);
       } finally {
@@ -87,20 +93,22 @@ export function PortfolioOverview() {
       const livePriceUSD = livePrices[walletDoc.currency];
       const staticAssetData = staticAssets.find(sa => sa.symbol === walletDoc.currency);
 
-      const priceUSD = livePriceUSD !== undefined ? livePriceUSD : (staticAssetData?.priceUSD || 0);
+      const marketData = marketCoins.find(m => m.symbol === walletDoc.currency);
+      const priceUSD = livePriceUSD !== undefined ? livePriceUSD : (staticAssetData?.priceUSD || marketData?.priceUSD || 0);
+      const change24h = liveChanges[walletDoc.currency] ?? staticAssetData?.change24h ?? marketData?.change24h ?? 0;
 
       return {
         symbol: walletDoc.currency,
-        name: staticAssetData?.name || walletDoc.currency,
+        name: staticAssetData?.name || marketData?.name || walletDoc.currency,
         amount: walletDoc.balance,
         valueUSD: walletDoc.balance * priceUSD,
-        priceUSD: priceUSD,
-        change24h: staticAssetData?.change24h || 0,
-        icon: staticAssetData?.icon || '',
+        priceUSD,
+        change24h,
+        icon: staticAssetData?.icon || marketData?.icon || '',
       };
     }).filter(Boolean) as PortfolioAsset[];
 
-  }, [walletData, livePrices]);
+  }, [walletData, livePrices, liveChanges]);
 
 
   const totalBalance = portfolioAssets.reduce(
@@ -233,7 +241,7 @@ export function PortfolioOverview() {
                 <CryptoIcon name={asset.name} className="h-8 w-8 transition-transform group-hover:scale-110" />
                 <div>
                     <span className="block font-black text-sm tracking-tight">{asset.name}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground">{asset.amount.toFixed(4)} {asset.symbol}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">{asset.amount.toFixed(asset.symbol === 'BTC' ? 6 : 4)} {asset.symbol}</span>
                 </div>
               </div>
               <div className="text-right">

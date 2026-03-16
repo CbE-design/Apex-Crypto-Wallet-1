@@ -76,11 +76,24 @@ export default function SendReceivePage() {
 
   const formValues = watch();
 
+  const [liveAssetPriceUSD, setLiveAssetPriceUSD] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!selectedAsset) return;
+    import('@/services/crypto-service').then(({ getLivePrices }) => {
+      getLivePrices([selectedAsset], 'USD').then(prices => {
+        setLiveAssetPriceUSD(prev => ({ ...prev, [selectedAsset]: prices[selectedAsset] || 0 }));
+      }).catch(() => {});
+    });
+  }, [selectedAsset]);
+
   useEffect(() => {
     const amountVal = parseFloat(formValues.amount) || 0;
-    const valueInZAR = amountVal * (selectedAsset === 'ETH' ? 3500 : 1) * 19; // Simplified check
+    const assetPriceUSD = liveAssetPriceUSD[selectedAsset] || (selectedAsset === 'ETH' ? 2000 : selectedAsset === 'BTC' ? 82000 : 1);
+    const zarRate = 18.62;
+    const valueInZAR = amountVal * assetPriceUSD * zarRate;
     setIsComplianceRequired(valueInZAR > 3000);
-  }, [formValues.amount, selectedAsset]);
+  }, [formValues.amount, selectedAsset, liveAssetPriceUSD]);
 
   useEffect(() => {
     if (wallet?.address) {

@@ -85,6 +85,7 @@ export default function CashOutPage() {
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
   const [pin, setPin] = useState('');
   const [pendingData, setPendingData] = useState<BankFormValues | null>(null);
+  const [atmPin, setAtmPin] = useState('');
 
   const ethWalletRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -156,6 +157,8 @@ export default function CashOutPage() {
 
     setTrackingProgress(100);
     setTrackingStatus('completed');
+    // Generate a fresh random 6-digit ATM PIN for cardless withdrawals
+    setAtmPin(String(Math.floor(100000 + Math.random() * 900000)));
     setTimeout(() => setStep('success'), 1200);
   };
 
@@ -413,7 +416,7 @@ export default function CashOutPage() {
                   {watchProtocol === 'cardless' && (
                     <div className="w-full bg-primary/10 p-6 rounded-2xl border border-primary/30 space-y-2">
                          <p className="text-[10px] font-black uppercase text-primary">Withdrawal PIN Generated</p>
-                         <p className="text-2xl font-black tracking-[0.5em] text-white">482015</p>
+                         <p className="text-2xl font-black tracking-[0.5em] text-white">{atmPin}</p>
                          <p className="text-[8px] text-muted-foreground">Keep this PIN secure. Use at any {pendingData?.provider} ATM.</p>
                     </div>
                   )}

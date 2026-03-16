@@ -15,7 +15,6 @@ interface CurrencyContextType {
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
-
 const CURRENCY_STORAGE_KEY = 'apex-selected-currency';
 
 export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
@@ -24,48 +23,55 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedCurrency = localStorage.getItem(CURRENCY_STORAGE_KEY);
-    if (storedCurrency && currencies.some(c => c.symbol === storedCurrency)) {
-      setSelectedCurrencySymbol(storedCurrency);
+    if (typeof window === 'undefined') return;
+    const stored = localStorage.getItem(CURRENCY_STORAGE_KEY);
+    if (stored && currencies.some(c => c.symbol === stored)) {
+      setSelectedCurrencySymbol(stored);
     }
   }, []);
-  
+
   useEffect(() => {
     async function fetchRates() {
+      if (selectedCurrencySymbol === 'USD') {
+        setRates({ USD: 1 });
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        // We only need the rate for USD to calculate others
-        const priceData = await getLivePrices(['USDT'], selectedCurrencySymbol);
-        const usdToSelectedRate = priceData['USDT'];
-        
-        if (usdToSelectedRate) {
-          setRates({ [selectedCurrencySymbol]: usdToSelectedRate, USD: 1 });
-        } else {
-           // Fallback if the direct rate isn't available
-           setRates({ [selectedCurrencySymbol]: 1, USD: 1 });
-        }
+        // getLivePrices now uses Frankfurter API for real fiat rates.
+        // Fetching BTC in target currency lets us back-calculate the USD→target rate.
+        const [btcInTarget, btcInUsd] = await Promise.all([
+          getLivePrices(['BTC'], selectedCurrencySymbol),
+          getLivePrices(['BTC'], 'USD'),
+        ]);
 
-      } catch (error) {
-        console.error("Failed to fetch currency conversion rates:", error);
-        setRates({ [selectedCurrencySymbol]: 1, USD: 1 }); // Fallback
+        const targetPrice = btcInTarget['BTC'];
+        const usdPrice = btcInUsd['BTC'];
+
+        if (targetPrice && usdPrice && usdPrice > 0) {
+          const derivedRate = targetPrice / usdPrice;
+          setRates({ [selectedCurrencySymbol]: derivedRate, USD: 1 });
+        } else {
+          setRates({ [selectedCurrencySymbol]: 1, USD: 1 });
+        }
+      } catch {
+        setRates({ [selectedCurrencySymbol]: 1, USD: 1 });
       }
       setLoading(false);
     }
 
-    if (selectedCurrencySymbol === 'USD') {
-        setRates({ USD: 1 });
-        setLoading(false);
-    } else {
-        fetchRates();
-    }
+    fetchRates();
   }, [selectedCurrencySymbol]);
 
-
   const setCurrency = (symbol: string) => {
-    const newCurrency = currencies.find(c => c.symbol === symbol);
-    if (newCurrency) {
+    const found = currencies.find(c => c.symbol === symbol);
+    if (found) {
       setSelectedCurrencySymbol(symbol);
-      localStorage.setItem(CURRENCY_STORAGE_KEY, symbol);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(CURRENCY_STORAGE_KEY, symbol);
+      }
     }
   };
 
@@ -80,20 +86,12 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
 
   const currency = useMemo(() => {
     const current = currencies.find(c => c.symbol === selectedCurrencySymbol) || currencies[0];
-    const rate = rates[selectedCurrencySymbol] ?? (selectedCurrencySymbol === 'USD' ? 1 : 0);
+    const rate = rates[selectedCurrencySymbol] ?? (selectedCurrencySymbol === 'USD' ? 1 : 1);
     return { ...current, rate };
   }, [selectedCurrencySymbol, rates]);
 
-  const value = {
-    currency,
-    setCurrency,
-    formatCurrency,
-    rates,
-    loading
-  };
-
   return (
-    <CurrencyContext.Provider value={value}>
+    <CurrencyContext.Provider value={{ currency, setCurrency, formatCurrency, rates, loading }}>
       {children}
     </CurrencyContext.Provider>
   );
@@ -101,8 +99,6 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
 
 export const useCurrency = () => {
   const context = useContext(CurrencyContext);
-  if (context === undefined) {
-    throw new Error('useCurrency must be used within a CurrencyProvider');
-  }
+  if (!context) throw new Error('useCurrency must be used within a CurrencyProvider');
   return context;
 };
