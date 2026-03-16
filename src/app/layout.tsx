@@ -1,9 +1,15 @@
-
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Providers } from './providers';
 import { ClientShell } from './client-shell';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Apex Crypto Wallet',
@@ -25,14 +31,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <html lang="en" className={cn('h-full', inter.variable)} suppressHydrationWarning>
+      <head suppressHydrationWarning>
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className={cn("font-body antialiased h-full")}>
+      <body className={cn('font-body antialiased h-full')}>
         <Providers>
           <ClientShell>
             {children}
