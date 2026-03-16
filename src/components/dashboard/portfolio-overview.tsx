@@ -26,10 +26,10 @@ import { getLivePrices, getLive24hChanges } from '@/services/crypto-service';
 import type { PortfolioAsset } from '@/lib/types';
 import { TrendingUp, Wallet } from 'lucide-react';
 
-const allKnownCoins = [...staticAssets, ...marketCoins].reduce((acc, c) => {
-  if (!acc.find(x => x.symbol === c.symbol)) acc.push(c);
+const allKnownCoins = [...staticAssets, ...marketCoins].reduce<Array<{ symbol: string; name: string }>>((acc, c) => {
+  if (!acc.find(x => x.symbol === c.symbol)) acc.push({ symbol: c.symbol, name: c.name });
   return acc;
-}, [] as typeof staticAssets);
+}, []);
 
 const chartConfig = {
   value: { label: 'Value' },
