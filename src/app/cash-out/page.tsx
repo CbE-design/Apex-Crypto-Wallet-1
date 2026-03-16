@@ -434,9 +434,10 @@ export default function CashOutPage() {
       });
 
       return true;
-    } catch (e: any) {
+    } catch (e: unknown) {
       setStep('details');
-      toast({ title: 'Transaction Error', description: e.message || 'Unable to process withdrawal. Please try again.', variant: 'destructive' });
+      const message = e instanceof Error ? e.message : 'Unable to process withdrawal. Please try again.';
+      toast({ title: 'Transaction Error', description: message, variant: 'destructive' });
       return false;
     }
   };
@@ -781,8 +782,27 @@ export default function CashOutPage() {
 
                   <div className="rounded-xl border border-border/50 bg-background/30 divide-y divide-border/30">
                     <div className="flex justify-between items-center px-4 py-2.5 text-[12px]">
+                      <span className="text-muted-foreground">Gross (crypto equivalent)</span>
+                      <span className="font-medium">{quoteData.cryptoBreakdown.length === 1
+                        ? `${quoteData.cryptoBreakdown[0].amount.toFixed(quoteData.cryptoBreakdown[0].symbol === 'BTC' ? 8 : 6)} ${quoteData.cryptoBreakdown[0].symbol}`
+                        : `≈ $${quoteData.amountInUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} across ${quoteData.cryptoBreakdown.length} assets`
+                      }</span>
+                    </div>
+                    <div className="flex justify-between items-center px-4 py-2.5 text-[12px]">
                       <span className="text-muted-foreground">Total Fees</span>
                       <span className="text-destructive/80">− {formatWithdrawCurrency(fees.total)}</span>
+                    </div>
+                    <div className="flex justify-between items-center px-4 py-2.5 text-[12px]">
+                      <span className="text-muted-foreground">Net (crypto equivalent)</span>
+                      <span className="font-medium">{(() => {
+                        const netUSD = fees.net / withdrawRate;
+                        const netRatio = fees.net / (parseFloat(confirmedData.amount) || 1);
+                        if (quoteData.cryptoBreakdown.length === 1) {
+                          const b = quoteData.cryptoBreakdown[0];
+                          return `${(b.amount * netRatio).toFixed(b.symbol === 'BTC' ? 8 : 6)} ${b.symbol}`;
+                        }
+                        return `≈ $${netUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} across ${quoteData.cryptoBreakdown.length} assets`;
+                      })()}</span>
                     </div>
                     <div className="flex justify-between items-center px-4 py-3 text-[13px] bg-accent/5 rounded-b-xl">
                       <span className="font-semibold text-accent">You will receive</span>

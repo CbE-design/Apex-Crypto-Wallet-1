@@ -38,7 +38,7 @@ interface WalletDoc {
   currency: string;
   balance: number;
   address: string;
-  lastSynced?: any;
+  lastSynced?: { toDate: () => Date } | null;
 }
 
 interface TransactionDoc {
@@ -49,7 +49,7 @@ interface TransactionDoc {
   currency?: string;
   netFiat?: number;
   price?: number;
-  timestamp?: any;
+  timestamp?: { toDate: () => Date } | null;
   status?: string;
   referenceNo?: string;
   carfReference?: string;
@@ -96,7 +96,7 @@ function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string
   return (
     <div className="px-3 py-2 space-y-1.5 max-h-[300px] overflow-y-auto">
       {transactions.map(tx => {
-        const date = tx.timestamp?.toDate?.() ?? new Date();
+        const date = tx.timestamp ? tx.timestamp.toDate() : new Date();
         const fiatAmount = tx.amountFiat ?? (tx.amount * (tx.price ?? 0));
         return (
           <div key={tx.id} className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-background/30 border border-border/20 hover:border-border/40 transition-colors">
