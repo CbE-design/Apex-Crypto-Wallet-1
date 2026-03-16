@@ -18,7 +18,6 @@ import {
   Wallet,
   ShieldCheck,
   ArrowRightLeft,
-  Activity,
 } from "lucide-react";
 import { useWallet } from "@/context/wallet-context";
 import Link from "next/link";
@@ -47,9 +46,11 @@ export function AppSidebar() {
       <SidebarHeader className="p-0">
         <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border/60">
           <div className="relative flex-shrink-0">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-blue-400 flex items-center justify-center shadow-lg shadow-primary/30">
-              <Activity className="h-5 w-5 text-white" />
-            </div>
+            <img
+              src="/apex-icon.png"
+              alt="Apex Wallet"
+              className="h-9 w-9 rounded-xl shadow-lg shadow-primary/30 object-cover"
+            />
             {/* Live dot */}
             <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-accent border-2 border-sidebar" />
           </div>

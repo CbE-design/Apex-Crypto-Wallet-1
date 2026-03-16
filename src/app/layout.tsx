@@ -8,8 +8,16 @@ import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: 'Apex Crypto Wallet',
-  description: 'A modern cryptocurrency exchange and wallet app.',
+  description: 'Institutional-grade self-custodial crypto wallet.',
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/apex-icon.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-icon.png', sizes: '512x512', type: 'image/png' },
+    ],
+  },
 };
 
 export default function RootLayout({

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/context/wallet-context';
-import { Loader2, Shield, Key, AlertTriangle, Activity, ArrowRight, Eye, EyeOff, Copy, CheckCircle2 } from 'lucide-react';
+import { Loader2, Shield, Key, AlertTriangle, ArrowRight, Eye, EyeOff, Copy, CheckCircle2 } from 'lucide-react';
 import React, { useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -80,8 +80,8 @@ export default function ConnectWalletPage() {
 
         {/* Logo / brand */}
         <div className="flex flex-col items-center mb-10 relative z-10">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-blue-400 flex items-center justify-center shadow-xl shadow-primary/30 mb-4">
-            <Activity className="h-7 w-7 text-white" />
+          <div className="mb-4">
+            <img src="/apex-icon.png" alt="Apex Wallet" className="h-16 w-16 rounded-2xl shadow-xl shadow-primary/30" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Apex Wallet</h1>
           <p className="text-sm text-muted-foreground mt-1">Institutional-grade crypto custody</p>
