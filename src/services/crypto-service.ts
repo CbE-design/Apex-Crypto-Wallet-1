@@ -12,7 +12,7 @@ import { marketCoins } from '@/lib/data';
  * - getFiatRate       — USD → target fiat conversion rate (Frankfurter API)
  */
 
-export const COINGECKO_IDS: Record<string, string> = {
+const COINGECKO_IDS: Record<string, string> = {
   BTC:   'bitcoin',
   ETH:   'ethereum',
   LINK:  'chainlink',
