@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -130,6 +131,9 @@ export default function CashOutPage() {
   const { user } = useWallet();
   const { currency } = useCurrency();
   const firestore = useFirestore();
+  const searchParams = useSearchParams();
+  const paramCurrency = searchParams.get('currency');
+  const preferredAsset = paramCurrency && marketCoins.some(c => c.symbol === paramCurrency) ? paramCurrency : null;
 
   const [step, setStep]         = useState<PageStep>('details');
   const [stage, setStage]       = useState<ProcessingStage>('received');
@@ -275,7 +279,13 @@ export default function CashOutPage() {
         return { symbol: w.currency, balance: w.balance, priceUSD: price, valueUSD: w.balance * price };
       })
       .filter(p => p.balance > 0 && p.priceUSD > 0)
-      .sort((a, b) => b.valueUSD - a.valueUSD);
+      .sort((a, b) => {
+        if (preferredAsset) {
+          if (a.symbol === preferredAsset && b.symbol !== preferredAsset) return -1;
+          if (b.symbol === preferredAsset && a.symbol !== preferredAsset) return 1;
+        }
+        return b.valueUSD - a.valueUSD;
+      });
 
     let remaining = amountInUSD;
     const breakdown: QuoteData['cryptoBreakdown'] = [];
@@ -365,7 +375,13 @@ export default function CashOutPage() {
           return { symbol: w.currency, balance: w.balance, priceUSD: price, valueUSD: w.balance * price };
         })
         .filter(p => p.balance > 0 && p.priceUSD > 0)
-        .sort((a, b) => b.valueUSD - a.valueUSD);
+        .sort((a, b) => {
+          if (preferredAsset) {
+            if (a.symbol === preferredAsset && b.symbol !== preferredAsset) return -1;
+            if (b.symbol === preferredAsset && a.symbol !== preferredAsset) return 1;
+          }
+          return b.valueUSD - a.valueUSD;
+        });
 
       const totalValueUSD = positions.reduce((sum, p) => sum + p.valueUSD, 0);
 

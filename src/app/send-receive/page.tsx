@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -41,9 +42,15 @@ export default function SendReceivePage() {
   const { wallet, user } = useWallet();
   const { currency, formatCurrency } = useCurrency();
   const firestore = useFirestore();
+  const searchParams = useSearchParams();
+
+  const paramCurrency = searchParams.get('currency');
+  const paramAction = searchParams.get('action');
+  const initialAsset = paramCurrency && marketCoins.some(c => c.symbol === paramCurrency) ? paramCurrency : 'ETH';
+  const initialTab = paramAction === 'receive' ? 'receive' : 'send';
 
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
-  const [selectedAsset, setSelectedAsset] = useState('ETH');
+  const [selectedAsset, setSelectedAsset] = useState(initialAsset);
   const [isComplianceRequired, setIsComplianceRequired] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
@@ -71,7 +78,7 @@ export default function SendReceivePage() {
       setValue
   } = useForm<SendFormValues>({
       resolver: zodResolver(sendSchema),
-      defaultValues: { recipientAddress: '', amount: '', asset: 'ETH' },
+      defaultValues: { recipientAddress: '', amount: '', asset: initialAsset },
       mode: 'onChange',
   });
 
@@ -191,7 +198,7 @@ export default function SendReceivePage() {
             </div>
           </CardHeader>
           <CardContent className="pt-6">
-            <Tabs defaultValue="send" className="w-full">
+            <Tabs defaultValue={initialTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 bg-muted/30 rounded-xl p-1 h-11">
                 <TabsTrigger value="send" className="rounded-lg text-sm font-medium">Send</TabsTrigger>
                 <TabsTrigger value="receive" className="rounded-lg text-sm font-medium">Receive</TabsTrigger>

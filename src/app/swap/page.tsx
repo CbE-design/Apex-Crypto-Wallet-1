@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,9 +43,13 @@ export default function SwapPage() {
   const { toast } = useToast();
   const { user } = useWallet();
   const firestore = useFirestore();
+  const searchParams = useSearchParams();
 
-  const [fromAsset, setFromAsset] = useState(staticAssets[0].symbol);
-  const [toAsset, setToAsset] = useState(marketCoins[1].symbol);
+  const paramFrom = searchParams.get('from');
+  const initialFrom = paramFrom && allAssets.some(a => a.symbol === paramFrom) ? paramFrom : staticAssets[0].symbol;
+
+  const [fromAsset, setFromAsset] = useState(initialFrom);
+  const [toAsset, setToAsset] = useState(initialFrom === marketCoins[1].symbol ? marketCoins[0].symbol : marketCoins[1].symbol);
   const [fromAmount, setFromAmount] = useState('');
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [isLoadingRate, setIsLoadingRate] = useState(false);
