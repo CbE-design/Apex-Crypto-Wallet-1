@@ -251,7 +251,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
         <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Synchronizing Identity...</p>
+            <p className="text-xs font-medium text-muted-foreground animate-pulse">Loading your wallet...</p>
         </div>
       </div>
     );

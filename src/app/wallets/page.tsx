@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/context/wallet-context';
@@ -43,7 +43,7 @@ export default function MyWalletsPage() {
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [liveChanges, setLiveChanges] = useState<Record<string, number>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
-  const [initialPricesFetched, setInitialPricesFetched] = useState(false);
+  const initialPricesFetched = useRef(false);
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -52,21 +52,34 @@ export default function MyWalletsPage() {
 
   const { data: wallets, isLoading } = useCollection<WalletDoc>(walletsQuery);
 
+  const symbolsKey = useMemo(
+    () => (wallets ?? []).map(w => w.currency).sort().join(','),
+    [wallets],
+  );
+
   useEffect(() => {
-    if (!wallets || wallets.length === 0) return;
-    const symbols = wallets.map(w => w.currency);
-    if (!initialPricesFetched) {
+    if (!symbolsKey) {
+      setPricesLoading(false);
+      return;
+    }
+    const symbols = symbolsKey.split(',');
+    if (!initialPricesFetched.current) {
       setPricesLoading(true);
     }
+    let cancelled = false;
     Promise.all([
       getLivePrices(symbols, 'USD'),
       getLive24hChanges(symbols),
     ]).then(([prices, changes]) => {
+      if (cancelled) return;
       setLivePrices(prices);
       setLiveChanges(changes);
-      setInitialPricesFetched(true);
-    }).catch(() => {}).finally(() => setPricesLoading(false));
-  }, [wallets, initialPricesFetched]);
+      initialPricesFetched.current = true;
+    }).catch(() => {}).finally(() => {
+      if (!cancelled) setPricesLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [symbolsKey]);
 
   useEffect(() => {
     if (selectedQrAddress?.address) {
