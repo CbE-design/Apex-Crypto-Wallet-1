@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import Image from 'next/image';
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
@@ -115,13 +116,23 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <Select value={currency.symbol} onValueChange={setCurrency}>
-                  <SelectTrigger className="w-36 h-9 rounded-xl bg-muted/30 border-border/60 text-[13px]">
-                    <SelectValue />
+                  <SelectTrigger className="w-40 h-10 rounded-xl bg-muted/30 border-border/60 text-[13px]">
+                    <div className="flex items-center gap-2">
+                      <div className="relative h-3 w-4.5 overflow-hidden rounded-sm border border-white/10 shrink-0">
+                        <Image src={currency.flagUrl} alt={currency.name} fill className="object-cover" />
+                      </div>
+                      <SelectValue />
+                    </div>
                   </SelectTrigger>
-                  <SelectContent className="max-h-56">
+                  <SelectContent className="max-h-56 rounded-xl border-border/60">
                     {currencies.map(c => (
                       <SelectItem key={c.symbol} value={c.symbol} className="text-[13px]">
-                        <span className="mr-1.5">{c.flag}</span> {c.symbol} — {c.name}
+                        <div className="flex items-center gap-2">
+                          <div className="relative h-3 w-4.5 overflow-hidden rounded-sm border border-white/5 shrink-0">
+                            <Image src={c.flagUrl} alt={c.name} fill className="object-cover" />
+                          </div>
+                          <span>{c.symbol} — {c.name}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>

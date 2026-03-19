@@ -120,4 +120,5 @@ export interface Currency {
     symbol: string;
     name: string;
     flag?: string;
+    flagUrl: string;
 }

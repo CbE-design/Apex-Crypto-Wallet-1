@@ -18,6 +18,7 @@ import { useCurrency } from '@/context/currency-context';
 import { currencies } from '@/lib/currencies';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const PAGE_TITLES: Record<string, string> = {
   '/':              'Dashboard',
@@ -79,7 +80,14 @@ export function Header() {
               className="h-8 gap-1.5 px-2.5 rounded-lg text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60"
             >
               <span className="text-foreground/80">{currency.symbol}</span>
-              <span className="hidden sm:inline">{currency.flag}</span>
+              <div className="relative h-3 w-4.5 overflow-hidden rounded-sm border border-white/10 hidden sm:block">
+                <Image
+                  src={currency.flagUrl}
+                  alt={currency.name}
+                  fill
+                  className="object-cover"
+                />
+              </div>
               <ChevronDown className="h-3 w-3 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
@@ -98,7 +106,14 @@ export function Header() {
                     currency.symbol === c.symbol && "bg-primary/10 text-primary"
                   )}
                 >
-                  <span className="mr-2">{c.flag}</span>
+                  <div className="relative h-3 w-4.5 overflow-hidden rounded-sm border border-white/5 mr-2 shrink-0">
+                    <Image
+                      src={c.flagUrl}
+                      alt={c.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
                   <span className="font-medium">{c.symbol}</span>
                   <span className="ml-auto text-muted-foreground text-[11px]">{c.name}</span>
                 </DropdownMenuItem>
