@@ -11,6 +11,7 @@ import { ShieldAlert, Loader2, Power } from 'lucide-react';
 import { EyeWatermark } from '@/components/eye-watermark';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { type ProtocolStatus } from '@/lib/types';
 
 export default function AppContent({
   children,
@@ -18,16 +19,17 @@ export default function AppContent({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { isAdmin, loading } = useWallet();
+  const { isAdmin, loading, user } = useWallet();
   const firestore = useFirestore();
 
   const protocolSettingsRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    // Only check protocol if a user is authenticated to avoid permission errors on login
+    if (!firestore || !user) return null;
     return doc(firestore, 'protocol_settings', 'status');
-  }, [firestore]);
+  }, [firestore, user]);
 
-  const { data: protocolStatus } = useDoc<{ isHalted: boolean }>(protocolSettingsRef);
-  const isProtocolHalted = protocolStatus?.isHalted ?? false;
+  const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
+  const isProtocolHalted = protocolStatus && protocolStatus.isActive === false;
 
   const isPublicPage = pathname === '/login';
 
@@ -40,7 +42,7 @@ export default function AppContent({
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-xs font-medium text-muted-foreground animate-pulse">Loading your wallet...</p>
+          <p className="text-xs font-medium text-muted-foreground animate-pulse">Loading identity...</p>
         </div>
       </div>
     );
@@ -58,13 +60,13 @@ export default function AppContent({
                   <ShieldAlert className="h-20 w-20 text-destructive" />
               </div>
           </div>
-          <h1 className="text-3xl font-bold mb-3">Service Temporarily Unavailable</h1>
+          <h1 className="text-3xl font-bold mb-3">Verified Maintenance In Progress</h1>
           <p className="text-sm text-muted-foreground mb-8 max-w-sm">
-              Trading and transfers have been temporarily suspended for maintenance. Please check back shortly.
+              Ledger synchronization and asset settlement have been temporarily suspended for verified system orchestration.
           </p>
           <div className="flex items-center gap-2 px-4 py-2 bg-destructive/5 border border-destructive/20 rounded-xl">
               <Power className="h-4 w-4 text-destructive animate-pulse" />
-              <span className="text-sm font-medium text-destructive">Disconnected</span>
+              <span className="text-sm font-medium text-destructive">Network State: HALTED</span>
           </div>
       </div>
     );

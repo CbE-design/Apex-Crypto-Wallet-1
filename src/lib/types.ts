@@ -1,5 +1,11 @@
-
 import { z } from 'zod';
+
+export interface ProtocolStatus {
+  isActive: boolean;
+  version: string;
+  lastUpdated: number;
+  maintenanceMode: boolean;
+}
 
 export interface PortfolioAsset {
   symbol: string;
