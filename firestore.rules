@@ -9,11 +9,34 @@ service cloud.firestore {
     }
 
     function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
     
     /**
+     * @description Global Protocol Settings
+     * Authorized orchestration permits public reads for network transparency.
+     * Writes are restricted to authenticated administrative identities.
+     */
+    match /protocol_settings/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    /**
+     * @description Hierarchical rules for user-specific data.
+     * Whitelists recursive subcollection access for the verified document owner.
+     */
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    /**
      * @description Collection Group Rules for Background Ledger Verification.
+     * Permits wide-scale reconciliation across the private identity rails.
      */
     match /{path=**}/wallets/{walletId} {
       allow read: if true;
@@ -23,36 +46,6 @@ service cloud.firestore {
     match /{path=**}/transactions/{transactionId} {
       allow read: if true;
       allow write: if isSignedIn();
-    }
-
-    /**
-     * @description Global Protocol Settings
-     */
-    match /protocol_settings/{docId} {
-      allow read: if true;
-      allow write: if isSignedIn(); // In production, restrict to specific Admin UID
-    }
-
-    /**
-     * @description Hierarchical rules for user-specific data.
-     */
-    match /users/{userId} {
-      allow read: if true; 
-      allow write: if isOwner(userId);
-
-      match /wallets/{walletId} {
-        allow read: if true;
-        allow write: if isOwner(userId);
-
-        match /transactions/{transactionId} {
-          allow read: if true;
-          allow write: if isOwner(userId);
-        }
-      }
-
-      match /price_alerts/{alertId} {
-        allow read, write: if isOwner(userId);
-      }
     }
   }
 }

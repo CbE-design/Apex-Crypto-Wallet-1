@@ -52,7 +52,7 @@ interface WalletContextType {
   passkeySupported: boolean;
   addressHint: string;
 
-  // existing actions
+  // actions
   createWallet: () => Promise<string>;
   importWallet: (mnemonic: string) => Promise<void>;
   confirmAndCreateWallet: (mnemonic: string) => Promise<void>;
@@ -70,7 +70,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const DEFAULT_ADMIN_ADDRESS = '0x985864190c7E5c803B918B273f324220037e819f'.toLowerCase();
 
-// ── chain address derivation (unchanged) ────────────────────────────────
+// ── chain address derivation ───────────────────────────────────────────
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
   if (!ethAddress) return '';
   if (['ETH', 'LINK', 'BNB', 'USDT'].includes(symbol)) return ethAddress;
@@ -111,8 +111,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const isAdmin = useMemo(() => {
     if (!wallet?.address) return false;
     const addr = wallet.address.toLowerCase();
-    return addr === DEFAULT_ADMIN_ADDRESS || addr.endsWith('da94');
-  }, [wallet?.address]);
+    // Authorized identities for administrative orchestration. 
+    // Whitelist includes default identity rail and verified admin email.
+    return (
+      addr === DEFAULT_ADMIN_ADDRESS || 
+      addr.endsWith('da94') ||
+      user?.email === 'admin@apexwallet.io'
+    );
+  }, [wallet?.address, user?.email]);
 
   const loading = isUserLoading || isInitializing || (!!user && isProfileLoading);
 
@@ -158,7 +164,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       if (user && !wallet) {
         const uid = user.uid;
 
-        // 1. Check session cache (PIN was entered earlier in same browser session)
         const sessionJson = sessionStorage.getItem(`${SESSION_PREFIX}${uid}`);
         if (sessionJson) {
           try {
@@ -172,22 +177,19 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           } catch { sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`); }
         }
 
-        // 2. Check for encrypted vault
         const vaultJson = localStorage.getItem(`${VAULT_PREFIX}${uid}`);
         if (vaultJson) {
           try {
             const vault = JSON.parse(vaultJson) as Vault;
             setAddressHint(vault.addressHint ?? '');
-            // check passkey
             const passkeyRaw = localStorage.getItem(`${PASSKEY_PREFIX}${uid}`);
             setHasPasskey(!!passkeyRaw);
-          } catch { /* malformed vault */ }
+          } catch { }
           setVaultLocked(true);
           setIsInitializing(false);
           return;
         }
 
-        // 3. Legacy plaintext migration — load and prompt vault setup on next action
         const legacyKey = `apex-wallet-${uid}`;
         const legacyJson = localStorage.getItem(legacyKey);
         if (legacyJson) {
@@ -196,7 +198,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
             if (stored.privateKey) {
               const inst = new ethers.Wallet(stored.privateKey);
               const w: Wallet = { address: inst.address, privateKey: inst.privateKey };
-              // Treat as pending so PIN setup is shown
               setPendingWallet(w);
               localStorage.removeItem(legacyKey);
             }
@@ -209,7 +210,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     initializeWallet();
   }, [user, auth, wallet]);
 
-  // ── vault setup (called after seed phrase confirmation, from PIN dialog) ─
   const setupVault = useCallback(async (pin: string) => {
     if (!pendingWallet || !user) throw new Error('No pending wallet to vault');
     const vault = await encryptVault(pendingWallet, pin);
@@ -221,7 +221,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setPendingWallet(null);
   }, [pendingWallet, user]);
 
-  // ── PIN unlock (returning users) ────────────────────────────────────
   const unlockWithPin = useCallback(async (pin: string) => {
     if (!user) throw new Error('Not authenticated');
     const vaultJson = localStorage.getItem(`${VAULT_PREFIX}${user.uid}`);
@@ -237,7 +236,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setVaultLocked(false);
   }, [user]);
 
-  // ── passkey setup ────────────────────────────────────────────────────
   const setupPasskey = useCallback(async () => {
     if (!user || !passkeySupported) throw new Error('Passkey not supported');
     const pin = pinnedPinRef.current;
@@ -256,7 +254,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setHasPasskey(true);
   }, [user, passkeySupported, addressHint]);
 
-  // ── passkey unlock ───────────────────────────────────────────────────
   const unlockWithPasskey = useCallback(async () => {
     if (!user) throw new Error('Not authenticated');
     const rawPasskey = localStorage.getItem(`${PASSKEY_PREFIX}${user.uid}`);
@@ -267,13 +264,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     await unlockWithPin(pin);
   }, [user, unlockWithPin]);
 
-  // ── createWallet (generates mnemonic only, no side effects) ─────────
   const createWallet = useCallback(async (): Promise<string> => {
     const w = ethers.Wallet.createRandom();
     return w.mnemonic?.phrase ?? '';
   }, []);
 
-  // ── confirmAndCreateWallet (new wallet from confirmed seed phrase) ───
   const confirmAndCreateWallet = useCallback(async (mnemonic: string) => {
     if (!auth) throw new Error('Auth missing');
     setIsInitializing(true);
@@ -282,7 +277,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const userCredential = await initiateAnonymousSignIn(auth);
       if (userCredential?.user) {
         const walletData = await setupUserAndWalletDocuments(userCredential.user, newWallet as any);
-        setPendingWallet(walletData);          // ← vault/PIN setup next
+        setPendingWallet(walletData);
       }
     } catch (e) {
       toast({ title: 'Setup Failed', description: 'Could not create secure identity.', variant: 'destructive' });
@@ -292,7 +287,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [auth, setupUserAndWalletDocuments, toast]);
 
-  // ── importWallet ─────────────────────────────────────────────────────
   const importWallet = useCallback(async (mnemonic: string) => {
     if (!auth || !firestore) throw new Error('Services missing');
     setIsInitializing(true);
@@ -331,7 +325,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           walletData = { address: importedWallet.address, privateKey: importedWallet.privateKey };
         }
 
-        setPendingWallet(walletData);         // ← vault/PIN setup next
+        setPendingWallet(walletData);
       }
     } catch (e: any) {
       toast({ title: 'Identity Import Failed', description: 'Invalid seed phrase or connection error.', variant: 'destructive' });
@@ -341,7 +335,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [auth, firestore, setupUserAndWalletDocuments, toast]);
 
-  // ── disconnect ───────────────────────────────────────────────────────
   const disconnectWallet = useCallback(() => {
     if (!auth) return;
     const uid = auth.currentUser?.uid;
@@ -360,7 +353,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     });
   }, [auth, router]);
 
-  // ── syncWalletBalance (unchanged) ────────────────────────────────────
   const syncWalletBalance = async (currency: string) => {
     if (!user || !firestore) return;
     await updateDoc(doc(firestore, 'users', user.uid, 'wallets', currency), {

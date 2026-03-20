@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,7 +19,6 @@ import {
     DollarSign, 
     Wallet, 
     Activity, 
-    Database, 
     Bell, 
     Mail, 
     RefreshCw, 
@@ -26,9 +26,8 @@ import {
     CheckCircle, 
     Power,
     AlertCircle,
-    Info,
-    ExternalLink,
-    Copy
+    Copy,
+    ExternalLink
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -61,7 +60,7 @@ type EmailFormValues = z.infer<typeof SendEmailInputSchema>;
 type OperationStatus = 'idle' | 'processing' | 'success' | 'error';
 
 export default function AdminDashboardPage() {
-  const { user, userProfile, wallet: adminWallet } = useWallet();
+  const { user, wallet: adminWallet } = useWallet();
   const { toast } = useToast();
   const firestore = useFirestore();
 
@@ -115,7 +114,6 @@ export default function AdminDashboardPage() {
             maintenanceMode: !active,
             version: "5.0.1",
             lastUpdated: Date.now(),
-            updatedBy: user?.uid
           }, { merge: true });
 
           toast({ 
@@ -169,6 +167,7 @@ export default function AdminDashboardPage() {
                 amount: amount,
                 price: 0,
                 timestamp: serverTimestamp(),
+                status: 'Completed',
                 notes: `Authorized System Orchestration Injection`
             });
         });
@@ -273,7 +272,7 @@ export default function AdminDashboardPage() {
                             Network Pulse
                         </div>
                         <div className="flex items-center gap-2">
-                            <Label className="text-[8px] font-bold text-muted-foreground">GATE</Label>
+                            <Label className="text-[8px] font-bold text-muted-foreground">PROTOCOL GATE</Label>
                             <Switch 
                                 checked={isNetworkActive} 
                                 onCheckedChange={handleToggleGate}
