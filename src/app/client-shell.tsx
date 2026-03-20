@@ -1,13 +1,11 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import type { ReactNode } from 'react';
+import { ClientProviders } from './client-providers';
 
-const ClientProviders = dynamic(
-  () => import('./client-providers').then(m => ({ default: m.ClientProviders })),
-  { ssr: false }
-);
-
+/**
+ * Shell component that wraps the application in its required client-side context providers.
+ */
 export function ClientShell({ children }: { children: ReactNode }) {
   return <ClientProviders>{children}</ClientProviders>;
 }

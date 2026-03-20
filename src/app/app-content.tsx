@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/sidebar';
@@ -22,11 +21,6 @@ export default function AppContent({
   const pathname = usePathname();
   const { isAdmin, loading, user } = useWallet();
   const firestore = useFirestore();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const protocolSettingsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -38,16 +32,8 @@ export default function AppContent({
 
   const isPublicPage = pathname === '/login';
 
-  // Prevent hydration mismatch by returning a stable structure until mounted
-  if (!mounted) {
-    return <div className="h-[100dvh] w-full bg-background" />;
-  }
-
-  if (isPublicPage) {
-    return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
-  }
-
-  if (loading) {
+  // Handle identity authentication phase
+  if (loading && !isPublicPage) {
     return (
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
         <div className="flex flex-col items-center gap-4">
@@ -58,9 +44,13 @@ export default function AppContent({
     );
   }
 
+  if (isPublicPage) {
+    return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
+  }
+
   const isAdminPage = pathname.startsWith('/admin');
 
-  // Halted State UI: High-integrity maintenance overlay
+  // Halted State UI: High-integrity maintenance overlay for verified governance
   if (isProtocolHalted && !isAdmin) {
     return (
       <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-background text-center p-6">

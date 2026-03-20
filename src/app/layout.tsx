@@ -32,10 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn('h-full', inter.variable)} suppressHydrationWarning>
-      <head suppressHydrationWarning>
-        <link rel="manifest" href="/manifest.json" />
-      </head>
-      <body className={cn('font-body antialiased h-full')} suppressHydrationWarning>
+      <body className={cn('font-body antialiased h-full')}>
         <Providers>
           <ClientShell>
             {children}
