@@ -27,7 +27,8 @@ import {
     Power,
     AlertCircle,
     Info,
-    ExternalLink
+    ExternalLink,
+    Copy
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -60,7 +61,7 @@ type EmailFormValues = z.infer<typeof SendEmailInputSchema>;
 type OperationStatus = 'idle' | 'processing' | 'success' | 'error';
 
 export default function AdminDashboardPage() {
-  const { user } = useWallet();
+  const { user, userProfile, wallet: adminWallet } = useWallet();
   const { toast } = useToast();
   const firestore = useFirestore();
 
@@ -220,6 +221,13 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleCopyAdminAddress = () => {
+    if (adminWallet?.address) {
+      navigator.clipboard.writeText(adminWallet.address);
+      toast({ title: "Identity Copied", description: "Admin identity rail copied to clipboard." });
+    }
+  };
+
   return (
     <div className="space-y-6 pb-20">
         <div className="flex justify-between items-start">
@@ -296,8 +304,21 @@ export default function AdminDashboardPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-black text-white italic">{adminBalance.toFixed(4)} ETH</div>
-                    <p className="text-[10px] text-muted-foreground mt-2 uppercase font-bold tracking-widest">Authorized Liquidity Pool</p>
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <div className="text-2xl font-black text-white italic">{adminBalance.toFixed(4)} ETH</div>
+                            <p className="text-[10px] text-muted-foreground mt-1 uppercase font-bold tracking-widest">Authorized Liquidity Pool</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5">
+                            <Badge variant="outline" className="text-[8px] border-blue-400/30 text-blue-400 font-black uppercase tracking-tighter">Verified Admin Identity</Badge>
+                            <div className="flex items-center gap-2 p-1.5 bg-white/5 rounded-lg border border-white/10 group/id cursor-pointer" onClick={handleCopyAdminAddress}>
+                                <code className="text-[9px] font-mono text-muted-foreground group-hover/id:text-blue-400 transition-colors">
+                                    {adminWallet?.address ? `${adminWallet.address.slice(0, 12)}...${adminWallet.address.slice(-8)}` : '0x9858...7e819f'}
+                                </code>
+                                <Copy className="h-2.5 w-2.5 text-muted-foreground/40 group-hover/id:text-blue-400" />
+                            </div>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
         </div>
