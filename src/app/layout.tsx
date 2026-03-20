@@ -35,7 +35,7 @@ export default function RootLayout({
       <head suppressHydrationWarning>
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className={cn('font-body antialiased h-full')}>
+      <body className={cn('font-body antialiased h-full')} suppressHydrationWarning>
         <Providers>
           <ClientShell>
             {children}
