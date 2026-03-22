@@ -8,36 +8,51 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    /**
-     * @description Global Protocol Settings - Publicly readable for status monitoring
-     */
-    match /protocol_settings/{document} {
-      allow read: if true;
-      allow write: if isSignedIn(); // Restricted to Admin UID in production
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
     }
-
+    
     /**
-     * @description Hierarchical rules for user-specific data.
-     * Owners have full read/write access to their profile and all subcollections.
-     */
-    match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
-
-      match /{allSubcollections=**} {
-        allow read, write: if isSignedIn() && request.auth.uid == userId;
-      }
-    }
-
-    /**
-     * @description Collection Group Rules for Explorer and Admin Verification.
-     * Explicitly allows public read access for block explorer functionality.
+     * @description Collection Group Rules for Background Ledger Verification.
      */
     match /{path=**}/wallets/{walletId} {
       allow read: if true;
+      allow write: if isSignedIn();
     }
 
     match /{path=**}/transactions/{transactionId} {
       allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    /**
+     * @description Global Protocol Settings
+     */
+    match /protocol_settings/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn(); // In production, restrict to specific Admin UID
+    }
+
+    /**
+     * @description Hierarchical rules for user-specific data.
+     */
+    match /users/{userId} {
+      allow read: if true; 
+      allow write: if isOwner(userId);
+
+      match /wallets/{walletId} {
+        allow read: if true;
+        allow write: if isOwner(userId);
+
+        match /transactions/{transactionId} {
+          allow read: if true;
+          allow write: if isOwner(userId);
+        }
+      }
+
+      match /price_alerts/{alertId} {
+        allow read, write: if isOwner(userId);
+      }
     }
   }
 }

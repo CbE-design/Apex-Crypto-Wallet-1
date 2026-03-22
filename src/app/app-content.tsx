@@ -1,7 +1,5 @@
-
 'use client';
 
-import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/sidebar';
@@ -10,9 +8,9 @@ import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
 import { useWallet } from '@/context/wallet-context';
 import { ShieldAlert, Loader2, Power } from 'lucide-react';
+import { EyeWatermark } from '@/components/eye-watermark';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import type { ProtocolStatus } from '@/lib/types';
 
 export default function AppContent({
   children,
@@ -20,34 +18,32 @@ export default function AppContent({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { isAdmin, user } = useWallet();
-  const [mounted, setMounted] = useState(false);
+  const { isAdmin, loading } = useWallet();
   const firestore = useFirestore();
+
+  const protocolSettingsRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return doc(firestore, 'protocol_settings', 'status');
+  }, [firestore]);
+
+  const { data: protocolStatus } = useDoc<{ isHalted: boolean }>(protocolSettingsRef);
+  const isProtocolHalted = protocolStatus?.isHalted ?? false;
 
   const isPublicPage = pathname === '/login';
 
-  // Optimization: Only create the reference if a user is logged in AND we're not on a public page.
-  // This prevents permission errors before authentication is established.
-  const protocolSettingsRef = useMemoFirebase(() => {
-    if (!firestore || !user || isPublicPage) return null;
-    return doc(firestore, 'protocol_settings', 'status');
-  }, [firestore, user, isPublicPage]);
-
-  const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
-  
-  // A protocol is considered halted if maintenanceMode is true OR isActive is explicitly false
-  const isProtocolHalted = protocolStatus ? (protocolStatus.maintenanceMode || !protocolStatus.isActive || protocolStatus.isHalted) : false;
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return null;
-  }
-
   if (isPublicPage) {
     return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-xs font-medium text-muted-foreground animate-pulse">Loading your wallet...</p>
+        </div>
+      </div>
+    );
   }
 
   const isAdminPage = pathname.startsWith('/admin');
@@ -62,13 +58,13 @@ export default function AppContent({
                   <ShieldAlert className="h-20 w-20 text-destructive" />
               </div>
           </div>
-          <h1 className="text-4xl font-black italic tracking-tighter uppercase mb-4">Protocol Halted</h1>
-          <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] mb-8 max-w-sm">
-              The Apex Private Ledger has been suspended by system governance. Inbound and outbound RPC traffic is currently inhibited.
+          <h1 className="text-3xl font-bold mb-3">Service Temporarily Unavailable</h1>
+          <p className="text-sm text-muted-foreground mb-8 max-w-sm">
+              Trading and transfers have been temporarily suspended for maintenance. Please check back shortly.
           </p>
-          <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl">
+          <div className="flex items-center gap-2 px-4 py-2 bg-destructive/5 border border-destructive/20 rounded-xl">
               <Power className="h-4 w-4 text-destructive animate-pulse" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-destructive">Network State: DISCONNECTED</span>
+              <span className="text-sm font-medium text-destructive">Disconnected</span>
           </div>
       </div>
     );
@@ -88,9 +84,14 @@ export default function AppContent({
             </Sidebar>
           </div>
 
-          <SidebarInset className="flex flex-col h-full w-full overflow-hidden bg-transparent">
-            <main className="independent-scroll aurora-bg p-4 md:p-6 lg:p-8 relative scroll-smooth">
-              <div className="max-w-7xl mx-auto w-full pb-20 md:pb-0">
+          <SidebarInset className="min-h-0 flex-1 flex flex-col overflow-hidden bg-transparent">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden aurora-bg p-4 md:p-6 lg:p-8 scroll-smooth flex flex-col relative">
+              {/* Subliminal all-seeing eye — lower-right quadrant */}
+              <EyeWatermark
+                className="absolute bottom-0 right-0 w-[560px] h-[560px] text-primary pointer-events-none translate-x-1/4 translate-y-1/4"
+                opacity={0.028}
+              />
+              <div className="max-w-7xl mx-auto w-full pb-28 md:pb-10 flex-1 flex flex-col relative z-10">
                 {children}
               </div>
             </main>
