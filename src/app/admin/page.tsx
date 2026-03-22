@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,25 +11,27 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from '@/components/ui/switch';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
     ShieldCheck, 
     DollarSign, 
     Wallet, 
     Activity, 
+    Database, 
     Bell, 
     Mail, 
     RefreshCw, 
     Loader2, 
     CheckCircle, 
+    Power,
     AlertCircle,
     Info,
     ExternalLink
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, limit, runTransaction, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, runTransaction, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getLedgerSyncStatus } from '@/services/ledger-sync-service';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -41,15 +42,14 @@ import { cn } from '@/lib/utils';
 import { 
   SendEmailInputSchema, 
   SendNotificationInputSchema,
-  type ProtocolStatus
 } from '@/lib/types';
 
 const sendSchema = z.object({
-  recipientAddress: z.string().min(1, "Recipient identity is required."),
+  recipientAddress: z.string().min(1, "Recipient address is required."),
   amount: z.string().refine(val => parseFloat(val) > 0, {
     message: "Amount must be greater than zero.",
   }),
-  asset: z.string().min(1, "Asset protocol is required."),
+  asset: z.string().min(1, "Asset is required."),
 });
 
 type SendFormValues = z.infer<typeof sendSchema>;
@@ -71,8 +71,8 @@ export default function AdminDashboardPage() {
     return doc(firestore, 'protocol_settings', 'status');
   }, [firestore]);
 
-  const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
-  const isProtocolHalted = protocolStatus ? (protocolStatus.maintenanceMode || !protocolStatus.isActive || protocolStatus.isHalted) : false;
+  const { data: protocolStatus } = useDoc<{ isHalted: boolean }>(protocolSettingsRef);
+  const isProtocolHalted = protocolStatus?.isHalted ?? false;
 
   const [fundingStatus, setFundingStatus] = useState<OperationStatus>('idle');
   const [broadcastStatus, setBroadcastStatus] = useState<OperationStatus>('idle');
@@ -105,24 +105,25 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleToggleProtocol = async (checked: boolean) => {
-    if (!firestore || !protocolSettingsRef) return;
-    try {
-        await updateDoc(protocolSettingsRef, {
-            isActive: checked,
-            maintenanceMode: !checked,
-            isHalted: !checked,
-            lastUpdated: serverTimestamp(),
-            version: protocolStatus?.version || '5.0.0'
-        });
-        toast({ 
-            title: checked ? "Protocol Resumed" : "Protocol Halted", 
-            description: checked ? "Network RPC traffic authorized." : "System governance has suspended all ledger traffic.",
-            variant: checked ? "default" : "destructive"
-        });
-    } catch (e: any) {
-        toast({ title: "Governance Failure", description: e.message, variant: "destructive" });
-    }
+  const handleToggleGate = async (checked: boolean) => {
+      if (!firestore) return;
+      const newHaltState = !checked;
+      try {
+          await setDoc(doc(firestore, 'protocol_settings', 'status'), { 
+            isHalted: newHaltState,
+            updatedBy: user?.uid,
+            timestamp: serverTimestamp()
+          }, { merge: true });
+
+          const action = checked ? "OPENED" : "HALTED";
+          toast({ 
+              title: `Protocol ${action}`, 
+              description: checked ? "Resuming inbound RPC traffic..." : "Suspending all synchronization services.",
+              variant: checked ? "default" : "destructive"
+          });
+      } catch (e) {
+          toast({ title: "Update Failed", description: "Insufficient permissions for global protocol change.", variant: "destructive" });
+      }
   };
 
   const fundingForm = useForm<SendFormValues>({
@@ -133,7 +134,7 @@ export default function AdminDashboardPage() {
 
   const handleExecuteFunding: SubmitHandler<SendFormValues> = async (data) => {
     if (isProtocolHalted) {
-        toast({ title: "Operation Denied", description: "Ledger is currently halted. Contact system governance.", variant: "destructive" });
+        toast({ title: "Operation Denied", description: "Ledger is currently halted. Re-open the Protocol Gate.", variant: "destructive" });
         return;
     }
     if (!user || !firestore) return;
@@ -162,7 +163,7 @@ export default function AdminDashboardPage() {
             const txRef = doc(collection(walletRef, 'transactions'));
             transaction.set(txRef, {
                 userId: recipientUserId,
-                type: 'Internal Transfer',
+                type: 'Buy',
                 amount: amount,
                 price: 0,
                 timestamp: serverTimestamp(),
@@ -223,7 +224,7 @@ export default function AdminDashboardPage() {
         <div className="flex justify-between items-start">
             <div>
                 <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Orchestration Terminal</h1>
-                <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400">Governance Controller v5.0</p>
+                <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400">Governance & Liquidity Controller v5.0</p>
             </div>
             <Button 
                 variant="outline" 
@@ -242,7 +243,7 @@ export default function AdminDashboardPage() {
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle className="text-xs font-black uppercase tracking-widest">Admin SDK Disconnected</AlertTitle>
                 <AlertDescription className="text-[10px] uppercase font-bold text-muted-foreground flex flex-col gap-2 mt-1">
-                    <p>Global broadcast protocols and system synchronization are currently inhibited. Please provide the Firebase Admin SDK configuration.</p>
+                    <p>Real-time bridge liquidity and global broadcast protocols are currently inhibited. Please provide the Firebase Admin SDK configuration in your .env file.</p>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="h-7 text-[9px] uppercase font-black px-3 rounded-lg border-destructive/20 hover:bg-destructive/20" asChild>
                             <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">
@@ -257,7 +258,7 @@ export default function AdminDashboardPage() {
             </Alert>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="glass-module border-primary/20 relative overflow-hidden group">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center justify-between">
@@ -266,11 +267,11 @@ export default function AdminDashboardPage() {
                             Network Pulse
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Gateway</span>
+                            <Label className="text-[8px] font-bold text-muted-foreground">GATE</Label>
                             <Switch 
                                 checked={!isProtocolHalted} 
-                                onCheckedChange={handleToggleProtocol}
-                                className="data-[state=checked]:bg-green-500"
+                                onCheckedChange={handleToggleGate}
+                                className="scale-75 data-[state=checked]:bg-primary data-[state=unchecked]:bg-destructive"
                             />
                         </div>
                     </CardTitle>
@@ -287,6 +288,28 @@ export default function AdminDashboardPage() {
                     <p className="text-[10px] text-muted-foreground mt-2 font-mono truncate">
                         ROOT: {syncStatus?.stateRoot?.substring(0, 32)}...
                     </p>
+                </CardContent>
+            </Card>
+
+            <Card className={cn("glass-module", syncStatus?.isOffline ? "border-destructive/20" : "border-accent/20")}>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                        <Database className={cn("h-4 w-4", syncStatus?.isOffline ? "text-destructive" : "text-accent")} /> Bridge Liquidity
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className={cn("text-2xl font-black italic", syncStatus?.isOffline ? "text-destructive/50" : "text-white")}>
+                        {syncStatus?.bridgeLiquidity || '0.00 ETH'}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-2">
+                        {syncStatus?.isOffline ? (
+                            <Badge variant="outline" className="text-[8px] border-destructive/30 text-destructive uppercase font-bold tracking-widest flex items-center gap-1">
+                                <AlertCircle className="h-2 w-2" /> Admin SDK Required
+                            </Badge>
+                        ) : (
+                            <Badge variant="outline" className="text-[8px] border-accent/30 text-accent uppercase font-bold tracking-widest">Aggregate Rail Supply</Badge>
+                        )}
+                    </div>
                 </CardContent>
             </Card>
 
@@ -319,11 +342,17 @@ export default function AdminDashboardPage() {
             <TabsContent value="ledger" className="mt-6">
                 <Card className="glass-module">
                     <CardHeader>
-                        <CardTitle className="italic">Authorized Asset Injection</CardTitle>
-                        <CardDescription className="text-[10px] uppercase font-bold">Administrative ledger update for verified account identities on the Apex Private Rail.</CardDescription>
+                        <CardTitle className="italic">Manual Asset Injection</CardTitle>
+                        <CardDescription className="text-[10px] uppercase font-bold">Directly credit a user's wallet on the Apex Private Ledger.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {fundingStatus === 'processing' ? (
+                        {isProtocolHalted ? (
+                            <div className="py-20 flex flex-col items-center gap-4 text-center">
+                                <Power className="h-12 w-12 text-destructive animate-pulse" />
+                                <h3 className="text-sm font-black uppercase tracking-widest text-destructive">Ledger Halted</h3>
+                                <p className="text-xs text-muted-foreground max-w-xs">Manual asset injection is inhibited while the Protocol Gate is closed. Re-open the gate to resume.</p>
+                            </div>
+                        ) : fundingStatus === 'processing' ? (
                             <div className="py-20 flex flex-col items-center gap-4">
                                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
                                 <p className="text-xs font-black uppercase tracking-widest">Updating Ledger State...</p>
@@ -372,14 +401,14 @@ export default function AdminDashboardPage() {
                 <Card className="glass-module">
                     <CardHeader>
                         <CardTitle className="italic">Global Push Broadcast</CardTitle>
-                        <CardDescription className="text-[10px] uppercase font-bold">Dispatch a high-priority system notification to all verified nodes.</CardDescription>
+                        <CardDescription className="text-[10px] uppercase font-bold">Dispatch a high-priority push notification to all active devices.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {syncStatus?.isOffline ? (
                             <div className="py-20 flex flex-col items-center gap-4 text-center">
                                 <AlertCircle className="h-12 w-12 text-destructive" />
                                 <h3 className="text-sm font-black uppercase tracking-widest text-destructive">Broadcast Rails Disabled</h3>
-                                <p className="text-xs text-muted-foreground max-w-xs">Global push broadcast requires valid administrative configuration.</p>
+                                <p className="text-xs text-muted-foreground max-w-xs">Global push broadcast requires a valid Firebase Admin SDK configuration.</p>
                             </div>
                         ) : broadcastStatus === 'processing' ? (
                             <div className="py-20 flex flex-col items-center gap-4">
@@ -416,7 +445,7 @@ export default function AdminDashboardPage() {
                             <div className="py-20 flex flex-col items-center gap-4 text-center">
                                 <AlertCircle className="h-12 w-12 text-destructive" />
                                 <h3 className="text-sm font-black uppercase tracking-widest text-destructive">SMTP Rails Disabled</h3>
-                                <p className="text-xs text-muted-foreground max-w-xs">Bulk email dispatching requires valid administrative configuration.</p>
+                                <p className="text-xs text-muted-foreground max-w-xs">Bulk email dispatching requires a valid Firebase Admin SDK configuration.</p>
                             </div>
                         ) : emailStatus === 'processing' ? (
                             <div className="py-20 flex flex-col items-center gap-4">
@@ -431,10 +460,10 @@ export default function AdminDashboardPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label className="text-[10px] font-black uppercase tracking-widest ml-1">HTML Body Content</Label>
-                                    <Textarea className="bg-white/5 rounded-xl font-mono text-[10px] border-white/10" rows={10} placeholder="<h1>System Update</h1>..." {...emailForm.register('body')} />
+                                    <Textarea className="bg-white/5 rounded-xl font-mono text-[10px] border-white/10" rows={10} placeholder="<h1>Welcome to the Future</h1>..." {...emailForm.register('body')} />
                                 </div>
                                 <Button type="submit" className="w-full bg-blue-600 text-white py-7 rounded-2xl font-black uppercase italic hover:bg-blue-500 tracking-widest">
-                                    Dispatch Email Campaign
+                                    Blast Email Campaign
                                 </Button>
                             </form>
                         )}

@@ -1,149 +1,150 @@
 
 'use server';
 
-import * as ccxt from 'ccxt';
 import { marketCoins } from '@/lib/data';
 
 /**
- * @fileOverview A service for fetching cryptocurrency data using the ccxt library.
+ * @fileOverview Crypto price service backed by the CoinGecko free public API.
+ * Next.js fetch() caching handles deduplication and revalidation server-side.
  *
- * - getLivePrices - Fetches the current prices for a list of cryptocurrencies against a target fiat currency.
+ * - getLivePrices     — current prices converted to any fiat currency
+ * - getLive24hChanges — 24-hour percentage change for each symbol
+ * - getFiatRate       — USD → target fiat conversion rate (Frankfurter API)
  */
 
-// Simple in-memory cache
-const cache = new Map<string, { price: number; timestamp: number }>();
-const CACHE_TTL = 60 * 1000; // 1 minute
+const COINGECKO_IDS: Record<string, string> = {
+  BTC:   'bitcoin',
+  ETH:   'ethereum',
+  LINK:  'chainlink',
+  SOL:   'solana',
+  BNB:   'binancecoin',
+  XRP:   'ripple',
+  ADA:   'cardano',
+  USDT:  'tether',
+  USDC:  'usd-coin',
+  DOGE:  'dogecoin',
+  MATIC: 'matic-network',
+  POL:   'matic-network',
+  AVAX:  'avalanche-2',
+  DOT:   'polkadot',
+  UNI:   'uniswap',
+  ATOM:  'cosmos',
+  LTC:   'litecoin',
+  BCH:   'bitcoin-cash',
+  TRX:   'tron',
+  SHIB:  'shiba-inu',
+  TON:   'the-open-network',
+  SUI:   'sui',
+  APT:   'aptos',
+  OP:    'optimism',
+  ARB:   'arbitrum',
+};
 
-function getExchangeInstance() {
-    const exchangeId = 'binance' as keyof typeof ccxt.exchanges;
-    const exchangeClass = ccxt[exchangeId];
-    const exchange = new exchangeClass({
-        apiKey: process.env.EXCHANGE_API_KEY,
-        secret: process.env.EXCHANGE_API_SECRET,
+const FALLBACK_FIAT_RATES: Record<string, number> = {
+  USD: 1, EUR: 0.92, GBP: 0.79, ZAR: 18.62, AUD: 1.53,
+  CAD: 1.36, JPY: 149.50, CHF: 0.90, CNY: 7.24, INR: 83.10,
+  NGN: 1580.00, BRL: 4.97, MXN: 17.15, SGD: 1.34, HKD: 7.82,
+  NZD: 1.63, SEK: 10.45, NOK: 10.52, DKK: 6.87, PLN: 3.95,
+};
+
+/**
+ * Fetch USD prices + 24h changes from CoinGecko for a set of crypto symbols.
+ * Next.js deduplicates identical fetch calls within the same request and
+ * caches the HTTP response for 60 seconds across requests.
+ */
+async function fetchCoinGecko(
+  symbols: string[],
+): Promise<{ usdPrices: Record<string, number>; changes: Record<string, number> }> {
+  const usdPrices: Record<string, number> = {};
+  const changes: Record<string, number> = {};
+
+  const stableCoins = ['USDT', 'USDC'];
+  for (const s of symbols) {
+    if (stableCoins.includes(s)) { usdPrices[s] = 1; changes[s] = 0.01; }
+  }
+
+  const cryptoSymbols = symbols.filter(s => !stableCoins.includes(s));
+  if (cryptoSymbols.length === 0) return { usdPrices, changes };
+
+  const ids = cryptoSymbols.map(s => COINGECKO_IDS[s]).filter(Boolean).join(',');
+  if (!ids) {
+    for (const sym of cryptoSymbols) {
+      const coin = marketCoins.find(c => c.symbol === sym);
+      usdPrices[sym] = coin?.priceUSD ?? 0;
+      changes[sym]   = coin?.change24h ?? 0;
+    }
+    return { usdPrices, changes };
+  }
+
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true&precision=8`;
+
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(8_000),
+      next: { revalidate: 60 },
     });
 
-    if (process.env.EXCHANGE_SANDBOX_MODE === 'true' && exchange.has['sandbox']) {
-        exchange.setSandboxMode(true);
+    if (res.ok) {
+      const json = await res.json() as Record<string, Record<string, number>>;
+      for (const sym of cryptoSymbols) {
+        const id = COINGECKO_IDS[sym];
+        if (!id || !json[id]) continue;
+        usdPrices[sym] = json[id]['usd'] ?? 0;
+        changes[sym]   = json[id]['usd_24h_change'] ?? 0;
+      }
     }
+  } catch {
+    // CoinGecko unavailable — fall through to static data
+  }
 
-    return exchange;
+  for (const sym of cryptoSymbols) {
+    if (usdPrices[sym] === undefined) {
+      const coin = marketCoins.find(c => c.symbol === sym);
+      usdPrices[sym] = coin?.priceUSD ?? 0;
+      changes[sym]   = coin?.change24h ?? 0;
+    }
+  }
+
+  return { usdPrices, changes };
 }
 
-/**
- * Fetches the current price for a list of given cryptocurrency symbols against a target fiat currency.
- * Uses USD as a base for cross-currency conversions to ensure reliability.
- * @param symbols - An array of cryptocurrency symbols (e.g., ['BTC', 'ETH']).
- * @param targetCurrency - The fiat currency to get the price in (e.g., 'USD', 'EUR'). Defaults to 'USD'.
- * @returns A promise that resolves to a record mapping symbols to their prices in the target currency.
- */
-export async function getLivePrices(symbols: string[], targetCurrency: string = 'USD'): Promise<Record<string, number>> {
-    const exchange = getExchangeInstance();
-    
-    const symbolsToFetch: string[] = [];
-    const cachedPrices: Record<string, number> = {};
-
-    // Check cache first for USD prices
-    for (const symbol of symbols) {
-        const cacheKey = `${symbol}-USD`;
-        const cached = cache.get(cacheKey);
-        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-            cachedPrices[symbol] = cached.price;
-        } else {
-            symbolsToFetch.push(symbol);
-        }
+export async function getFiatRate(targetCurrency: string): Promise<number> {
+  const upper = targetCurrency.toUpperCase();
+  if (upper === 'USD') return 1;
+  try {
+    const res = await fetch(
+      `https://api.frankfurter.app/latest?from=USD&to=${upper}`,
+      { next: { revalidate: 600 } },
+    );
+    if (res.ok) {
+      const json = await res.json();
+      const rate: number = json?.rates?.[upper];
+      if (rate && rate > 0) return rate;
     }
-    
-    // Fetch remaining prices from the exchange
-    if (symbolsToFetch.length > 0) {
-        if (!exchange) {
-            const staticPrices = getStaticPrices(symbolsToFetch, 'USD');
-            Object.assign(cachedPrices, staticPrices);
-        } else {
-            try {
-                const usdPairs = symbolsToFetch.map(s => `${s}/USDT`);
-                const usdTickers = await exchange.fetchTickers(usdPairs);
-
-                for (const symbol in usdTickers) {
-                    const originalSymbol = symbol.split('/')[0];
-                    if (usdTickers[symbol]?.last) {
-                        const price = usdTickers[symbol]!.last!;
-                        cachedPrices[originalSymbol] = price;
-                        cache.set(`${originalSymbol}-USD`, { price, timestamp: Date.now() });
-                    }
-                }
-                
-                // Fill any remaining missing prices from static data as a final fallback.
-                symbolsToFetch.forEach(s => {
-                    if (!cachedPrices[s]) {
-                        const staticCoin = marketCoins.find(c => c.symbol === s);
-                        if (staticCoin) {
-                            cachedPrices[s] = staticCoin.priceUSD;
-                        }
-                    }
-                });
-
-            } catch (error) {
-                const staticPrices = getStaticPrices(symbolsToFetch, 'USD');
-                Object.assign(cachedPrices, staticPrices);
-            }
-        }
-    }
-    
-    return convertPrices(cachedPrices, targetCurrency, exchange);
+  } catch {
+    // Fall through to hardcoded rates
+  }
+  return FALLBACK_FIAT_RATES[upper] ?? 1;
 }
 
-async function convertPrices(usdPrices: Record<string, number>, targetCurrency: string, exchange: ccxt.Exchange) {
-    if (targetCurrency.toUpperCase() === 'USD') {
-        return usdPrices;
-    }
-
-    const rateCacheKey = `USD-${targetCurrency}`;
-    const cachedRate = cache.get(rateCacheKey);
-
-    let usdToTargetRate = 1;
-
-    if (cachedRate && (Date.now() - cachedRate.timestamp < CACHE_TTL)) {
-        usdToTargetRate = cachedRate.price;
-    } else {
-        try {
-            // We fetch the price of USD in terms of the target currency.
-            // e.g., if target is EUR, we want EUR/USDT price.
-            const targetRateTicker = await exchange.fetchTicker(`USDT/${targetCurrency.toUpperCase()}`);
-            if (targetRateTicker && targetRateTicker.last) {
-                // The rate is how many of the target currency one USD is worth.
-                usdToTargetRate = targetRateTicker.last;
-                cache.set(rateCacheKey, { price: usdToTargetRate, timestamp: Date.now() });
-            }
-        } catch (rateError) {
-             // If fetching fails, we might fall back or use a default.
-             // For simplicity, we'll keep the rate at 1, which means prices will be shown in USD.
-             usdToTargetRate = 1;
-        }
-    }
-
-    const targetPrices: Record<string, number> = {};
-    for (const symbol in usdPrices) {
-        targetPrices[symbol] = usdPrices[symbol] * usdToTargetRate;
-    }
-
-    return targetPrices;
+export async function getLivePrices(
+  symbols: string[],
+  targetCurrency = 'USD',
+): Promise<Record<string, number>> {
+  const { usdPrices } = await fetchCoinGecko(symbols);
+  if (targetCurrency.toUpperCase() === 'USD') return usdPrices;
+  const rate = await getFiatRate(targetCurrency);
+  const result: Record<string, number> = {};
+  for (const [sym, price] of Object.entries(usdPrices)) {
+    result[sym] = price * rate;
+  }
+  return result;
 }
 
-
-/**
- * A fallback function to get prices from the static data file.
- * NOTE: This only works accurately for USD. For other currencies, it returns 0.
- */
-function getStaticPrices(symbols: string[], targetCurrency: string = 'USD'): Record<string, number> {
-    const isUsd = targetCurrency.toUpperCase() === 'USD';
-
-    return symbols.reduce((acc, symbol) => {
-        const coin = marketCoins.find(c => c.symbol === symbol);
-        if (coin) {
-            acc[symbol] = isUsd ? coin.priceUSD : 0; 
-        } else {
-            acc[symbol] = 0;
-        }
-        return acc;
-    }, {} as Record<string, number>);
+export async function getLive24hChanges(
+  symbols: string[],
+): Promise<Record<string, number>> {
+  const { changes } = await fetchCoinGecko(symbols);
+  return changes;
 }

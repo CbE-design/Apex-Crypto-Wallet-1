@@ -1,19 +1,21 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import QRCode from 'qrcode';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowRight, Copy, Loader2, ShieldCheck, Activity, Database } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ArrowRight, Copy, Loader2, ShieldCheck, Send, ArrowDownToLine, QrCode } from 'lucide-react';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
@@ -22,7 +24,6 @@ import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, runTransaction, doc, serverTimestamp, getDocs, where, limit } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { marketCoins } from '@/lib/data';
-import { Badge } from '@/components/ui/badge';
 import { useCurrency } from '@/context/currency-context';
 
 const sendSchema = z.object({
@@ -41,10 +42,17 @@ export default function SendReceivePage() {
   const { wallet, user } = useWallet();
   const { currency, formatCurrency } = useCurrency();
   const firestore = useFirestore();
+  const searchParams = useSearchParams();
+
+  const paramCurrency = searchParams.get('currency');
+  const paramAction = searchParams.get('action');
+  const initialAsset = paramCurrency && marketCoins.some(c => c.symbol === paramCurrency) ? paramCurrency : 'ETH';
+  const initialTab = paramAction === 'receive' ? 'receive' : 'send';
 
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
-  const [selectedAsset, setSelectedAsset] = useState('ETH');
+  const [selectedAsset, setSelectedAsset] = useState(initialAsset);
   const [isComplianceRequired, setIsComplianceRequired] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   const userAddress = wallet?.address || '...';
   
@@ -58,7 +66,7 @@ export default function SendReceivePage() {
   const selectedAssetBalance = useMemo(() => {
     if (!userWallets) return 0;
     const w = userWallets.find(w => w.currency === selectedAsset);
-    return w ? w.balance : 0;
+    return w?.balance ?? 0;
   }, [userWallets, selectedAsset]);
 
   const { 
@@ -70,17 +78,31 @@ export default function SendReceivePage() {
       setValue
   } = useForm<SendFormValues>({
       resolver: zodResolver(sendSchema),
-      defaultValues: { recipientAddress: '', amount: '', asset: 'ETH' },
+      defaultValues: { recipientAddress: '', amount: '', asset: initialAsset },
       mode: 'onChange',
   });
 
   const formValues = watch();
 
+  const [liveAssetPriceUSD, setLiveAssetPriceUSD] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!selectedAsset) return;
+    fetch(`/api/prices?symbols=${selectedAsset}&currency=USD`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(({ prices }: { prices: Record<string, number> }) => {
+        setLiveAssetPriceUSD(prev => ({ ...prev, [selectedAsset]: prices[selectedAsset] || 0 }));
+      })
+      .catch(() => {});
+  }, [selectedAsset]);
+
   useEffect(() => {
     const amountVal = parseFloat(formValues.amount) || 0;
-    const valueInZAR = amountVal * (selectedAsset === 'ETH' ? 3500 : 1) * 19; // Simplified check
+    const assetPriceUSD = liveAssetPriceUSD[selectedAsset] || (selectedAsset === 'ETH' ? 2000 : selectedAsset === 'BTC' ? 82000 : 1);
+    const zarRate = 18.62;
+    const valueInZAR = amountVal * assetPriceUSD * zarRate;
     setIsComplianceRequired(valueInZAR > 3000);
-  }, [formValues.amount, selectedAsset]);
+  }, [formValues.amount, selectedAsset, liveAssetPriceUSD]);
 
   useEffect(() => {
     if (wallet?.address) {
@@ -94,10 +116,12 @@ export default function SendReceivePage() {
   }, [wallet?.address]);
 
   const executeSend = async (data: SendFormValues) => {
-    if (!wallet || !user || !firestore) return;
+    if (!wallet || !user || !firestore || isSending) return;
+    setIsSending(true);
 
     if (data.recipientAddress.toLowerCase() === userAddress.toLowerCase()) {
-        toast({ title: "Invalid Recipient", description: "Self-transfers are not supported on the primary rail.", variant: "destructive"});
+        toast({ title: "Invalid Recipient", description: "You cannot send to your own address.", variant: "destructive"});
+        setIsSending(false);
         return;
     }
     
@@ -108,7 +132,7 @@ export default function SendReceivePage() {
             const recipientSnapshot = await getDocs(recipientQuery);
             
             if (recipientSnapshot.empty) {
-                throw new Error("Recipient address not found in the Apex Orchestration system.");
+                throw new Error("Recipient address not found. Please check the address and try again.");
             }
             const recipientId = recipientSnapshot.docs[0].id;
             const amount = parseFloat(data.amount);
@@ -147,41 +171,44 @@ export default function SendReceivePage() {
             });
         });
 
-        toast({ title: 'Transfer Finalized', description: `Successfully dispatched ${data.amount} ${data.asset}.` });
+        toast({ title: 'Transfer Complete', description: `Successfully sent ${data.amount} ${data.asset}.` });
         reset({ asset: selectedAsset, amount: '', recipientAddress: '' });
 
-    } catch (error: any) {
-        toast({ title: 'Orchestration Failed', description: error.message, variant: 'destructive' });
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+        toast({ title: 'Transfer Failed', description: message, variant: 'destructive' });
+    } finally {
+        setIsSending(false);
     }
   };
 
   return (
     <PrivateRoute>
       <div className="flex justify-center items-start pt-2">
-        <Card className="w-full max-w-lg glass-module glass-glow-blue">
-          <CardHeader className="border-b border-white/5 py-8">
+        <Card className="w-full max-w-lg bg-card/60 backdrop-blur-sm border-border/60">
+          <CardHeader className="border-b border-border/40 pb-5">
             <div className="flex items-center gap-3">
-                 <div className="p-2.5 bg-primary/20 rounded-2xl border border-primary/40">
-                  <Activity className="h-6 w-6 text-primary" />
+                 <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20">
+                  <Send className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <CardTitle className="text-2xl font-black tracking-tight uppercase italic text-foreground">Liquidity Hub</CardTitle>
-                  <CardDescription className="text-[10px] uppercase font-bold tracking-[0.2em] text-blue-400">Apex Private Rail</CardDescription>
+                  <CardTitle className="text-xl font-bold tracking-tight">Send & Receive</CardTitle>
+                  <CardDescription className="text-sm text-muted-foreground">Transfer crypto to any Apex wallet</CardDescription>
                 </div>
             </div>
           </CardHeader>
-          <CardContent className="pt-8">
-            <Tabs defaultValue="send" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-white/5 rounded-2xl p-1 h-14">
-                <TabsTrigger value="send" className="rounded-xl font-black uppercase tracking-widest text-[10px]">Send Asset</TabsTrigger>
-                <TabsTrigger value="receive" className="rounded-xl font-black uppercase tracking-widest text-[10px]">Receive Rail</TabsTrigger>
+          <CardContent className="pt-6">
+            <Tabs defaultValue={initialTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 bg-muted/30 rounded-xl p-1 h-11">
+                <TabsTrigger value="send" className="rounded-lg text-sm font-medium">Send</TabsTrigger>
+                <TabsTrigger value="receive" className="rounded-lg text-sm font-medium">Receive</TabsTrigger>
               </TabsList>
-              <TabsContent value="send" className="pt-8 space-y-6">
-                <form onSubmit={handleSubmit(executeSend)} className="space-y-6">
+              <TabsContent value="send" className="pt-6 space-y-5">
+                <form onSubmit={handleSubmit(executeSend)} className="space-y-5">
                     <div className="space-y-2">
-                        <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Asset Protocol</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Asset</Label>
                         <Select value={selectedAsset} onValueChange={(val) => { setSelectedAsset(val); setValue('asset', val, { shouldValidate: true }); }}>
-                            <SelectTrigger className="h-14 bg-white/5 border-white/10 rounded-2xl">
+                            <SelectTrigger className="h-12 bg-muted/20 border-border/60 rounded-xl">
                                 <SelectValue placeholder="Select cryptocurrency" />
                             </SelectTrigger>
                             <SelectContent>
@@ -189,7 +216,7 @@ export default function SendReceivePage() {
                                     <SelectItem key={coin.symbol} value={coin.symbol}>
                                         <div className="flex items-center gap-2">
                                             <CryptoIcon name={coin.name} className="h-4 w-4" />
-                                            {coin.name}
+                                            {coin.name} ({coin.symbol})
                                         </div>
                                     </SelectItem>
                                 ))}
@@ -198,88 +225,108 @@ export default function SendReceivePage() {
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Recipient Identity</Label>
-                        <Input className="h-14 bg-white/5 border-white/10 rounded-2xl font-mono text-sm" placeholder="Apex Address (0x...)" {...register('recipientAddress')} />
+                        <Label className="text-xs font-medium text-muted-foreground">Recipient Address</Label>
+                        <Input className="h-12 bg-muted/20 border-border/60 rounded-xl font-mono text-sm" placeholder="0x..." {...register('recipientAddress')} />
+                        {errors.recipientAddress && <p className="text-xs text-destructive">{errors.recipientAddress.message}</p>}
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Amount</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Amount</Label>
                         <div className="relative">
-                            <Input className="h-16 bg-white/5 border-white/10 rounded-2xl text-xl font-black" type="number" step="any" placeholder="0.00" {...register('amount')} />
-                            <div className="absolute right-6 top-1/2 -translate-y-1/2 font-black text-primary italic text-sm">{selectedAsset}</div>
+                            <Input className="h-14 bg-muted/20 border-border/60 rounded-xl text-lg font-semibold pr-16" type="number" step="any" placeholder="0.00" {...register('amount')} />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-primary">{selectedAsset}</div>
                         </div>
-                        <p className="text-[10px] font-bold text-muted-foreground tracking-widest mt-2 uppercase">
-                            Available: <span className="text-white">{selectedAssetBalance.toFixed(6)} {selectedAsset}</span>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Available: <span className="text-foreground font-medium">{selectedAssetBalance.toFixed(6)} {selectedAsset}</span>
                         </p>
+                        {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
                     </div>
 
                     {isComplianceRequired && (
-                        <div className="p-5 rounded-2xl bg-primary/10 border border-primary/30 space-y-3 animate-in fade-in zoom-in-95">
+                        <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-3 animate-in fade-in zoom-in-95">
                             <div className="flex items-center gap-2 text-primary">
                                 <ShieldCheck className="h-4 w-4" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Travel Rule Compliance Required</span>
+                                <span className="text-xs font-semibold">Additional Verification Required</span>
                             </div>
-                            <p className="text-[10px] text-muted-foreground">High-value transfer detected. Compliance ID will be automatically generated.</p>
-                            <Input className="h-12 bg-black/20 border-white/5 rounded-xl text-xs font-mono" placeholder="Self-Reporting Compliance ID (Optional)" {...register('complianceId')} />
+                            <p className="text-xs text-muted-foreground">This transfer exceeds the threshold for additional verification. A compliance reference will be generated automatically.</p>
+                            <Input className="h-10 bg-muted/20 border-border/40 rounded-lg text-xs font-mono" placeholder="Compliance ID (optional)" {...register('complianceId')} />
                         </div>
                     )}
 
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button type="button" className="w-full btn-premium py-8 rounded-3xl font-black uppercase tracking-widest text-xs italic" disabled={!isValid || isSubmitting}>
-                                {isSubmitting ? <Loader2 className="animate-spin" /> : "Authorize Dispatch"}
+                            <Button type="button" className="w-full h-12 rounded-xl font-semibold text-sm btn-premium" disabled={!isValid || isSubmitting}>
+                                {isSubmitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+                                {isSubmitting ? "Sending..." : "Send"}
                             </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent className="rounded-3xl bg-card border-white/10">
+                        <AlertDialogContent className="rounded-2xl bg-card border-border/60">
                             <AlertDialogHeader>
-                                <AlertDialogTitle className="text-2xl font-black italic uppercase">Confirm Dispatch</AlertDialogTitle>
-                                <AlertDialogDescription className="text-xs uppercase font-bold tracking-widest">
-                                    Finalizing atomic state update on Apex Private Rail.
+                                <AlertDialogTitle className="text-lg font-bold">Confirm Transfer</AlertDialogTitle>
+                                <AlertDialogDescription className="text-sm">
+                                    Please review the details below. This transfer cannot be reversed.
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
-                            <div className="py-6 space-y-4">
-                                <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl">
-                                    <span className="text-[10px] font-bold uppercase text-muted-foreground">Settlement</span>
-                                    <span className="font-black text-xl italic">{formValues.amount} {selectedAsset}</span>
+                            <div className="py-4 space-y-3">
+                                <div className="flex justify-between items-center bg-muted/20 p-4 rounded-xl">
+                                    <span className="text-sm text-muted-foreground">Amount</span>
+                                    <span className="font-bold text-lg">{formValues.amount} {selectedAsset}</span>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-[8px] font-black uppercase text-muted-foreground">Recipient Node</p>
-                                    <p className="text-[10px] font-mono break-all bg-black/40 p-3 rounded-lg border border-white/5">{formValues.recipientAddress}</p>
+                                <div className="space-y-1.5">
+                                    <p className="text-xs text-muted-foreground">Recipient</p>
+                                    <p className="text-xs font-mono break-all bg-muted/20 p-3 rounded-lg border border-border/40">{formValues.recipientAddress}</p>
                                 </div>
                             </div>
                             <AlertDialogFooter>
-                                <AlertDialogCancel className="rounded-xl uppercase font-black text-[10px]">Abort</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleSubmit(executeSend)} className="rounded-xl uppercase font-black text-[10px] bg-primary">Finalize</AlertDialogAction>
+                                <AlertDialogCancel className="rounded-xl" disabled={isSending}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleSubmit(executeSend)} className="rounded-xl bg-primary" disabled={isSending}>
+                                    {isSending ? <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Sending...</> : 'Confirm'}
+                                </AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
                   </form>
               </TabsContent>
-              <TabsContent value="receive" className="pt-8 flex flex-col items-center">
-                    <div className="p-6 bg-white rounded-3xl border-8 border-white shadow-2xl mb-8">
-                        {qrCodeDataUrl ? <Image src={qrCodeDataUrl} alt="Rail ID" width={220} height={220} className="rounded-xl" /> : <Loader2 className="animate-spin" />}
+              <TabsContent value="receive" className="pt-6 space-y-5">
+                    <div className="flex flex-col items-center gap-2">
+                        <p className="text-xs font-medium text-muted-foreground">Your Wallet Address</p>
+                        <div className="w-full p-3 bg-muted/20 border border-border/40 rounded-xl flex items-center gap-3">
+                            <code className="text-xs font-mono break-all flex-1 text-center">{userAddress}</code>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg flex-shrink-0" onClick={() => { navigator.clipboard.writeText(userAddress); toast({ title: 'Address Copied' }); }}>
+                                <Copy className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
-                    <div className="w-full space-y-4">
-                         <div className="flex flex-col items-center gap-2">
-                            <Badge variant="outline" className="text-[10px] font-black uppercase tracking-[0.2em] border-primary/30 text-primary">Your Rail ID</Badge>
-                            <div className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center gap-3 relative">
-                                <code className="text-[10px] font-mono break-all flex-1 text-center">{userAddress}</code>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => { navigator.clipboard.writeText(userAddress); toast({ title: 'Rail ID Copied' }); }}>
-                                    <Copy className="h-4 w-4" />
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="w-full h-12 rounded-xl border-border/60 font-semibold text-sm gap-2">
+                                <QrCode className="h-4 w-4" />
+                                Show QR Code
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-xs rounded-2xl">
+                            <DialogHeader>
+                                <DialogTitle className="text-center text-lg font-bold">Receive Crypto</DialogTitle>
+                            </DialogHeader>
+                            <div className="flex flex-col items-center gap-4 py-4">
+                                <div className="p-4 bg-white rounded-2xl shadow-lg">
+                                    {qrCodeDataUrl ? <Image src={qrCodeDataUrl} alt="Deposit QR Code" width={200} height={200} className="rounded-lg" /> : <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />}
+                                </div>
+                                <div className="w-full p-3 bg-muted/20 border border-border/40 rounded-xl">
+                                    <code className="text-[11px] font-mono break-all block text-center">{userAddress}</code>
+                                </div>
+                                <Button variant="outline" className="w-full rounded-xl gap-2" onClick={() => { navigator.clipboard.writeText(userAddress); toast({ title: 'Address Copied' }); }}>
+                                    <Copy className="h-4 w-4" /> Copy Address
                                 </Button>
                             </div>
-                        </div>
-                        <p className="text-[9px] text-muted-foreground italic text-center uppercase font-bold tracking-widest">Apex Identity Addresses are compatible with all Internal Rail partners.</p>
-                    </div>
+                        </DialogContent>
+                    </Dialog>
+                    <p className="text-xs text-muted-foreground text-center">
+                        Share your address or QR code to receive crypto from other Apex wallets.
+                    </p>
               </TabsContent>
             </Tabs>
           </CardContent>
-          <CardFooter className="bg-black/20 border-t border-white/5 py-4 flex justify-center items-center gap-4">
-                <div className="flex items-center gap-1.5 opacity-40">
-                    <Database className="h-3 w-3" />
-                    <span className="text-[8px] font-black uppercase tracking-widest">Hybrid Sync: ONLINE</span>
-                </div>
-          </CardFooter>
         </Card>
       </div>
     </PrivateRoute>

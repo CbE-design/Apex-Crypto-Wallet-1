@@ -20,6 +20,11 @@ export default function ExplorerPage() {
     const [wallets, setWallets] = useState<any[]>([]);
     const [transactions, setTransactions] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [blockRef, setBlockRef] = useState('--------');
+
+    useEffect(() => {
+        setBlockRef(Math.floor(Date.now() / 15000).toString().slice(-8));
+    }, []);
 
     useEffect(() => {
         async function fetchExplorerData() {
@@ -156,7 +161,7 @@ export default function ExplorerPage() {
                         </div>
                         <div className="flex justify-between items-center text-xs">
                             <span className="text-muted-foreground">Last Block</span>
-                            <span className="font-mono text-primary">{Math.floor(Date.now() / 15000).toString().slice(-8)}</span>
+                            <span className="font-mono text-primary">{blockRef}</span>
                         </div>
                         <div className="flex justify-between items-center text-xs pt-4 border-t border-white/5">
                             <span className="text-muted-foreground">Identity Age</span>
