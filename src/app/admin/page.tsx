@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -303,7 +302,6 @@ export default function AdminDashboardPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-<<<<<<< HEAD
                     <div className="flex justify-between items-start">
                         <div>
                             <div className="text-2xl font-black text-white italic">{adminBalance.toFixed(4)} ETH</div>
@@ -314,15 +312,11 @@ export default function AdminDashboardPage() {
                             <div className="flex items-center gap-2 p-1.5 bg-white/5 rounded-lg border border-white/10 group/id cursor-pointer" onClick={handleCopyAdminAddress}>
                                 <code className="text-[9px] font-mono text-muted-foreground group-hover/id:text-blue-400 transition-colors">
                                     {adminWallet?.address ? `${adminWallet.address.slice(0, 12)}...${adminWallet.address.slice(-8)}` : '0x9858...7e819f'}
-                                </code>
+                                 codes
                                 <Copy className="h-2.5 w-2.5 text-muted-foreground/40 group-hover/id:text-blue-400" />
                             </div>
                         </div>
                     </div>
-=======
-                    <div className="text-2xl font-black text-white italic">{(adminBalance ?? 0).toFixed(4)} ETH</div>
-                    <p className="text-[10px] text-muted-foreground mt-2 uppercase font-bold tracking-widest">System Vault Balance</p>
->>>>>>> refs/remotes/origin/Apex
                 </CardContent>
             </Card>
         </div>

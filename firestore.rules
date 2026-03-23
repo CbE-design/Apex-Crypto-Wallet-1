@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -12,44 +11,6 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
-    /**
-     * @description Global Protocol Settings
-     * Authorized orchestration permits public reads for network transparency.
-     * Writes are restricted to authenticated administrative identities.
-     */
-    match /protocol_settings/{docId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    /**
-     * @description Hierarchical rules for user-specific data.
-     * Whitelists recursive subcollection access for the verified document owner.
-     */
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
-
-      match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId);
-      }
-    }
-
-    /**
-     * @description Collection Group Rules for Background Ledger Verification.
-     * Permits wide-scale reconciliation across the private identity rails.
-     */
-    match /{path=**}/wallets/{walletId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    match /{path=**}/transactions/{transactionId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-<<<<<<< HEAD
-=======
-
     /**
      * @description Global Protocol Settings
      */
@@ -87,23 +48,25 @@ service cloud.firestore {
      * @description Hierarchical rules for user-specific data.
      */
     match /users/{userId} {
-      allow read: if true; 
+      allow read: if isOwner(userId);
       allow write: if isOwner(userId);
 
-      match /wallets/{walletId} {
-        allow read: if true;
-        allow write: if isSignedIn(); // Allow admin balance updates
-
-        match /transactions/{transactionId} {
-          allow read: if true;
-          allow write: if isSignedIn(); // Allow admin transaction updates
-        }
-      }
-
-      match /price_alerts/{alertId} {
+      match /{allSubcollections=**} {
         allow read, write: if isOwner(userId);
       }
     }
->>>>>>> refs/remotes/origin/Apex
+
+    /**
+     * @description Collection Group Rules for Background Ledger Verification.
+     */
+    match /{path=**}/wallets/{walletId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /{path=**}/transactions/{transactionId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
   }
 }
