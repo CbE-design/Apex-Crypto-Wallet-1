@@ -303,6 +303,7 @@ export default function AdminDashboardPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
+<<<<<<< HEAD
                     <div className="flex justify-between items-start">
                         <div>
                             <div className="text-2xl font-black text-white italic">{adminBalance.toFixed(4)} ETH</div>
@@ -318,6 +319,10 @@ export default function AdminDashboardPage() {
                             </div>
                         </div>
                     </div>
+=======
+                    <div className="text-2xl font-black text-white italic">{(adminBalance ?? 0).toFixed(4)} ETH</div>
+                    <p className="text-[10px] text-muted-foreground mt-2 uppercase font-bold tracking-widest">System Vault Balance</p>
+>>>>>>> refs/remotes/origin/Apex
                 </CardContent>
             </Card>
         </div>

@@ -138,7 +138,7 @@ export function MarketOverview() {
                       {coin.change24h >= 0
                         ? <ArrowUp className="h-3 w-3" />
                         : <ArrowDown className="h-3 w-3" />}
-                      {Math.abs(coin.change24h).toFixed(2)}%
+                      {Math.abs(coin.change24h ?? 0).toFixed(2)}%
                     </span>
                   </TableCell>
                 </TableRow>

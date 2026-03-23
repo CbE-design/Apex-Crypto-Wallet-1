@@ -10,12 +10,40 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Settings, ShieldAlert, ArrowLeft } from "lucide-react";
+import { LayoutDashboard, Settings, ShieldAlert, ArrowLeft, ArrowDownRight, UserCheck, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const firestore = useFirestore();
+
+  // Fetch pending counts for badges
+  const withdrawalsRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'withdrawal_requests'), where('status', '==', 'PENDING'));
+  }, [firestore]);
+
+  const kycRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'kyc_submissions'), where('status', '==', 'PENDING'));
+  }, [firestore]);
+
+  const notificationsRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'admin_notifications'), where('read', '==', false));
+  }, [firestore]);
+
+  const { data: pendingWithdrawals } = useCollection(withdrawalsRef);
+  const { data: pendingKyc } = useCollection(kycRef);
+  const { data: unreadNotifications } = useCollection(notificationsRef);
+
+  const pendingWithdrawalsCount = pendingWithdrawals?.length || 0;
+  const pendingKycCount = pendingKyc?.length || 0;
+  const unreadCount = unreadNotifications?.length || 0;
 
   return (
     <>
@@ -42,7 +70,59 @@ export function AdminSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           
-          <div className="my-4 border-t border-white/5 mx-2" />
+          <div className="my-3 border-t border-white/5 mx-2" />
+          
+          <p className="px-3 py-1 text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Approvals</p>
+          
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname === "/admin/withdrawals"}>
+              <Link href="/admin/withdrawals" className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ArrowDownRight className="h-4 w-4" />
+                  <span>Withdrawals</span>
+                </div>
+                {pendingWithdrawalsCount > 0 && (
+                  <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-amber-500/20 text-amber-500 border-amber-500/30">
+                    {pendingWithdrawalsCount}
+                  </Badge>
+                )}
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname === "/admin/kyc"}>
+              <Link href="/admin/kyc" className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="h-4 w-4" />
+                  <span>KYC Verification</span>
+                </div>
+                {pendingKycCount > 0 && (
+                  <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-amber-500/20 text-amber-500 border-amber-500/30">
+                    {pendingKycCount}
+                  </Badge>
+                )}
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname === "/admin/notifications"}>
+              <Link href="/admin/notifications" className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-4 w-4" />
+                  <span>Notifications</span>
+                </div>
+                {unreadCount > 0 && (
+                  <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-primary/20 text-primary border-primary/30">
+                    {unreadCount}
+                  </Badge>
+                )}
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          
+          <div className="my-3 border-t border-white/5 mx-2" />
           
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="text-muted-foreground hover:text-white">

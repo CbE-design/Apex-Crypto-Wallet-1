@@ -47,5 +47,63 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isSignedIn();
     }
+<<<<<<< HEAD
+=======
+
+    /**
+     * @description Global Protocol Settings
+     */
+    match /protocol_settings/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn(); // In production, restrict to specific Admin UID
+    }
+
+    /**
+     * @description Withdrawal Requests - Users can create, Admins can update status
+     */
+    match /withdrawal_requests/{requestId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn(); // Admin validation happens at app level
+    }
+
+    /**
+     * @description KYC Submissions - Users can create/read their own, Admins can update
+     */
+    match /kyc_submissions/{submissionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn(); // Admin validation happens at app level
+    }
+
+    /**
+     * @description Admin Notifications - Only admins can read/write
+     */
+    match /admin_notifications/{notificationId} {
+      allow read, write: if isSignedIn(); // Admin validation at app level
+    }
+
+    /**
+     * @description Hierarchical rules for user-specific data.
+     */
+    match /users/{userId} {
+      allow read: if true; 
+      allow write: if isOwner(userId);
+
+      match /wallets/{walletId} {
+        allow read: if true;
+        allow write: if isSignedIn(); // Allow admin balance updates
+
+        match /transactions/{transactionId} {
+          allow read: if true;
+          allow write: if isSignedIn(); // Allow admin transaction updates
+        }
+      }
+
+      match /price_alerts/{alertId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+>>>>>>> refs/remotes/origin/Apex
   }
 }
