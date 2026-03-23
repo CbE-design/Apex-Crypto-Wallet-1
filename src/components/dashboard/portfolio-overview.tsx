@@ -245,7 +245,7 @@ export function PortfolioOverview() {
                 <CryptoIcon name={asset.name} className="h-8 w-8 transition-transform group-hover:scale-105" />
                 <div>
                     <span className="block font-semibold text-sm">{asset.name}</span>
-                    <span className="text-xs font-mono text-muted-foreground">{asset.amount.toFixed(asset.symbol === 'BTC' ? 6 : 4)} {asset.symbol}</span>
+                    <span className="text-xs font-mono text-muted-foreground">{(asset.amount ?? 0).toFixed(asset.symbol === 'BTC' ? 6 : 4)} {asset.symbol}</span>
                 </div>
               </div>
               <div className="text-right">
@@ -254,10 +254,10 @@ export function PortfolioOverview() {
                 </p>
                 <div className={cn(
                     "flex items-center justify-end gap-0.5 text-xs font-medium",
-                    asset.change24h >= 0 ? "text-accent" : "text-red-400"
+                    (asset.change24h ?? 0) >= 0 ? "text-accent" : "text-red-400"
                 )}>
-                    <TrendingUp className={cn("h-2.5 w-2.5", asset.change24h < 0 && "rotate-180")} />
-                    {Math.abs(asset.change24h).toFixed(2)}%
+                    <TrendingUp className={cn("h-2.5 w-2.5", (asset.change24h ?? 0) < 0 && "rotate-180")} />
+                    {Math.abs(asset.change24h ?? 0).toFixed(2)}%
                 </div>
               </div>
             </div>
