@@ -245,7 +245,7 @@ export function PortfolioOverview() {
                 <CryptoIcon name={asset.name} className="h-8 w-8 transition-transform group-hover:scale-105" />
                 <div>
                     <span className="block font-semibold text-sm">{asset.name}</span>
-                    <span className="text-xs font-mono text-muted-foreground">{asset.amount.toFixed(asset.symbol === 'BTC' ? 6 : 4)} {asset.symbol}</span>
+                    <span className="text-xs font-mono text-muted-foreground">{(asset.amount ?? 0).toFixed(asset.symbol === 'BTC' ? 6 : 4)} {asset.symbol}</span>
                 </div>
               </div>
               <div className="text-right">
