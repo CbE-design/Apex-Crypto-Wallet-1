@@ -280,7 +280,7 @@ export default function SwapPage() {
                 />
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-                Balance: <span className="font-medium text-foreground">{fromAssetBalance.toFixed(4)}</span>
+                Balance: <span className="font-medium text-foreground">{(fromAssetBalance ?? 0).toFixed(4)}</span>
             </p>
         </div>
         
@@ -324,7 +324,7 @@ export default function SwapPage() {
         <div className="text-sm text-muted-foreground text-center h-5 flex items-center justify-center">
             {isLoadingRate && <Loader2 className="h-4 w-4 animate-spin" />}
             {!isLoadingRate && exchangeRate !== null && exchangeRate > 0 && fromAsset !== toAsset && (
-              <span className="font-medium">1 {fromAsset} ≈ {exchangeRate.toFixed(5)} {toAsset}</span>
+              <span className="font-medium">1 {fromAsset} ≈ {(exchangeRate ?? 0).toFixed(5)} {toAsset}</span>
             )}
             {!isLoadingRate && exchangeRate === 0 && <span className="text-destructive text-xs">Could not fetch rate</span>}
         </div>

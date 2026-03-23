@@ -320,7 +320,7 @@ export default function AdminDashboardPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-black text-white italic">{adminBalance.toFixed(4)} ETH</div>
+                    <div className="text-2xl font-black text-white italic">{(adminBalance ?? 0).toFixed(4)} ETH</div>
                     <p className="text-[10px] text-muted-foreground mt-2 uppercase font-bold tracking-widest">System Vault Balance</p>
                 </CardContent>
             </Card>

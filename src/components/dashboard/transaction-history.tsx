@@ -182,7 +182,7 @@ export function TransactionHistory() {
                       </TableCell>
                       <TableCell className="text-right font-semibold text-sm tabular-nums">
                         <span className={isIncoming ? "text-accent" : "text-foreground"}>
-                          {isIncoming ? '+' : '-'}{tx.amount.toFixed(sym === 'BTC' ? 6 : 4)}
+                          {isIncoming ? '+' : '-'}{(tx.amount ?? 0).toFixed(sym === 'BTC' ? 6 : 4)}
                         </span>
                       </TableCell>
                       <TableCell className="text-right hidden md:table-cell font-mono text-xs text-muted-foreground">

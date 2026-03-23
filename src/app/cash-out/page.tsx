@@ -870,7 +870,7 @@ export default function CashOutPage() {
                             <span className="text-[10px] text-muted-foreground font-mono">{b.symbol}</span>
                           </div>
                           <div className="text-right">
-                            <p className="text-[12px] font-bold tabular-nums">{b.amount.toFixed(b.symbol === 'BTC' ? 8 : 6)} {b.symbol}</p>
+                            <p className="text-[12px] font-bold tabular-nums">{(b.amount ?? 0).toFixed(b.symbol === 'BTC' ? 8 : 6)} {b.symbol}</p>
                             <p className="text-[10px] text-muted-foreground">@ ${b.priceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                           </div>
                         </div>
@@ -884,7 +884,7 @@ export default function CashOutPage() {
                     <div className="flex justify-between items-center px-4 py-2.5 text-[12px]">
                       <span className="text-muted-foreground">Gross (crypto equivalent)</span>
                       <span className="font-medium">{quoteData.cryptoBreakdown.length === 1
-                        ? `${quoteData.cryptoBreakdown[0].amount.toFixed(quoteData.cryptoBreakdown[0].symbol === 'BTC' ? 8 : 6)} ${quoteData.cryptoBreakdown[0].symbol}`
+                        ? `${(quoteData.cryptoBreakdown[0].amount ?? 0).toFixed(quoteData.cryptoBreakdown[0].symbol === 'BTC' ? 8 : 6)} ${quoteData.cryptoBreakdown[0].symbol}`
                         : `≈ $${quoteData.amountInUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} across ${quoteData.cryptoBreakdown.length} assets`
                       }</span>
                     </div>
@@ -899,7 +899,7 @@ export default function CashOutPage() {
                         const netRatio = fees.net / (parseFloat(confirmedData.amount) || 1);
                         if (quoteData.cryptoBreakdown.length === 1) {
                           const b = quoteData.cryptoBreakdown[0];
-                          return `${(b.amount * netRatio).toFixed(b.symbol === 'BTC' ? 8 : 6)} ${b.symbol}`;
+                          return `${((b.amount ?? 0) * netRatio).toFixed(b.symbol === 'BTC' ? 8 : 6)} ${b.symbol}`;
                         }
                         return `≈ $${netUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} across ${quoteData.cryptoBreakdown.length} assets`;
                       })()}</span>

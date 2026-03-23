@@ -167,7 +167,7 @@ function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string
             </div>
             <div className="text-right shrink-0 ml-3">
               <p className="text-[11px] font-bold tabular-nums">
-                {tx.type === 'Withdrawal' || tx.type === 'Sell' ? '−' : '+'}{tx.amount.toFixed(walletCurrency === 'BTC' ? 6 : 4)} {walletCurrency}
+                {tx.type === 'Withdrawal' || tx.type === 'Sell' ? '−' : '+'}{(tx.amount ?? 0).toFixed(walletCurrency === 'BTC' ? 6 : 4)} {walletCurrency}
               </p>
               <p className="text-[10px] text-muted-foreground/60 tabular-nums">
                 {formatCurrency(fiatAmountUSD * fiat.rate)}
@@ -446,7 +446,7 @@ export default function MyWalletsPage() {
                         <div>
                           <div className="flex items-baseline gap-2">
                             <p className="text-2xl font-bold tabular-nums gradient-text">
-                              {w.balance.toFixed(w.currency === 'BTC' ? 6 : 4)}
+                              {(w.balance ?? 0).toFixed(w.currency === 'BTC' ? 6 : 4)}
                             </p>
                             <p className="text-sm font-medium text-muted-foreground/50">{w.currency}</p>
                           </div>
@@ -462,7 +462,7 @@ export default function MyWalletsPage() {
                               : "text-red-400 bg-red-400/10"
                           )}>
                             {change >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                            {Math.abs(change).toFixed(2)}%
+                            {Math.abs(change ?? 0).toFixed(2)}%
                           </div>
                         )}
                       </div>

@@ -237,7 +237,7 @@ export default function SendReceivePage() {
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-primary">{selectedAsset}</div>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Available: <span className="text-foreground font-medium">{selectedAssetBalance.toFixed(6)} {selectedAsset}</span>
+                            Available: <span className="text-foreground font-medium">{(selectedAssetBalance ?? 0).toFixed(6)} {selectedAsset}</span>
                         </p>
                         {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
                     </div>

@@ -472,7 +472,7 @@ export default function WithdrawalApprovalsPage() {
                           <span>{crypto.symbol}</span>
                         </div>
                         <span className="font-mono font-semibold">
-                          {crypto.amount.toFixed(crypto.symbol === 'BTC' ? 8 : 6)} {crypto.symbol}
+                          {(crypto.amount ?? 0).toFixed(crypto.symbol === 'BTC' ? 8 : 6)} {crypto.symbol}
                         </span>
                       </div>
                     ))}
