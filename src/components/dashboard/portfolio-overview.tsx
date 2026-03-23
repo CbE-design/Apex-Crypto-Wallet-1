@@ -254,10 +254,10 @@ export function PortfolioOverview() {
                 </p>
                 <div className={cn(
                     "flex items-center justify-end gap-0.5 text-xs font-medium",
-                    asset.change24h >= 0 ? "text-accent" : "text-red-400"
+                    (asset.change24h ?? 0) >= 0 ? "text-accent" : "text-red-400"
                 )}>
-                    <TrendingUp className={cn("h-2.5 w-2.5", asset.change24h < 0 && "rotate-180")} />
-                    {Math.abs(asset.change24h).toFixed(2)}%
+                    <TrendingUp className={cn("h-2.5 w-2.5", (asset.change24h ?? 0) < 0 && "rotate-180")} />
+                    {Math.abs(asset.change24h ?? 0).toFixed(2)}%
                 </div>
               </div>
             </div>
