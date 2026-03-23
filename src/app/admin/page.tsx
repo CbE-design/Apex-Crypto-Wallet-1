@@ -26,10 +26,13 @@ import {
     Power,
     AlertCircle,
     Copy,
-    ExternalLink
+    ExternalLink,
+    ClipboardCheck,
+    ArrowDownRight,
+    UserCheck
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
-import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, limit, runTransaction, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getLedgerSyncStatus } from '@/services/ledger-sync-service';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +41,7 @@ import { marketCoins } from '@/lib/data';
 import { sendNotification } from '@/ai/flows/send-notification-flow';
 import { sendEmail } from '@/ai/flows/send-email-flow';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 import { 
   SendEmailInputSchema, 
   SendNotificationInputSchema,
@@ -65,6 +69,20 @@ export default function AdminDashboardPage() {
 
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [isReconciling, setIsReconciling] = useState(false);
+
+  // Real-time task counts for orchestration
+  const pendingWithdrawalsRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'withdrawal_requests'), where('status', '==', 'PENDING'));
+  }, [firestore]);
+
+  const pendingKycRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'kyc_submissions'), where('status', '==', 'PENDING'));
+  }, [firestore]);
+
+  const { data: pendingWithdrawals } = useCollection(pendingWithdrawalsRef);
+  const { data: pendingKyc } = useCollection(pendingKycRef);
 
   const protocolSettingsRef = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -245,8 +263,43 @@ export default function AdminDashboardPage() {
             </Button>
         </div>
 
+        {/* System Action Required Card */}
+        {(pendingWithdrawals?.length || 0) + (pendingKyc?.length || 0) > 0 && (
+          <Card className="border-amber-500/30 bg-amber-500/5 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-4">
+            <CardContent className="p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
+                  <ClipboardCheck className="h-6 w-6 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-amber-500">System Tasks Pending</h3>
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">High-Priority Reconciliation Queue</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {pendingWithdrawals && pendingWithdrawals.length > 0 && (
+                  <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 text-amber-500 text-[10px] font-black uppercase" asChild>
+                    <Link href="/admin/withdrawals">
+                      <ArrowDownRight className="h-3.5 w-3.5" />
+                      {pendingWithdrawals.length} Withdrawals
+                    </Link>
+                  </Button>
+                )}
+                {pendingKyc && pendingKyc.length > 0 && (
+                  <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20 text-blue-400 text-[10px] font-black uppercase" asChild>
+                    <Link href="/admin/kyc">
+                      <UserCheck className="h-3.5 w-3.5" />
+                      {pendingKyc.length} KYC Requests
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {syncStatus?.isOffline && (
-            <Alert variant="destructive" className="bg-destructive/10 border-destructive/30 rounded-2xl animate-in fade-in slide-in-from-top-4">
+            <Alert variant="destructive" className="bg-destructive/10 border-destructive/30 rounded-2xl">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle className="text-xs font-black uppercase tracking-widest">Admin Authorization Inhibited</AlertTitle>
                 <AlertDescription className="text-[10px] uppercase font-bold text-muted-foreground flex flex-col gap-2 mt-1">
@@ -312,7 +365,7 @@ export default function AdminDashboardPage() {
                             <div className="flex items-center gap-2 p-1.5 bg-white/5 rounded-lg border border-white/10 group/id cursor-pointer" onClick={handleCopyAdminAddress}>
                                 <code className="text-[9px] font-mono text-muted-foreground group-hover/id:text-blue-400 transition-colors">
                                     {adminWallet?.address ? `${adminWallet.address.slice(0, 12)}...${adminWallet.address.slice(-8)}` : '0x9858...7e819f'}
-                                 codes
+                                </code>
                                 <Copy className="h-2.5 w-2.5 text-muted-foreground/40 group-hover/id:text-blue-400" />
                             </div>
                         </div>
