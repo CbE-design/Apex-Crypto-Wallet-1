@@ -1,9 +1,9 @@
 'use client';
 
 import { useTheme } from 'next-themes';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Moon, Sun, Globe, Shield, Bell, Smartphone, User, ChevronRight, Lock, Eye, EyeOff, Fingerprint, Scale, ExternalLink } from 'lucide-react';
+import { Moon, Sun, Globe, Shield, Bell, Smartphone, User, ChevronRight, Lock, Eye, EyeOff, Fingerprint, Scale, ExternalLink, Clock, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { PrivateRoute } from '@/components/private-route';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -18,19 +18,46 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePrivacyMode } from '@/hooks/use-privacy-mode';
+import { KYCVerificationModal } from '@/components/kyc-verification-modal';
+import type { KYCStatus } from '@/lib/types';
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { currency, setCurrency } = useCurrency();
-  const { wallet } = useWallet();
+  const { wallet, userProfile } = useWallet();
   const { toast } = useToast();
   const [notifications, setNotifications] = useState(true);
   const [priceAlerts, setPriceAlerts] = useState(true);
   const { privacyMode, togglePrivacyMode } = usePrivacyMode();
+  const [kycModalOpen, setKycModalOpen] = useState(false);
 
   const truncatedAddress = wallet?.address
     ? `${wallet.address.slice(0, 10)}···${wallet.address.slice(-6)}`
     : '—';
+
+  const kycStatus: KYCStatus = (userProfile as any)?.kycStatus ?? 'NOT_SUBMITTED';
+
+  const kycBadge = () => {
+    switch (kycStatus) {
+      case 'APPROVED':
+        return <Badge className="text-[10px] bg-green-500/10 text-green-400 border-green-500/20 rounded-lg"><CheckCircle2 className="h-3 w-3 mr-1" />Verified</Badge>;
+      case 'PENDING':
+        return <Badge className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/20 rounded-lg"><Clock className="h-3 w-3 mr-1" />Under Review</Badge>;
+      case 'REJECTED':
+        return <Badge className="text-[10px] bg-destructive/10 text-destructive border-destructive/20 rounded-lg"><XCircle className="h-3 w-3 mr-1" />Rejected</Badge>;
+      default:
+        return <Badge className="text-[10px] bg-muted/30 text-muted-foreground border-border/40 rounded-lg"><AlertTriangle className="h-3 w-3 mr-1" />Not Verified</Badge>;
+    }
+  };
+
+  const kycSubtext = () => {
+    switch (kycStatus) {
+      case 'APPROVED': return 'Identity verified — full access enabled';
+      case 'PENDING': return 'Documents submitted — review in progress';
+      case 'REJECTED': return 'Verification failed — resubmission required';
+      default: return 'Required for withdrawals — tap to verify';
+    }
+  };
 
   return (
     <PrivateRoute>
@@ -54,18 +81,43 @@ export default function SettingsPage() {
                 Active
               </Badge>
             </div>
-            <div className="flex items-center justify-between px-5 py-4">
+
+            {/* KYC Row — fully dynamic, opens modal */}
+            <button
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/20 transition-colors text-left"
+              onClick={() => setKycModalOpen(true)}
+            >
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
-                  <Shield className="h-4 w-4 text-accent" />
+                <div className={cn(
+                  'h-8 w-8 rounded-lg border flex items-center justify-center',
+                  kycStatus === 'APPROVED'
+                    ? 'bg-green-500/10 border-green-500/20'
+                    : kycStatus === 'PENDING'
+                    ? 'bg-amber-500/10 border-amber-500/20'
+                    : kycStatus === 'REJECTED'
+                    ? 'bg-destructive/10 border-destructive/20'
+                    : 'bg-muted/50 border-border/60'
+                )}>
+                  <Shield className={cn(
+                    'h-4 w-4',
+                    kycStatus === 'APPROVED' ? 'text-green-400'
+                    : kycStatus === 'PENDING' ? 'text-amber-400'
+                    : kycStatus === 'REJECTED' ? 'text-destructive'
+                    : 'text-muted-foreground'
+                  )} />
                 </div>
                 <div>
-                  <p className="text-[13px] font-medium">KYC Status</p>
-                  <p className="text-[11px] text-muted-foreground">Identity verified</p>
+                  <p className="text-[13px] font-medium">Identity Verification</p>
+                  <p className="text-[11px] text-muted-foreground">{kycSubtext()}</p>
                 </div>
               </div>
-              <Badge className="text-[10px] bg-accent/10 text-accent border-accent/20 rounded-lg">Verified</Badge>
-            </div>
+              <div className="flex items-center gap-2">
+                {kycBadge()}
+                {kycStatus !== 'APPROVED' && kycStatus !== 'PENDING' && (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+                )}
+              </div>
+            </button>
           </Card>
         </section>
 
@@ -186,7 +238,6 @@ export default function SettingsPage() {
           <h2 className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground mb-3 px-1">Security</h2>
           <Card className="rounded-2xl border-border/60 bg-card/60 backdrop-blur overflow-hidden divide-y divide-border/40">
 
-            {/* Privacy Mode — functional */}
             <div className="flex items-center justify-between px-5 py-4">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-muted/50 border border-border/60 flex items-center justify-center">
@@ -200,7 +251,6 @@ export default function SettingsPage() {
               <Switch checked={privacyMode} onCheckedChange={togglePrivacyMode} />
             </div>
 
-            {/* Change PIN — coming soon */}
             <button
               className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/20 transition-colors text-left"
               onClick={() => toast({ title: 'Change PIN', description: 'Please log out and use the PIN setup flow to reset your PIN.' })}
@@ -217,7 +267,6 @@ export default function SettingsPage() {
               <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
             </button>
 
-            {/* Biometric */}
             <button
               className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/20 transition-colors text-left"
               onClick={() => toast({ title: 'Biometric Auth', description: 'Use passkey authentication on the login screen to enable biometrics.' })}
@@ -274,11 +323,18 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* Version */}
         <p className="text-center text-[11px] text-muted-foreground/40 pb-4">
           Apex Wallet v2.0.0 · Mainnet · Build 2026.03 · FICA Compliant
         </p>
       </div>
+
+      {/* KYC Verification Modal */}
+      <KYCVerificationModal
+        open={kycModalOpen}
+        onOpenChange={setKycModalOpen}
+        kycStatus={kycStatus}
+        onSubmissionComplete={() => setKycModalOpen(false)}
+      />
     </PrivateRoute>
   );
 }
