@@ -150,6 +150,7 @@ function WithdrawalContent() {
   // KYC Modal state
   const [kycModalOpen, setKycModalOpen] = useState(false);
   const [kycStatus, setKycStatus] = useState<KYCStatus>('NOT_SUBMITTED');
+  const [withdrawalIntent, setWithdrawalIntent] = useState<{ amount: string; currency: string; method: 'EFT' | 'SWIFT' } | null>(null);
 
   const [fiatRates, setFiatRates] = useState<Record<string, number>>({
     USD: 1, EUR: 0.92, GBP: 0.79, ZAR: 18.62, AUD: 1.53,
@@ -319,6 +320,12 @@ function WithdrawalContent() {
 
   const handleDetailsSubmit = async (data: FormValues) => {
     if (kycStatus !== 'APPROVED') {
+      // Capture what the user was trying to withdraw so admin sees the full context
+      setWithdrawalIntent({
+        amount: data.amount,
+        currency: withdrawCurrencySymbol,
+        method: data.method === 'eft' ? 'EFT' : 'SWIFT',
+      });
       setKycModalOpen(true);
       return;
     }
@@ -866,6 +873,7 @@ function WithdrawalContent() {
         onOpenChange={setKycModalOpen}
         kycStatus={kycStatus}
         onSubmissionComplete={() => setKycStatus('PENDING')}
+        withdrawalContext={withdrawalIntent ?? undefined}
       />
     </div>
   );
