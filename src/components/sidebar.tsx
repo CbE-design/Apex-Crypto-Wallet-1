@@ -18,6 +18,8 @@ import {
   Wallet,
   ShieldCheck,
   ArrowRightLeft,
+  Scale,
+  ExternalLink,
 } from "lucide-react";
 import { useWallet } from "@/context/wallet-context";
 import Link from "next/link";
@@ -160,6 +162,28 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+
+        {/* Legal links */}
+        <div className="group-data-[collapsible=icon]:hidden mt-3 pt-3 border-t border-sidebar-border/40">
+          <p className="px-3 text-[9px] uppercase tracking-widest font-semibold text-muted-foreground/40 mb-1.5">Legal</p>
+          <div className="grid grid-cols-2 gap-1 px-1">
+            {[
+              { href: '/legal/terms', label: 'Terms' },
+              { href: '/legal/privacy', label: 'Privacy' },
+              { href: '/legal/risk-disclosure', label: 'Risks' },
+              { href: '/legal/aml-policy', label: 'AML/FICA' },
+            ].map(({ href, label }) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex items-center gap-1 text-[9px] text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors py-1 px-2 rounded-lg hover:bg-sidebar-accent/40"
+              >
+                <Scale className="h-2.5 w-2.5 shrink-0" />
+                {label}
+              </Link>
+            ))}
+          </div>
+        </div>
       </SidebarFooter>
     </>
   );

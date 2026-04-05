@@ -12,6 +12,7 @@ import { EyeWatermark } from '@/components/eye-watermark';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { type ProtocolStatus } from '@/lib/types';
+import { LegalFooter } from '@/components/legal-footer';
 
 export default function AppContent({
   children,
@@ -30,7 +31,7 @@ export default function AppContent({
   const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
   const isProtocolHalted = protocolStatus && protocolStatus.isActive === false;
 
-  const isPublicPage = pathname === '/login';
+  const isPublicPage = pathname === '/login' || pathname.startsWith('/legal');
 
   // Handle identity authentication phase
   if (loading && !isPublicPage) {
@@ -94,6 +95,7 @@ export default function AppContent({
               />
               <div className="max-w-7xl mx-auto w-full pb-28 md:pb-10 flex-1 flex flex-col relative z-10">
                 {children}
+                {!isAdminPage && <LegalFooter />}
               </div>
             </main>
           </SidebarInset>

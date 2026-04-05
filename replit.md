@@ -52,6 +52,28 @@ Set these in Replit Secrets:
 | `EXCHANGE_API_SECRET` | Crypto exchange API secret |
 | `EXCHANGE_SANDBOX_MODE` | Set to `true` for sandbox/testing mode |
 
+## Legal & Compliance Features
+
+South Africa-specific regulatory compliance throughout the app:
+
+- **4 Legal Pages** at `/legal/terms`, `/legal/privacy`, `/legal/risk-disclosure`, `/legal/aml-policy`
+  - Terms of Service (FICA, FSCA, SARB, POCA compliant)
+  - Privacy Policy (POPIA No. 4 of 2013 compliant)
+  - Risk Disclosure Statement (FSCA guidelines)
+  - AML, FICA & Compliance Policy (FATF Travel Rule, CARF, sanctions screening)
+- **LegalFooter** (`src/components/legal-footer.tsx`) — injected into all non-admin pages
+- **RiskDisclaimer** (`src/components/risk-disclaimer.tsx`) — collapsible dismissable banner; variants: trading/withdrawal/transfer/general; used on Swap, Send/Receive, and Cash-Out pages
+- **Privacy Mode** (`src/hooks/use-privacy-mode.ts`) — functional localStorage toggle in Settings
+- **Legal links** in Settings page under "Legal & Compliance" section
+- **Legal links** in sidebar footer (compact grid)
+- **T&C acceptance text** on login page with regulatory badge bar (FICA, FSCA, POPIA, FATF)
+- **Legal layout** (`src/app/legal/layout.tsx`) — standalone layout, excluded from sidebar routing via `app-content.tsx`
+
+Key SA thresholds enforced in UI copy:
+- R3,000 — FATF Travel Rule trigger for crypto transfers
+- R25,000 — Enhanced FICA due diligence threshold
+- EFT: 1.5% + R15 fee | SWIFT: 3.5% + R250 fee
+
 ## Replit Configuration
 
 - Port: **5000** (required for Replit webview)

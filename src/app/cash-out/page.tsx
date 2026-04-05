@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { RiskDisclaimer } from '@/components/risk-disclaimer';
 import {
   CheckCircle2, ShieldCheck, Globe, Building2, Loader2,
   CreditCard, ChevronRight, ChevronDown, Wallet, 
@@ -548,6 +549,7 @@ function WithdrawalContent() {
   return (
     <div className="flex justify-center pb-10">
       <div className="w-full max-w-xl space-y-4">
+        <RiskDisclaimer variant="withdrawal" collapsible />
         <Card className="border-border/50 bg-card/60 backdrop-blur-sm">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">

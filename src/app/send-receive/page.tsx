@@ -16,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowRight, Copy, Loader2, ShieldCheck, Send, ArrowDownToLine, QrCode } from 'lucide-react';
+import { RiskDisclaimer } from '@/components/risk-disclaimer';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
@@ -185,7 +186,9 @@ export default function SendReceivePage() {
   return (
     <PrivateRoute>
       <div className="flex justify-center items-start pt-2">
-        <Card className="w-full max-w-lg bg-card/60 backdrop-blur-sm border-border/60">
+        <div className="w-full max-w-lg space-y-4">
+        <RiskDisclaimer variant="transfer" collapsible />
+        <Card className="bg-card/60 backdrop-blur-sm border-border/60">
           <CardHeader className="border-b border-border/40 pb-5">
             <div className="flex items-center gap-3">
                  <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20">
@@ -328,6 +331,13 @@ export default function SendReceivePage() {
             </Tabs>
           </CardContent>
         </Card>
+        <p className="text-[10px] text-center text-muted-foreground/40 px-2">
+          Transfers above <strong className="text-muted-foreground/60">R3,000</strong> are subject to FATF Travel Rule reporting.
+          All transactions are final and irreversible. By transacting you accept our{' '}
+          <a href="/legal/terms" className="underline hover:text-muted-foreground transition-colors">Terms</a> and{' '}
+          <a href="/legal/aml-policy" className="underline hover:text-muted-foreground transition-colors">AML Policy</a>.
+        </p>
+        </div>
       </div>
     </PrivateRoute>
   );
