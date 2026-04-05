@@ -14,6 +14,7 @@ import { ArrowLeftRight, Repeat, Loader2, CheckCircle, XCircle } from 'lucide-re
 import { CryptoIcon } from '@/components/crypto-icon';
 import { cn } from '@/lib/utils';
 import { PrivateRoute } from '@/components/private-route';
+import { RiskDisclaimer } from '@/components/risk-disclaimer';
 import { useWallet } from '@/context/wallet-context';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, runTransaction, serverTimestamp } from 'firebase/firestore';
@@ -372,22 +373,31 @@ export default function SwapPage() {
   return (
     <PrivateRoute>
       <div className="flex justify-center items-start pt-4">
-        <Card className="w-full max-w-md bg-card/60 backdrop-blur-sm border-border/60">
-          <CardHeader className="border-b border-border/40 pb-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20">
-                <ArrowLeftRight className="h-5 w-5 text-primary" />
+        <div className="w-full max-w-md space-y-4">
+          <RiskDisclaimer variant="trading" collapsible />
+          <Card className="bg-card/60 backdrop-blur-sm border-border/60">
+            <CardHeader className="border-b border-border/40 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20">
+                  <ArrowLeftRight className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl font-bold">Swap</CardTitle>
+                  <CardDescription className="text-sm">Exchange one cryptocurrency for another</CardDescription>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-xl font-bold">Swap</CardTitle>
-                <CardDescription className="text-sm">Exchange one cryptocurrency for another</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            {status === 'idle' ? renderSwapForm() : getStatusContent()}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {status === 'idle' ? renderSwapForm() : getStatusContent()}
+            </CardContent>
+          </Card>
+          <p className="text-[10px] text-center text-muted-foreground/40 px-2">
+            By confirming a swap you acknowledge our{' '}
+            <a href="/legal/risk-disclosure" className="underline hover:text-muted-foreground transition-colors">Risk Disclosure</a> and{' '}
+            <a href="/legal/terms" className="underline hover:text-muted-foreground transition-colors">Terms of Service</a>.
+            Swaps are final and irreversible. Not financial advice.
+          </p>
+        </div>
       </div>
     </PrivateRoute>
   );
