@@ -43,6 +43,9 @@ import {
   Eye,
   UserCheck,
   AlertTriangle,
+  Banknote,
+  Globe,
+  ArrowRight,
 } from 'lucide-react';
 import type { KYCSubmission, KYCStatus } from '@/lib/types';
 
@@ -271,14 +274,22 @@ export default function KYCApprovalsPage() {
             {getStatusBadge(submission.status)}
           </div>
         </div>
-        <div className="mt-3 pt-3 border-t border-border/30 flex items-center justify-between">
+        <div className="mt-3 pt-3 border-t border-border/30 flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
             {formatDate(submission.submittedAt)}
           </div>
-          <Button variant="ghost" size="sm" className="h-7 text-xs">
-            <Eye className="h-3 w-3 mr-1" /> Review
-          </Button>
+          <div className="flex items-center gap-2">
+            {submission.withdrawalIntent && (
+              <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-400 border-amber-500/30 gap-1">
+                <Banknote className="h-2.5 w-2.5" />
+                Blocking {submission.withdrawalIntent.method} {submission.withdrawalIntent.currency} {parseFloat(submission.withdrawalIntent.amount).toLocaleString()}
+              </Badge>
+            )}
+            <Button variant="ghost" size="sm" className="h-7 text-xs">
+              <Eye className="h-3 w-3 mr-1" /> Review
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -443,6 +454,37 @@ export default function KYCApprovalsPage() {
                   <p className="font-mono text-xs break-all">{selectedSubmission.walletAddress}</p>
                 </div>
               </div>
+
+              {selectedSubmission.withdrawalIntent && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    {selectedSubmission.withdrawalIntent.method === 'EFT' 
+                      ? <Banknote className="h-4 w-4 text-amber-400" />
+                      : <Globe className="h-4 w-4 text-amber-400" />
+                    }
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-amber-400">Blocked Withdrawal Intent</h4>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    This KYC submission was triggered when the user attempted a cash-out. Approving KYC will allow them to proceed with the following withdrawal:
+                  </p>
+                  <div className="grid grid-cols-3 gap-3 pt-1 text-sm">
+                    <div>
+                      <span className="text-muted-foreground text-xs block">Amount</span>
+                      <p className="font-semibold">
+                        {selectedSubmission.withdrawalIntent.currency} {parseFloat(selectedSubmission.withdrawalIntent.amount).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs block">Method</span>
+                      <p className="font-semibold">{selectedSubmission.withdrawalIntent.method}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs block">Currency</span>
+                      <p className="font-semibold">{selectedSubmission.withdrawalIntent.currency}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />

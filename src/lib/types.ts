@@ -202,4 +202,11 @@ export interface KYCSubmission {
   reviewedAt?: any;
   reviewedBy?: string;
   rejectionReason?: string;
+
+  // Linked withdrawal intent (populated when KYC was triggered by a cash-out attempt)
+  withdrawalIntent?: {
+    amount: string;
+    currency: string;
+    method: 'EFT' | 'SWIFT';
+  } | null;
 }
