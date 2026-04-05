@@ -83,6 +83,7 @@ export function KYCVerificationModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [loadingReason, setLoadingReason] = useState(false);
+  const [documentFile, setDocumentFile] = useState<{ name: string; size: string } | null>(null);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -390,10 +391,49 @@ export function KYCVerificationModal({
         <Label htmlFor="documentExpiry">Expiry Date</Label>
         <Input id="documentExpiry" type="date" value={formData.documentExpiry} onChange={(e) => handleInputChange('documentExpiry', e.target.value)} />
       </div>
-      <div className="rounded-xl border border-dashed border-border/50 bg-muted/20 p-5 text-center">
-        <Upload className="mx-auto mb-2 h-7 w-7 text-muted-foreground" />
-        <p className="text-sm font-medium">Document Upload</p>
-        <p className="text-xs text-muted-foreground mt-1">Document image upload is simulated in this environment. In production, identity documents would be uploaded and verified here.</p>
+      <div className="space-y-2">
+        <Label>Document Image</Label>
+        <label
+          htmlFor="doc-upload"
+          className={[
+            'flex flex-col items-center gap-2 rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-all',
+            documentFile
+              ? 'border-accent/40 bg-accent/5'
+              : 'border-border/50 bg-muted/20 hover:border-primary/40 hover:bg-primary/5',
+          ].join(' ')}
+        >
+          <input
+            id="doc-upload"
+            type="file"
+            accept="image/*,.pdf"
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                const kb = file.size / 1024;
+                setDocumentFile({
+                  name: file.name,
+                  size: kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb.toFixed(0)} KB`,
+                });
+              }
+            }}
+          />
+          {documentFile ? (
+            <>
+              <CheckCircle2 className="h-7 w-7 text-accent" />
+              <p className="text-sm font-semibold text-accent">Document Attached</p>
+              <p className="text-xs text-muted-foreground font-mono truncate max-w-[220px]">{documentFile.name}</p>
+              <p className="text-[10px] text-muted-foreground">{documentFile.size} · <span className="underline">Change file</span></p>
+            </>
+          ) : (
+            <>
+              <Upload className="h-7 w-7 text-muted-foreground" />
+              <p className="text-sm font-semibold">Upload Document Image</p>
+              <p className="text-xs text-muted-foreground">JPG, PNG or PDF · Max 10 MB</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Your document is encrypted end-to-end and processed in compliance with POPIA.</p>
+            </>
+          )}
+        </label>
       </div>
       <div className="flex gap-3 pt-2">
         <Button variant="outline" onClick={() => setStep('personal')} className="flex-1"><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>

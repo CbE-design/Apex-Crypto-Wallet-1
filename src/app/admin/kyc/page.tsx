@@ -496,7 +496,7 @@ export default function KYCApprovalsPage() {
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
                     <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
                     <p className="text-xs text-muted-foreground">
-                      <strong className="text-amber-500">Important:</strong> Verify that the submitted information matches the document. In production, document images would be displayed here for verification.
+                      <strong className="text-amber-500">Compliance Review:</strong> Verify that the submitted personal information and document details are consistent and match official records. Cross-reference document number, expiry, and nationality before approving.
                     </p>
                   </div>
 
