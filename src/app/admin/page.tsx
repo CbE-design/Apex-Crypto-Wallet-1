@@ -29,7 +29,8 @@ import {
     ExternalLink,
     ClipboardCheck,
     ArrowDownRight,
-    UserCheck
+    UserCheck,
+    Users,
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -83,6 +84,25 @@ export default function AdminDashboardPage() {
 
   const { data: pendingWithdrawals } = useCollection(pendingWithdrawalsRef);
   const { data: pendingKyc } = useCollection(pendingKycRef);
+
+  const allUsersRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'users');
+  }, [firestore]);
+
+  const processedWithdrawalsRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'withdrawal_requests'), where('status', 'in', ['APPROVED', 'COMPLETED']));
+  }, [firestore]);
+
+  const unreadNotificationsRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'admin_notifications'), where('read', '==', false));
+  }, [firestore]);
+
+  const { data: allUsers } = useCollection(allUsersRef);
+  const { data: processedWithdrawals } = useCollection(processedWithdrawalsRef);
+  const { data: unreadNotifications } = useCollection(unreadNotificationsRef);
 
   const protocolSettingsRef = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -297,6 +317,70 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Live KPI Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Link href="/admin/users">
+            <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Users className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{allUsers?.length || 0}</p>
+                    <p className="text-xs text-muted-foreground">Total Users</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/admin/withdrawals">
+            <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                    <ClipboardCheck className="h-5 w-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{(pendingWithdrawals?.length || 0) + (pendingKyc?.length || 0)}</p>
+                    <p className="text-xs text-muted-foreground">Pending Actions</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/admin/withdrawals">
+            <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+                    <ShieldCheck className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{processedWithdrawals?.length || 0}</p>
+                    <p className="text-xs text-muted-foreground">Processed</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/admin/notifications">
+            <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                    <Bell className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{unreadNotifications?.length || 0}</p>
+                    <p className="text-xs text-muted-foreground">Unread Alerts</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
 
         {syncStatus?.isOffline && (
             <Alert variant="destructive" className="bg-destructive/10 border-destructive/30 rounded-2xl">
