@@ -163,7 +163,7 @@ export interface WithdrawalRequest {
 }
 
 // Admin Notification Types
-export type AdminNotificationType = 'KYC_VERIFICATION' | 'WITHDRAWAL_REQUEST' | 'SUPPORT_TICKET' | 'SYSTEM_ALERT';
+export type AdminNotificationType = 'KYC_VERIFICATION' | 'WITHDRAWAL_REQUEST' | 'SUPPORT_TICKET' | 'SYSTEM_ALERT' | 'NEW_USER';
 
 export interface AdminNotification {
   id: string;

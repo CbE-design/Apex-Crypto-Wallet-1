@@ -11,7 +11,7 @@ import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, User as FirebaseUser } from 'firebase/auth';
 import {
   doc, serverTimestamp, writeBatch,
-  collection, query, where, getDocs, limit, updateDoc, setDoc,
+  collection, query, where, getDocs, limit, updateDoc, setDoc, addDoc,
 } from 'firebase/firestore';
 import { marketCoins } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
@@ -150,6 +150,22 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       });
 
       await batch.commit();
+
+      // Notify admin of new user registration
+      try {
+        await addDoc(collection(firestore, 'admin_notifications'), {
+          type: 'NEW_USER',
+          title: 'New User Registered',
+          message: `A new wallet has been created: ${firebaseUser.email || walletInstance.address.substring(0, 12) + '...'}`,
+          userId: firebaseUser.uid,
+          userEmail: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.io`,
+          read: false,
+          createdAt: serverTimestamp(),
+          metadata: { walletAddress: walletInstance.address },
+        });
+      } catch (_) {
+        // Notification failure must not block wallet creation
+      }
 
       return { address: walletInstance.address, privateKey: walletInstance.privateKey };
     },

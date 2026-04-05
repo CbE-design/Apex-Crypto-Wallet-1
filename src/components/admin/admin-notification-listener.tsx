@@ -33,9 +33,16 @@ export function AdminNotificationListener() {
 
     const isWithdrawal = latest.type === 'WITHDRAWAL_REQUEST';
     const isKyc = latest.type === 'KYC_VERIFICATION';
+    const isNewUser = latest.type === 'NEW_USER';
     const isUrgent = !!(latest.metadata?.urgent);
 
-    const actionPath = isWithdrawal ? '/admin/withdrawals' : isKyc ? '/admin/kyc' : null;
+    const actionPath = isWithdrawal
+      ? '/admin/withdrawals'
+      : isKyc
+      ? '/admin/kyc'
+      : isNewUser
+      ? '/admin/users'
+      : null;
 
     const toastTitle = isUrgent
       ? '🚨 Action Required — KYC Blocking Withdrawal'
@@ -43,6 +50,8 @@ export function AdminNotificationListener() {
       ? '💸 New Withdrawal Request'
       : isKyc
       ? '🪪 New KYC Submission'
+      : isNewUser
+      ? '👤 New User Registered'
       : '⚡ System Alert';
 
     toast({
@@ -57,6 +66,8 @@ export function AdminNotificationListener() {
           ? 'border-l-amber-500 bg-amber-500/5'
           : isKyc
           ? 'border-l-blue-500 bg-blue-500/5'
+          : isNewUser
+          ? 'border-l-green-500 bg-green-500/5'
           : 'border-l-primary bg-card',
       ].join(' '),
       action: actionPath ? (

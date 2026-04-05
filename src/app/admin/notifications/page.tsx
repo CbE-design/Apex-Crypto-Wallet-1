@@ -119,6 +119,7 @@ export default function AdminNotificationsPage() {
       WITHDRAWAL_REQUEST: { icon: ArrowDownRight, className: 'text-amber-500 bg-amber-500/10' },
       SUPPORT_TICKET: { icon: Info, className: 'text-purple-500 bg-purple-500/10' },
       SYSTEM_ALERT: { icon: AlertTriangle, className: 'text-primary bg-primary/10' },
+      NEW_USER: { icon: Check, className: 'text-green-500 bg-green-500/10' },
     };
     return icons[type] || { icon: Bell, className: 'text-muted-foreground bg-muted/30' };
   };
@@ -129,6 +130,8 @@ export default function AdminNotificationsPage() {
         return '/admin/kyc';
       case 'WITHDRAWAL_REQUEST':
         return '/admin/withdrawals';
+      case 'NEW_USER':
+        return '/admin/users';
       default:
         return null;
     }
