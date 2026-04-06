@@ -22,7 +22,6 @@ import {
   collection, 
   query, 
   where, 
-  orderBy, 
   doc, 
   updateDoc, 
   serverTimestamp,
@@ -74,22 +73,29 @@ export default function WithdrawalApprovalsPage() {
 
   const pendingQuery = useMemoFirebase(() => {
     if (!withdrawalsRef) return null;
-    return query(withdrawalsRef, where('status', '==', 'PENDING'), orderBy('createdAt', 'desc'));
+    return query(withdrawalsRef, where('status', '==', 'PENDING'));
   }, [withdrawalsRef]);
 
   const approvedQuery = useMemoFirebase(() => {
     if (!withdrawalsRef) return null;
-    return query(withdrawalsRef, where('status', 'in', ['APPROVED', 'PROCESSING', 'COMPLETED']), orderBy('createdAt', 'desc'));
+    return query(withdrawalsRef, where('status', 'in', ['APPROVED', 'PROCESSING', 'COMPLETED']));
   }, [withdrawalsRef]);
 
   const rejectedQuery = useMemoFirebase(() => {
     if (!withdrawalsRef) return null;
-    return query(withdrawalsRef, where('status', '==', 'REJECTED'), orderBy('createdAt', 'desc'));
+    return query(withdrawalsRef, where('status', '==', 'REJECTED'));
   }, [withdrawalsRef]);
 
-  const { data: pendingWithdrawals, isLoading: loadingPending } = useCollection<WithdrawalDoc>(pendingQuery);
-  const { data: approvedWithdrawals, isLoading: loadingApproved } = useCollection<WithdrawalDoc>(approvedQuery);
-  const { data: rejectedWithdrawals, isLoading: loadingRejected } = useCollection<WithdrawalDoc>(rejectedQuery);
+  const sortByDate = (items: WithdrawalDoc[] | null) =>
+    items ? [...items].sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0)) : null;
+
+  const { data: rawPending, isLoading: loadingPending } = useCollection<WithdrawalDoc>(pendingQuery);
+  const { data: rawApproved, isLoading: loadingApproved } = useCollection<WithdrawalDoc>(approvedQuery);
+  const { data: rawRejected, isLoading: loadingRejected } = useCollection<WithdrawalDoc>(rejectedQuery);
+
+  const pendingWithdrawals = sortByDate(rawPending);
+  const approvedWithdrawals = sortByDate(rawApproved);
+  const rejectedWithdrawals = sortByDate(rawRejected);
 
   const handleApprove = useCallback(async (withdrawal: WithdrawalDoc) => {
     if (!firestore || !user) return;

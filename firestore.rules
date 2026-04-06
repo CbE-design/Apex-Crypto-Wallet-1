@@ -73,6 +73,12 @@ service cloud.firestore {
       }
     }
 
+    // ─── Platform Configuration ───────────────────────────────────────────────
+    // Admin-only: controls, compliance thresholds, fee config, security settings.
+    match /platform_config/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     // ─── Prices / Market Data ─────────────────────────────────────────────────
     // Read-only, publicly accessible (used for live price display).
     match /prices/{docId} {
