@@ -14,13 +14,14 @@ import {
   Copy, RefreshCw, Loader2, QrCode, Wallet, ExternalLink,
   TrendingUp, TrendingDown, ChevronDown, ChevronRight, FileText,
   Send, ArrowDownToLine, ArrowLeftRight, Banknote,
-  ShieldCheck, AlertTriangle, Globe, ShieldAlert, Clock,
+  ShieldCheck, AlertTriangle, Globe, ShieldAlert, Clock, Info, ArrowRight, CheckCircle2, XCircle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PrivateRoute } from '@/components/private-route';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Image from 'next/image';
 import Link from 'next/link';
 import QRCode from 'qrcode';
@@ -481,11 +482,121 @@ export default function MyWalletsPage() {
                           REJECTED:      { cls: 'bg-red-500/10 text-red-400 border-red-500/20',         icon: <ShieldAlert className="h-3 w-3" />,  label: 'KYC Rejected'  },
                           NOT_SUBMITTED: { cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20',   icon: <ShieldAlert className="h-3 w-3" />,  label: 'KYC Required'  },
                         }[ks];
+                        const kycPopoverContent = {
+                          NOT_SUBMITTED: {
+                            icon: <ShieldAlert className="h-5 w-5 text-amber-400" />,
+                            iconBg: 'bg-amber-500/10',
+                            title: 'Identity Verification Required',
+                            desc: 'To unlock Cash Out and withdrawals, you must first verify your identity in line with FICA and FSCA regulations.',
+                            steps: [
+                              'Submit your SA ID or passport',
+                              'Provide proof of address',
+                              'Await admin approval (1–2 business days)',
+                            ],
+                            cta: 'Start Verification',
+                            ctaCls: 'text-amber-400 hover:text-amber-300 border-amber-500/30 hover:bg-amber-500/10',
+                          },
+                          PENDING: {
+                            icon: <Clock className="h-5 w-5 text-amber-400" />,
+                            iconBg: 'bg-amber-500/10',
+                            title: 'Verification Under Review',
+                            desc: 'Your documents have been received and are being reviewed by our compliance team. This typically takes 1–2 business days.',
+                            steps: [
+                              'Documents submitted ✓',
+                              'Compliance team review in progress',
+                              'You will be notified on approval',
+                            ],
+                            cta: null,
+                            ctaCls: '',
+                          },
+                          REJECTED: {
+                            icon: <XCircle className="h-5 w-5 text-red-400" />,
+                            iconBg: 'bg-red-500/10',
+                            title: 'Verification Rejected',
+                            desc: 'Your previous submission was not accepted. Please resubmit with clearer documents that meet the requirements.',
+                            steps: [
+                              'Ensure ID is valid and unexpired',
+                              'Proof of address must be < 3 months old',
+                              'Documents must be clearly legible',
+                            ],
+                            cta: 'Resubmit Documents',
+                            ctaCls: 'text-red-400 hover:text-red-300 border-red-500/30 hover:bg-red-500/10',
+                          },
+                          APPROVED: {
+                            icon: <CheckCircle2 className="h-5 w-5 text-green-400" />,
+                            iconBg: 'bg-green-500/10',
+                            title: 'Identity Verified',
+                            desc: 'Your identity has been confirmed. You have full access to Cash Out and all withdrawal features.',
+                            steps: [
+                              'FICA compliance confirmed ✓',
+                              'Withdrawals unlocked ✓',
+                              'Enhanced limits available ✓',
+                            ],
+                            cta: null,
+                            ctaCls: '',
+                          },
+                        }[ks];
                         return (
-                          <Badge variant="secondary" className={cn('h-5 px-2 text-[10px] gap-1 rounded-lg border', kycBadgeCfg.cls)}>
-                            {kycBadgeCfg.icon}
-                            {kycBadgeCfg.label}
-                          </Badge>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="focus:outline-none">
+                                <Badge variant="secondary" className={cn('h-5 px-2 text-[10px] gap-1 rounded-lg border cursor-pointer hover:opacity-80 transition-opacity', kycBadgeCfg.cls)}>
+                                  {kycBadgeCfg.icon}
+                                  {kycBadgeCfg.label}
+                                </Badge>
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-72 p-0 border-white/[0.08] bg-card/95 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden"
+                              align="start"
+                              sideOffset={8}
+                            >
+                              <div className="p-4 space-y-3">
+                                <div className="flex items-start gap-3">
+                                  <div className={cn('h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ring-1 ring-white/[0.08]', kycPopoverContent.iconBg)}>
+                                    {kycPopoverContent.icon}
+                                  </div>
+                                  <div>
+                                    <p className="text-[12px] font-semibold leading-tight">{kycPopoverContent.title}</p>
+                                    <p className="text-[10px] text-muted-foreground/70 mt-0.5 leading-relaxed">{kycPopoverContent.desc}</p>
+                                  </div>
+                                </div>
+                                <div className="border-t border-white/[0.06] pt-3 space-y-1.5">
+                                  <p className="text-[9px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-2">
+                                    {ks === 'APPROVED' ? 'Access Summary' : 'What\'s needed'}
+                                  </p>
+                                  {kycPopoverContent.steps.map((step, i) => (
+                                    <div key={i} className="flex items-start gap-2">
+                                      <div className={cn(
+                                        "h-1.5 w-1.5 rounded-full mt-1.5 shrink-0",
+                                        ks === 'APPROVED' ? 'bg-green-400' :
+                                        ks === 'PENDING'  ? 'bg-amber-400' :
+                                        ks === 'REJECTED' ? 'bg-red-400'   : 'bg-amber-400'
+                                      )} />
+                                      <p className="text-[10px] text-muted-foreground/80 leading-snug">{step}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                                {kycPopoverContent.cta && (
+                                  <button
+                                    onClick={() => setKycModalOpen(true)}
+                                    className={cn(
+                                      "w-full flex items-center justify-center gap-1.5 text-[10px] font-semibold py-2 rounded-xl border transition-all duration-200",
+                                      kycPopoverContent.ctaCls
+                                    )}
+                                  >
+                                    {kycPopoverContent.cta}
+                                    <ArrowRight className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                              <div className="px-4 py-2 border-t border-white/[0.06] bg-white/[0.02]">
+                                <p className="text-[9px] text-muted-foreground/40 text-center">
+                                  Required under FICA • POPIA • FSCA
+                                </p>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         );
                       })()}
                       {showFicaWarning && (
