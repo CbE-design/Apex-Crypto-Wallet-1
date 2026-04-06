@@ -118,7 +118,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     return addr === DEFAULT_ADMIN_ADDRESS || addr.endsWith('da94');
   }, [wallet?.address, user?.email]);
 
-  const loading = isUserLoading || isInitializing || (!!user && isProfileLoading);
+  // Email-only admins have no wallet/profile — don't block on profile loading for them
+  const loading = isUserLoading || isInitializing || (!!user && isProfileLoading && !isAdmin);
 
   // ── Firestore provisioning ───────────────────────────────────────────
   const setupUserAndWalletDocuments = useCallback(
