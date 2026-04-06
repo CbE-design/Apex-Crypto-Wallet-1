@@ -69,7 +69,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const DEFAULT_ADMIN_ADDRESS = '0x985864190c7E5c803B918B273f324220037e819f'.toLowerCase();
-const ADMIN_EMAILS = ['admin@apexwallet.io'];
+const ADMIN_EMAILS = ['admin@apexwallet.io', 'corrie@apex.co.uk'];
 
 // ── chain address derivation ───────────────────────────────────────────
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
