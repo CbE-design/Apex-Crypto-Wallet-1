@@ -15,6 +15,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useWallet } from '@/context/wallet-context';
 import {
   collection,
   query,
@@ -127,6 +128,7 @@ function formatCurrency(amount: number, currency: string) {
 export default function UsersPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useWallet();
 
   const [search, setSearch] = useState('');
   const [kycFilter, setKycFilter] = useState<'all' | KYCStatus>('all');
@@ -138,11 +140,11 @@ export default function UsersPage() {
 
   // No orderBy to avoid requiring a composite index — sort client-side instead.
   const usersRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return collection(firestore, 'users');
-  }, [firestore]);
+  }, [firestore, user]);
 
-  const { data: rawUsers, isLoading } = useCollection<UserDoc>(usersRef);
+  const { data: rawUsers, isLoading, error: usersError } = useCollection<UserDoc>(usersRef);
 
   // Sort newest-first client-side
   const users = rawUsers
@@ -351,6 +353,13 @@ export default function UsersPage() {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      ) : usersError ? (
+        <Card className="border-destructive/50 bg-card/60">
+          <CardContent className="py-20 text-center">
+            <h3 className="text-lg font-semibold mb-2 text-destructive">Failed to Load Users</h3>
+            <p className="text-sm text-muted-foreground">{usersError.message}</p>
+          </CardContent>
+        </Card>
       ) : filteredUsers && filteredUsers.length > 0 ? (
         <div className="space-y-3">
           {filteredUsers.map((user) => (
