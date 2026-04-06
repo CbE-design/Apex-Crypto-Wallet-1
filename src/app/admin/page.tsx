@@ -100,7 +100,7 @@ export default function AdminDashboardPage() {
     return query(collection(firestore, 'admin_notifications'), where('read', '==', false));
   }, [firestore]);
 
-  const { data: allUsers } = useCollection(allUsersRef);
+  const { data: allUsers, error: usersError } = useCollection(allUsersRef);
   const { data: processedWithdrawals } = useCollection(processedWithdrawalsRef);
   const { data: unreadNotifications } = useCollection(unreadNotificationsRef);
 
@@ -266,6 +266,20 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6 pb-20">
+        {usersError && (
+          <Alert variant="destructive" className="bg-amber-500/10 border-amber-500/30 rounded-2xl">
+            <AlertCircle className="h-4 w-4 text-amber-500" />
+            <AlertTitle className="text-xs font-black uppercase tracking-widest text-amber-500">Firestore Rules Update Required</AlertTitle>
+            <AlertDescription className="text-[11px] text-muted-foreground mt-1">
+              The admin user registry is blocked by Firestore security rules. Please update your rules in the{' '}
+              <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline text-amber-400 hover:text-amber-300">
+                Firebase Console
+              </a>{' '}
+              → Firestore → Rules, then publish the new rules provided by the assistant.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex justify-between items-start">
             <div>
                 <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Orchestration Terminal</h1>
