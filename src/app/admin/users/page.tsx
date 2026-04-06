@@ -18,9 +18,7 @@ import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import {
   collection,
   query,
-  orderBy,
   where,
-  doc,
   getDocs,
 } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
@@ -144,12 +142,22 @@ export default function UsersPage() {
   const [withdrawalHistory, setWithdrawalHistory] = useState<WithdrawalSummary[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
+  // No orderBy to avoid requiring a composite index — sort client-side instead.
   const usersRef = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
+    return collection(firestore, 'users');
   }, [firestore]);
 
-  const { data: users, isLoading } = useCollection<UserDoc>(usersRef);
+  const { data: rawUsers, isLoading } = useCollection<UserDoc>(usersRef);
+
+  // Sort newest-first client-side
+  const users = rawUsers
+    ? [...rawUsers].sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() ?? a.createdAt?.seconds * 1000 ?? 0;
+        const bTime = b.createdAt?.toMillis?.() ?? b.createdAt?.seconds * 1000 ?? 0;
+        return bTime - aTime;
+      })
+    : rawUsers;
 
   const filteredUsers = users?.filter((u) => {
     const searchLower = search.toLowerCase();
@@ -181,17 +189,20 @@ export default function UsersPage() {
       } as WalletBalance));
       setWalletBalances(balances.filter((b) => b.balance > 0));
 
+      // No orderBy here — avoids composite index requirement. Sort client-side.
       const withdrawalsSnap = await getDocs(
         query(
           collection(firestore, 'withdrawal_requests'),
-          where('userId', '==', userDoc.id),
-          orderBy('createdAt', 'desc')
+          where('userId', '==', userDoc.id)
         )
       );
-      const withdrawals: WithdrawalSummary[] = withdrawalsSnap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      } as WithdrawalSummary));
+      const withdrawals: WithdrawalSummary[] = withdrawalsSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as WithdrawalSummary))
+        .sort((a, b) => {
+          const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
+          const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
+          return bTime - aTime;
+        });
       setWithdrawalHistory(withdrawals);
     } catch (e) {
       console.error('Error loading user details:', e);
@@ -474,7 +485,7 @@ export default function UsersPage() {
                   asChild
                 >
                   <Link
-                    href={`/admin?fund=${encodeURIComponent(selectedUser.walletAddress)}`}
+                    href={`/admin/direct-send`}
                     onClick={() => setIsDetailOpen(false)}
                   >
                     <Wallet className="h-3.5 w-3.5" />
