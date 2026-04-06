@@ -8,7 +8,7 @@ import React, {
 import { ethers } from 'ethers';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
-import { signOut, User as FirebaseUser } from 'firebase/auth';
+import { signOut, signInWithEmailAndPassword, User as FirebaseUser } from 'firebase/auth';
 import {
   doc, serverTimestamp, writeBatch,
   collection, query, where, getDocs, limit, updateDoc, setDoc, addDoc,
@@ -69,6 +69,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const DEFAULT_ADMIN_ADDRESS = '0x985864190c7E5c803B918B273f324220037e819f'.toLowerCase();
+const ADMIN_EMAILS = ['admin@apexwallet.io'];
 
 // ── chain address derivation ───────────────────────────────────────────
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
@@ -109,15 +110,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
   const isAdmin = useMemo(() => {
+    // Email-based admin — no wallet required
+    if (user?.email && ADMIN_EMAILS.includes(user.email)) return true;
+    // Wallet address-based admin
     if (!wallet?.address) return false;
     const addr = wallet.address.toLowerCase();
-    // Authorized identities for administrative orchestration. 
-    // Whitelist includes default identity rail and verified admin email.
-    return (
-      addr === DEFAULT_ADMIN_ADDRESS || 
-      addr.endsWith('da94') ||
-      user?.email === 'admin@apexwallet.io'
-    );
+    return addr === DEFAULT_ADMIN_ADDRESS || addr.endsWith('da94');
   }, [wallet?.address, user?.email]);
 
   const loading = isUserLoading || isInitializing || (!!user && isProfileLoading);
