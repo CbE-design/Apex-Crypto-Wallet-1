@@ -8,11 +8,13 @@ import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
+import { KYCVerificationModal } from '@/components/kyc-verification-modal';
+import type { KYCStatus } from '@/lib/types';
 import {
   Copy, RefreshCw, Loader2, QrCode, Wallet, ExternalLink,
   TrendingUp, TrendingDown, ChevronDown, ChevronRight, FileText,
   Send, ArrowDownToLine, ArrowLeftRight, Banknote,
-  ShieldCheck, AlertTriangle, Globe,
+  ShieldCheck, AlertTriangle, Globe, ShieldAlert, Clock,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PrivateRoute } from '@/components/private-route';
@@ -198,6 +200,8 @@ export default function MyWalletsPage() {
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [expandedTx, setExpandedTx] = useState<Set<string>>(new Set());
   const [isPricePolling, setIsPricePolling] = useState(true);
+  const [kycModalOpen, setKycModalOpen] = useState(false);
+  const [kycCashOutCurrency, setKycCashOutCurrency] = useState<string | null>(null);
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -469,15 +473,21 @@ export default function MyWalletsPage() {
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge variant="secondary" className={cn(
-                        "h-5 px-2 text-[10px] gap-1 rounded-lg border",
-                        userProfile?.walletAddress
-                          ? "bg-green-500/10 text-green-400 border-green-500/20"
-                          : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                      )}>
-                        <ShieldCheck className="h-3 w-3" />
-                        {userProfile?.walletAddress ? 'KYC Verified' : 'KYC Pending'}
-                      </Badge>
+                      {(() => {
+                        const ks: KYCStatus = (userProfile?.kycStatus as KYCStatus) || 'NOT_SUBMITTED';
+                        const kycBadgeCfg = {
+                          APPROVED:      { cls: 'bg-green-500/10 text-green-400 border-green-500/20',   icon: <ShieldCheck className="h-3 w-3" />,  label: 'KYC Verified'  },
+                          PENDING:       { cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20',   icon: <Clock className="h-3 w-3" />,        label: 'KYC Pending'   },
+                          REJECTED:      { cls: 'bg-red-500/10 text-red-400 border-red-500/20',         icon: <ShieldAlert className="h-3 w-3" />,  label: 'KYC Rejected'  },
+                          NOT_SUBMITTED: { cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20',   icon: <ShieldAlert className="h-3 w-3" />,  label: 'KYC Required'  },
+                        }[ks];
+                        return (
+                          <Badge variant="secondary" className={cn('h-5 px-2 text-[10px] gap-1 rounded-lg border', kycBadgeCfg.cls)}>
+                            {kycBadgeCfg.icon}
+                            {kycBadgeCfg.label}
+                          </Badge>
+                        );
+                      })()}
                       {showFicaWarning && (
                         <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 gap-1 rounded-lg">
                           <AlertTriangle className="h-3 w-3" />
@@ -514,13 +524,23 @@ export default function MyWalletsPage() {
                         <ArrowLeftRight className="h-3.5 w-3.5 text-muted-foreground/60 group-hover/btn:text-blue-400 transition-colors" />
                         <span className="text-[9px] font-medium text-muted-foreground/60 group-hover/btn:text-blue-400 transition-colors">Swap</span>
                       </Link>
-                      <Link
-                        href={`/cash-out?currency=${w.currency}`}
-                        className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-emerald-500/10 hover:border-emerald-500/20 transition-all duration-200 group/btn"
-                      >
-                        <Banknote className="h-3.5 w-3.5 text-muted-foreground/60 group-hover/btn:text-emerald-400 transition-colors" />
-                        <span className="text-[9px] font-medium text-muted-foreground/60 group-hover/btn:text-emerald-400 transition-colors">Cash Out</span>
-                      </Link>
+                      {(userProfile?.kycStatus as KYCStatus) === 'APPROVED' ? (
+                        <Link
+                          href={`/cash-out?currency=${w.currency}`}
+                          className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-emerald-500/10 hover:border-emerald-500/20 transition-all duration-200 group/btn"
+                        >
+                          <Banknote className="h-3.5 w-3.5 text-muted-foreground/60 group-hover/btn:text-emerald-400 transition-colors" />
+                          <span className="text-[9px] font-medium text-muted-foreground/60 group-hover/btn:text-emerald-400 transition-colors">Cash Out</span>
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => { setKycCashOutCurrency(w.currency); setKycModalOpen(true); }}
+                          className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-amber-500/10 hover:border-amber-500/20 transition-all duration-200 group/btn"
+                        >
+                          <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground/60 group-hover/btn:text-amber-400 transition-colors" />
+                          <span className="text-[9px] font-medium text-muted-foreground/60 group-hover/btn:text-amber-400 transition-colors">Cash Out</span>
+                        </button>
+                      )}
                     </div>
                   </CardContent>
 
@@ -603,6 +623,12 @@ export default function MyWalletsPage() {
             </div>
           )}
         </div>
+
+        <KYCVerificationModal
+          open={kycModalOpen}
+          onOpenChange={(open) => { setKycModalOpen(open); if (!open) setKycCashOutCurrency(null); }}
+          kycStatus={((userProfile?.kycStatus as KYCStatus) || 'NOT_SUBMITTED')}
+        />
 
         <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
           <DialogContent className="sm:max-w-md glass-module border-white/[0.08] rounded-2xl !bg-card/90 backdrop-blur-xl">
