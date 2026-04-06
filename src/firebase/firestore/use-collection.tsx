@@ -88,7 +88,14 @@ export function useCollection<T = any>(
         setData(null);
         setIsLoading(false);
 
-        errorEmitter.emit('permission-error', contextualError);
+        // Only surface as a permission error for real access denials.
+        // Other codes (failed-precondition = missing index, unavailable = offline, etc.)
+        // should not trigger the "Firestore rules" warning toast.
+        if (err.code === 'permission-denied') {
+          errorEmitter.emit('permission-error', contextualError);
+        } else {
+          console.warn('[Firestore] Query error:', err.code, path, err.message);
+        }
       }
     );
 

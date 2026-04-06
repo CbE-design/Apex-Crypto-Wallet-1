@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import type { AdminNotification } from '@/lib/types';
@@ -15,11 +15,11 @@ export function AdminNotificationListener() {
 
   const notificationsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
+    // No orderBy — avoids requiring a composite index on admin_notifications.
+    // We sort client-side after fetching.
     return query(
       collection(firestore, 'admin_notifications'),
       where('read', '==', false),
-      orderBy('createdAt', 'desc'),
-      limit(1),
     );
   }, [firestore]);
 
@@ -27,7 +27,13 @@ export function AdminNotificationListener() {
 
   useEffect(() => {
     if (!notifications || notifications.length === 0) return;
-    const latest = notifications[0];
+    // Sort newest first in JS — no composite index required
+    const sorted = [...notifications].sort((a, b) => {
+      const aTime = (a as any).createdAt?.toMillis?.() ?? 0;
+      const bTime = (b as any).createdAt?.toMillis?.() ?? 0;
+      return bTime - aTime;
+    });
+    const latest = sorted[0];
     if (latest.id === lastProcessedId.current) return;
     lastProcessedId.current = latest.id;
 
