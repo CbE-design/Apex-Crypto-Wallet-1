@@ -9,7 +9,8 @@
     "build": "NODE_ENV=production next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deploy:rules": "node scripts/deploy-rules.js"
   },
   "dependencies": {
     "@genkit-ai/firebase": "^1.30.1",
@@ -68,6 +69,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "genkit-cli": "^0.0.2",
+    "googleapis": "^171.4.0",
     "patch-package": "^8.0.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
