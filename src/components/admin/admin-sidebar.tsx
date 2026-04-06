@@ -10,7 +10,7 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Settings, ShieldAlert, ArrowLeft, ArrowDownRight, UserCheck, Bell, Users, Activity } from "lucide-react";
+import { LayoutDashboard, Settings, ShieldAlert, ArrowLeft, ArrowDownRight, UserCheck, Bell, Users, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -153,6 +153,15 @@ export function AdminSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname === "/admin/settings"}>
+              <Link href="/admin/settings">
+                <SlidersHorizontal className="h-4 w-4" />
+                <span>Settings</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           
           <div className="my-3 border-t border-white/5 mx-2" />
           
@@ -170,10 +179,10 @@ export function AdminSidebar() {
       <SidebarFooter className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/settings"}>
-              <Link href="/settings">
+            <SidebarMenuButton asChild isActive={pathname === "/admin/settings"}>
+              <Link href="/admin/settings">
                 <Settings className="h-4 w-4" />
-                <span>Settings</span>
+                <span>Platform Settings</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
