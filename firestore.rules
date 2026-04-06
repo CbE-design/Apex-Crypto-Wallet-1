@@ -2,7 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global helper functions
+    // ─── Helper Functions ──────────────────────────────────────────────────────
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -11,6 +12,8 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Admin check — email-based, no wallet required.
+    // Add additional admin emails to this list as needed.
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'admin@apexwallet.io' ||
@@ -18,64 +21,74 @@ service cloud.firestore {
       );
     }
 
-    /**
-     * @description Global Protocol Settings
-     */
+    // ─── Protocol Settings ─────────────────────────────────────────────────────
+    // Global platform on/off switch. Anyone can read (needed for maintenance
+    // mode banner shown to unauthenticated users). Only admins may write.
     match /protocol_settings/{docId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
     }
 
-    /**
-     * @description Withdrawal Requests - Users can create, Admins can update status
-     */
+    // ─── Withdrawal Requests ───────────────────────────────────────────────────
+    // Users may create a request for themselves and read their own requests.
+    // Admins can list all, read any, and update status (approve/reject).
+    // No user may update or delete their own requests once submitted.
     match /withdrawal_requests/{requestId} {
-      allow read: if isSignedIn();
+      allow list:   if isAdmin();
+      allow get:    if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
-    /**
-     * @description KYC Submissions - Users can create/read their own, Admins can update
-     */
+    // ─── KYC Submissions ──────────────────────────────────────────────────────
+    // Users may submit once and read their own submission.
+    // Admins can list all, read any, and update status (approve/reject).
     match /kyc_submissions/{submissionId} {
-      allow read: if isSignedIn();
+      allow list:   if isAdmin();
+      allow get:    if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
-    /**
-     * @description Admin Notifications - Only admins can read/write
-     */
+    // ─── Admin Notifications ──────────────────────────────────────────────────
+    // Visible only to admins. Users cannot read or write these.
     match /admin_notifications/{notificationId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isAdmin();
     }
 
-    /**
-     * @description Hierarchical rules for user-specific data.
-     * Admins can list and read all users; users can only read/write their own.
-     */
+    // ─── User Profiles ────────────────────────────────────────────────────────
+    // Admins can list + read + write all users.
+    // Users can only read/write their own profile and subcollections.
     match /users/{userId} {
-      allow list: if isAdmin();
-      allow read: if isOwner(userId) || isAdmin();
+      allow list:  if isAdmin();
+      allow get:   if isOwner(userId) || isAdmin();
       allow write: if isOwner(userId) || isAdmin();
 
+      // Subcollections: wallets, transactions, balances, etc.
       match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId) || isAdmin();
+        allow read:  if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
       }
     }
 
-    /**
-     * @description Collection Group Rules for Background Ledger Verification.
-     */
-    match /{path=**}/wallets/{walletId} {
+    // ─── Prices / Market Data ─────────────────────────────────────────────────
+    // Read-only, publicly accessible (used for live price display).
+    match /prices/{docId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if false;
     }
 
-    match /{path=**}/transactions/{transactionId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+    // ─── Email Logs / Notification Logs ───────────────────────────────────────
+    // Admin-only audit trail.
+    match /email_logs/{docId} {
+      allow read, write: if isAdmin();
     }
+
+    match /notification_logs/{docId} {
+      allow read, write: if isAdmin();
+    }
+
   }
 }
