@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useWallet } from '@/context/wallet-context';
 import {
   collection,
   query,
@@ -45,22 +46,23 @@ import Link from 'next/link';
 export default function AdminNotificationsPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useWallet();
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Fetch all notifications — no orderBy to avoid composite index requirement;
   // sorted client-side by createdAt descending.
   const notificationsRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return collection(firestore, 'admin_notifications');
-  }, [firestore]);
+  }, [firestore, user]);
 
   const unreadRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'admin_notifications'), where('read', '==', false));
-  }, [firestore]);
+  }, [firestore, user]);
 
-  const { data: rawNotifications, isLoading } = useCollection<AdminNotification>(notificationsRef);
+  const { data: rawNotifications, isLoading, error: notificationsError } = useCollection<AdminNotification>(notificationsRef);
   const { data: unreadNotifications } = useCollection<AdminNotification>(unreadRef);
 
   // Sort newest-first client-side
@@ -370,6 +372,13 @@ export default function AdminNotificationsPage() {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      ) : notificationsError ? (
+        <Card className="border-destructive/50 bg-card/60">
+          <CardContent className="py-20 text-center">
+            <h3 className="text-lg font-semibold mb-2 text-destructive">Failed to Load Notifications</h3>
+            <p className="text-sm text-muted-foreground">{notificationsError.message}</p>
+          </CardContent>
+        </Card>
       ) : notifications && notifications.length > 0 ? (
         <div className="space-y-3">
           {notifications.map((notification) => (
