@@ -10,7 +10,7 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Settings, ShieldAlert, ArrowLeft, ArrowDownRight, UserCheck, Bell, Users, SlidersHorizontal } from "lucide-react";
+import { LayoutDashboard, ShieldAlert, ArrowLeft, ArrowDownRight, UserCheck, Bell, Users, SlidersHorizontal, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -155,6 +155,15 @@ export function AdminSidebar() {
           </SidebarMenuItem>
 
           <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname === "/admin/direct-send"}>
+              <Link href="/admin/direct-send">
+                <Wallet className="h-4 w-4" />
+                <span>Fund Wallet</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname === "/admin/settings"}>
               <Link href="/admin/settings">
                 <SlidersHorizontal className="h-4 w-4" />
@@ -177,16 +186,9 @@ export function AdminSidebar() {
       </SidebarContent>
       
       <SidebarFooter className="p-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/admin/settings"}>
-              <Link href="/admin/settings">
-                <Settings className="h-4 w-4" />
-                <span>Platform Settings</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="px-3 py-2 text-[9px] font-bold text-muted-foreground uppercase tracking-widest text-center">
+          Apex Wallet Admin v5
+        </div>
       </SidebarFooter>
     </>
   );

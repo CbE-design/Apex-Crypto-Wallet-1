@@ -28,7 +28,9 @@ import {
   Bell,
   ShieldCheck,
   Info,
+  Upload,
 } from 'lucide-react';
+import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -105,6 +107,7 @@ function ToggleRow({ label, description, checked, onChange, disabled }: {
 
 export default function AdminSettingsPage() {
   const { toast } = useToast();
+  const { user } = useWallet();
   const firestore = useFirestore();
 
   const protocolRef = useMemoFirebase(() => firestore ? doc(firestore, 'protocol_settings', 'status') : null, [firestore]);
@@ -125,6 +128,7 @@ export default function AdminSettingsPage() {
   const [security, setSecurity] = useState<SecurityConfig>(DEFAULTS.security);
   const [savingSection, setSavingSection] = useState<string | null>(null);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+  const [isDeployingRules, setIsDeployingRules] = useState(false);
 
   useEffect(() => { if (controlsData) setControls({ ...DEFAULTS.controls, ...controlsData }); }, [controlsData]);
   useEffect(() => { if (complianceData) setCompliance({ ...DEFAULTS.compliance, ...complianceData }); }, [complianceData]);
@@ -171,6 +175,28 @@ export default function AdminSettingsPage() {
   };
 
   const isSaving = (section: string) => savingSection === section;
+
+  const handleDeployRules = async () => {
+    if (!user?.email) return;
+    setIsDeployingRules(true);
+    try {
+      const res = await fetch('/api/admin/deploy-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: 'Rules Deployed', description: 'Firestore security rules published successfully.' });
+      } else {
+        toast({ title: 'Deployment Failed', description: data.message || 'Check server logs.', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Deployment Error', description: err.message || 'Network error.', variant: 'destructive' });
+    } finally {
+      setIsDeployingRules(false);
+    }
+  };
 
   return (
     <div className="space-y-8 pb-24">
@@ -484,13 +510,23 @@ export default function AdminSettingsPage() {
               </div>
             ))}
           </div>
-          <p className="text-[10px] text-muted-foreground mt-4">
-            Rules last published via Firebase Console. To update, go to{' '}
-            <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline text-blue-400">
-              Firebase Console
-            </a>{' '}
-            → Firestore → Rules.
-          </p>
+          <div className="mt-6 pt-4 border-t border-white/5">
+            <p className="text-[11px] text-muted-foreground mb-3">
+              Rules are stored in <code className="text-[10px] bg-white/10 px-1 rounded">firestore.rules</code> and deployed
+              directly to Firebase from this control panel. Click below to publish the current rules file live.
+            </p>
+            <Button
+              className="w-full py-6 rounded-2xl font-black uppercase tracking-widest bg-yellow-600/80 hover:bg-yellow-600 text-white"
+              onClick={handleDeployRules}
+              disabled={isDeployingRules}
+            >
+              {isDeployingRules ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Deploying Rules...</>
+              ) : (
+                <><Upload className="h-4 w-4 mr-2" /> Deploy Security Rules to Firebase</>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

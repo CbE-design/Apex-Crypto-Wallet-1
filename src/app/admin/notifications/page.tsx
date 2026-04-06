@@ -9,7 +9,6 @@ import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { 
   collection, 
   query, 
-  orderBy, 
   doc, 
   updateDoc, 
   writeBatch,
@@ -37,10 +36,11 @@ export default function AdminNotificationsPage() {
   const firestore = useFirestore();
   const [isMarkingAll, setIsMarkingAll] = useState(false);
 
-  // Fetch all notifications
+  // Fetch all notifications — no orderBy to avoid composite index requirement;
+  // we sort client-side by createdAt descending.
   const notificationsRef = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'admin_notifications'), orderBy('createdAt', 'desc'));
+    return collection(firestore, 'admin_notifications');
   }, [firestore]);
 
   const unreadRef = useMemoFirebase(() => {
@@ -48,8 +48,17 @@ export default function AdminNotificationsPage() {
     return query(collection(firestore, 'admin_notifications'), where('read', '==', false));
   }, [firestore]);
 
-  const { data: notifications, isLoading } = useCollection<AdminNotification>(notificationsRef);
+  const { data: rawNotifications, isLoading } = useCollection<AdminNotification>(notificationsRef);
   const { data: unreadNotifications } = useCollection<AdminNotification>(unreadRef);
+
+  // Sort newest-first client-side (no Firestore composite index needed)
+  const notifications = rawNotifications
+    ? [...rawNotifications].sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
+        const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
+        return bTime - aTime;
+      })
+    : rawNotifications;
 
   const unreadCount = unreadNotifications?.length || 0;
 
