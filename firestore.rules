@@ -10,13 +10,20 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'admin@apexwallet.io' ||
+        request.auth.token.email == 'corrie@apex-crypto.co.uk'
+      );
+    }
+
     /**
      * @description Global Protocol Settings
      */
     match /protocol_settings/{docId} {
       allow read: if true;
-      allow write: if isSignedIn(); // In production, restrict to specific Admin UID
+      allow write: if isSignedIn();
     }
 
     /**
@@ -25,7 +32,7 @@ service cloud.firestore {
     match /withdrawal_requests/{requestId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn(); // Admin validation happens at app level
+      allow update: if isSignedIn();
     }
 
     /**
@@ -34,25 +41,27 @@ service cloud.firestore {
     match /kyc_submissions/{submissionId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn(); // Admin validation happens at app level
+      allow update: if isSignedIn();
     }
 
     /**
      * @description Admin Notifications - Only admins can read/write
      */
     match /admin_notifications/{notificationId} {
-      allow read, write: if isSignedIn(); // Admin validation at app level
+      allow read, write: if isSignedIn();
     }
 
     /**
      * @description Hierarchical rules for user-specific data.
+     * Admins can list and read all users; users can only read/write their own.
      */
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId);
+      allow list: if isAdmin();
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) || isAdmin();
 
       match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
