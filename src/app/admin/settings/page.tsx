@@ -1,34 +1,36 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
 import {
-  Settings,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Shield,
   Banknote,
-  Users,
   Power,
   Lock,
   Globe,
-  AlertTriangle,
   CheckCircle2,
   Loader2,
   Save,
-  RefreshCw,
-  UserPlus,
-  TrendingDown,
-  ArrowDownRight,
-  Bell,
   ShieldCheck,
   Info,
   Upload,
+  AlertTriangle,
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -129,6 +131,7 @@ export default function AdminSettingsPage() {
   const [savingSection, setSavingSection] = useState<string | null>(null);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const [isDeployingRules, setIsDeployingRules] = useState(false);
+  const [pendingMaintenanceState, setPendingMaintenanceState] = useState<boolean | null>(null);
 
   useEffect(() => { if (controlsData) setControls({ ...DEFAULTS.controls, ...controlsData }); }, [controlsData]);
   useEffect(() => { if (complianceData) setCompliance({ ...DEFAULTS.compliance, ...complianceData }); }, [complianceData]);
@@ -217,7 +220,7 @@ export default function AdminSettingsPage() {
             label="Platform Active"
             description="Turn off to put the entire platform into maintenance mode. Users cannot log in or transact."
             checked={!isMaintenanceMode}
-            onChange={handleMaintenanceToggle}
+            onChange={(next) => setPendingMaintenanceState(next)}
           />
           <ToggleRow
             label="Allow New Registrations"
@@ -529,6 +532,49 @@ export default function AdminSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── MAINTENANCE MODE CONFIRMATION DIALOG ─────────── */}
+      <AlertDialog
+        open={pendingMaintenanceState !== null}
+        onOpenChange={(open) => { if (!open) setPendingMaintenanceState(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              {pendingMaintenanceState === false
+                ? 'Enable Maintenance Mode?'
+                : 'Bring Platform Back Online?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingMaintenanceState === false ? (
+                <>
+                  This will take <strong>the entire Apex Wallet platform offline</strong> immediately.
+                  All users will be locked out and unable to log in or transact until you re-enable it.
+                  Are you sure you want to continue?
+                </>
+              ) : (
+                <>
+                  This will bring the platform back online and allow users to log in and transact normally.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingMaintenanceState(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={pendingMaintenanceState === false ? 'bg-destructive hover:bg-destructive/90' : ''}
+              onClick={async () => {
+                const next = pendingMaintenanceState!;
+                setPendingMaintenanceState(null);
+                await handleMaintenanceToggle(next);
+              }}
+            >
+              {pendingMaintenanceState === false ? 'Enable Maintenance Mode' : 'Bring Online'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
