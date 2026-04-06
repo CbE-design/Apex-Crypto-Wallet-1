@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -35,15 +35,9 @@ import {
   Copy,
   Loader2,
   ShieldCheck,
-  ShieldAlert,
   Shield,
   Calendar,
-  CreditCard,
-  ExternalLink,
-  RefreshCw,
   ChevronRight,
-  TrendingUp,
-  Ban,
   User,
 } from 'lucide-react';
 import type { KYCStatus } from '@/lib/types';
@@ -204,8 +198,13 @@ export default function UsersPage() {
           return bTime - aTime;
         });
       setWithdrawalHistory(withdrawals);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error loading user details:', e);
+      toast({
+        title: 'Failed to Load Details',
+        description: e?.message || 'Could not fetch this user\'s portfolio and withdrawal data.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoadingDetails(false);
     }
@@ -238,10 +237,6 @@ export default function UsersPage() {
     PENDING: users?.filter((u) => u.kycStatus === 'PENDING').length || 0,
     REJECTED: users?.filter((u) => u.kycStatus === 'REJECTED').length || 0,
     NOT_SUBMITTED: users?.filter((u) => !u.kycStatus || u.kycStatus === 'NOT_SUBMITTED').length || 0,
-  };
-
-  const totalPortfolioValue = (balances: WalletBalance[]) => {
-    return balances.reduce((sum, b) => sum + (b.balance || 0), 0);
   };
 
   return (
