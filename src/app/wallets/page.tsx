@@ -309,11 +309,7 @@ export default function MyWalletsPage() {
   };
 
   const getExplorerLink = (address: string, sym: string) => {
-    if (sym === 'ADA') return `https://cardanoscan.io/address/${address}`;
-    if (sym === 'SOL') return `https://solscan.io/account/${address}`;
-    if (sym === 'BTC') return `https://www.blockchain.com/explorer/addresses/btc/${address}`;
-    if (['ETH', 'LINK', 'BNB', 'USDT'].includes(sym)) return `https://etherscan.io/address/${address}`;
-    return `/explorer/${address}`;
+    return `/explorer/${address}?currency=${sym}`;
   };
 
   const toggleTx = (currency: string) => {
@@ -693,7 +689,7 @@ export default function MyWalletsPage() {
                     >
                       <QrCode className="h-4 w-4" />
                     </Button>
-                    <Link href={getExplorerLink(w.address, w.currency)} passHref target="_blank" rel="noopener noreferrer">
+                    <Link href={getExplorerLink(w.address, w.currency)} passHref>
                       <Button
                         variant="ghost" size="icon"
                         className="h-8 w-8 rounded-xl border border-white/[0.08] hover:border-primary/30 hover:bg-primary/10 transition-all duration-200"
