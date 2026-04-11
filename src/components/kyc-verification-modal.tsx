@@ -546,9 +546,7 @@ export function KYCVerificationModal({
       <DialogContent className="max-w-md border-border bg-card">
         <DialogHeader>
           <DialogTitle>{getStepTitle()}</DialogTitle>
-          {step !== 'intro' && step !== 'submitted' && (
-            <DialogDescription className="sr-only">Complete the verification process</DialogDescription>
-          )}
+          <DialogDescription className="sr-only">Please follow the steps to complete identity verification.</DialogDescription>
         </DialogHeader>
         {step !== 'intro' && step !== 'submitted' && <Progress value={progress[step]} className="h-1" />}
         {step === 'intro' && renderIntro()}
