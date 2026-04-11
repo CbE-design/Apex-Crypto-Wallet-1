@@ -134,6 +134,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.io`,
         createdAt: serverTimestamp(),
         walletAddress: walletInstance.address,
+        walletAddressLowercase: walletInstance.address.toLowerCase(),
       }, { merge: true });
 
       marketCoins.forEach(coin => {
@@ -326,6 +327,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
             email: firebaseUser.email || `${importedWallet.address.substring(0, 8)}@apex.io`,
             createdAt: serverTimestamp(),
             walletAddress: importedWallet.address,
+            walletAddressLowercase: importedWallet.address.toLowerCase(),
           }, { merge: true });
 
           const batch = writeBatch(firestore);

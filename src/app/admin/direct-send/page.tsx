@@ -88,14 +88,10 @@ export default function FundWalletPage() {
     const amount = parseFloat(data.amount);
 
     try {
-      // ── Step 1: Resolve recipient BEFORE the transaction ──────────────────
-      // getDocs must NOT be called inside runTransaction — it is not transactionally
-      // isolated. We resolve the recipient doc ref first, then use transaction.get()
-      // inside the transaction to do the transactionally-safe read.
       const usersRef = collection(firestore, 'users');
       const recipientQuery = query(
         usersRef,
-        where('walletAddress', '==', data.recipientAddress),
+        where('walletAddressLowercase', '==', data.recipientAddress.toLowerCase()),
         limit(1)
       );
       const recipientSnapshot = await getDocs(recipientQuery);
@@ -108,13 +104,11 @@ export default function FundWalletPage() {
       const recipientUserId = recipientDoc.id;
       const recipientEmail = (recipientDoc.data().email as string) ?? 'unknown';
 
-      // ── Step 2: Run the atomic ledger update ──────────────────────────────
       await runTransaction(firestore, async (transaction) => {
         const walletRef = doc(firestore, 'users', recipientUserId, 'wallets', data.asset);
         const walletSnap = await transaction.get(walletRef);
         const currentBalance = walletSnap.exists() ? (walletSnap.data().balance ?? 0) : 0;
 
-        // Credit the wallet
         transaction.set(
           walletRef,
           {
@@ -126,7 +120,6 @@ export default function FundWalletPage() {
           { merge: true }
         );
 
-        // Append an audit transaction record
         const txRef = doc(collection(walletRef, 'transactions'));
         transaction.set(txRef, {
           userId: recipientUserId,
