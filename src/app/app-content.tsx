@@ -30,9 +30,15 @@ export default function AppContent({
   const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
   const isProtocolHalted = protocolStatus && protocolStatus.isActive === false;
 
-  const isPublicPage = pathname === '/login' || pathname.startsWith('/legal');
+  // More robust check for public pages to prevent the "Authenticating Identity" splash screen
+  // from appearing on login, legal, or other public routes.
+  const isPublicPage = !pathname || 
+                       pathname === '/login' || 
+                       pathname.startsWith('/login/') || 
+                       pathname.startsWith('/legal') || 
+                       pathname === '/coming-soon';
 
-  // Handle identity authentication phase
+  // Handle identity authentication phase for protected routes
   if (loading && !isPublicPage) {
     return (
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">

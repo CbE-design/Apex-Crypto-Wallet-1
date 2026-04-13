@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+import { collection, query, orderBy, limit as firestoreLimit, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { KYCVerificationModal } from '@/components/kyc-verification-modal';
 import type { KYCStatus } from '@/lib/types';
@@ -55,6 +55,15 @@ interface TransactionDoc {
   method?: string;
   beneficiaryName?: string;
 }
+
+const deriveAddress = (symbol: string, ethAddress: string) => {
+  if (!ethAddress) return '';
+  if (['ETH', 'LINK', 'BNB', 'USDT', 'USDC', 'UNI'].includes(symbol)) return ethAddress;
+  if (symbol === 'SOL') return ethAddress.replace('0x', 'Sol') + 'Identity';
+  if (symbol === 'ADA') return 'addr1' + ethAddress.substring(2, 42);
+  if (symbol === 'BTC') return '1' + ethAddress.substring(2, 35);
+  return 'Identity_' + symbol + '_' + ethAddress.substring(2, 12);
+};
 
 function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string; userId: string }) {
   const firestore = useFirestore();
@@ -183,6 +192,10 @@ export default function MyWalletsPage() {
   const [expandedTx, setExpandedTx] = useState<Set<string>>(new Set());
   const [kycModalOpen, setKycModalOpen] = useState(false);
   const [kycCashOutCurrency, setKycCashOutCurrency] = useState<string | null>(null);
+  const [isProvisioning, setIsProvisioning] = useState(false);
+  const [explorerOpen, setExplorerOpen] = useState(false);
+  const [explorerAddress, setExplorerAddress] = useState<string | null>(null);
+  const [explorerCurrency, setExplorerCurrency] = useState<string | null>(null);
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -193,6 +206,40 @@ export default function MyWalletsPage() {
 
   const symbols = useMemo(() => (wallets ?? []).map(w => w.currency), [wallets]);
   const { prices: livePrices, changes: liveChanges, isLoading: pricesLoading, isRefreshing: isPricePolling, lastUpdated, refresh: refreshPrices } = useLivePrices(symbols, 'USD');
+
+  // Provisioning logic if wallets are missing
+  useEffect(() => {
+    if (!isLoading && user && wallets && wallets.length === 0 && !isProvisioning && firestore) {
+      const provisionWallets = async () => {
+        setIsProvisioning(true);
+        try {
+          const batch = writeBatch(firestore);
+          const ethAddress = userProfile?.walletAddress || '0x' + Math.random().toString(16).slice(2, 42);
+          
+          marketCoins.forEach(coin => {
+            const walletRef = doc(firestore, 'users', user.uid, 'wallets', coin.symbol);
+            batch.set(walletRef, {
+              id: coin.symbol,
+              userId: user.uid,
+              currency: coin.symbol,
+              balance: 0,
+              address: deriveAddress(coin.symbol, ethAddress),
+              lastSynced: serverTimestamp()
+            }, { merge: true });
+          });
+          
+          await batch.commit();
+          toast({ title: "Wallets Provisioned", description: "Your secure storage is ready." });
+        } catch (err) {
+          console.error("Provisioning failed:", err);
+          toast({ title: "Setup Error", description: "Failed to initialize wallets.", variant: "destructive" });
+        } finally {
+          setIsProvisioning(false);
+        }
+      };
+      provisionWallets();
+    }
+  }, [isLoading, user, wallets, isProvisioning, firestore, userProfile, toast]);
 
   useEffect(() => {
     if (selectedQrAddress?.address) {
@@ -253,8 +300,10 @@ export default function MyWalletsPage() {
     return 'Native';
   };
 
-  const getExplorerLink = (address: string, sym: string) => {
-    return `/explorer/${address}?currency=${sym}`;
+  const openExplorer = (address: string, sym: string) => {
+    setExplorerAddress(address);
+    setExplorerCurrency(sym);
+    setExplorerOpen(true);
   };
 
   const toggleTx = (currency: string) => {
@@ -361,7 +410,7 @@ export default function MyWalletsPage() {
 
         {/* Assets Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {isLoading ? (
+          {(isLoading || isProvisioning) ? (
             [...Array(6)].map((_, i) => (
               <div key={i} className="glass-module rounded-3xl animate-pulse p-6 space-y-6 border border-white/[0.06]">
                 <div className="flex items-center justify-between">
@@ -610,7 +659,7 @@ export default function MyWalletsPage() {
                       ) : (
                         <button
                           onClick={() => { setKycCashOutCurrency(w.currency); setKycModalOpen(true); }}
-                          className="flex flex-col items-center gap-1.5 py-3 px-1 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-amber-500/10 hover:border-amber-500/30 transition-all duration-300 group/btn"
+                          className="flex flex-col items-center gap-1.5 py-3 px-1 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-amber-500/10 hover:border-amber-500/20 transition-all duration-300 group/btn"
                         >
                           <div className="h-8 w-8 rounded-xl bg-white/[0.02] flex items-center justify-center group-hover/btn:bg-amber-500/20 transition-colors">
                             <ShieldAlert className="h-4 w-4 text-muted-foreground/70 group-hover/btn:text-amber-400 transition-colors" />
@@ -673,17 +722,16 @@ export default function MyWalletsPage() {
                       >
                         <QrCode className="h-4.5 w-4.5" />
                       </Button>
-                      <Link href={getExplorerLink(w.address, w.currency)} passHref target="_blank">
-                        <Button
-                          variant="outline" 
-                          size="icon"
-                          className="h-10 w-10 rounded-2xl border-white/[0.08] bg-white/[0.02] hover:bg-primary/10 hover:border-primary/30 transition-all duration-300"
-                          disabled={!w.address}
-                          title="View on Explorer"
-                        >
-                          <ExternalLink className="h-4.5 w-4.5" />
-                        </Button>
-                      </Link>
+                      <Button
+                        variant="outline" 
+                        size="icon"
+                        className="h-10 w-10 rounded-2xl border-white/[0.08] bg-white/[0.02] hover:bg-primary/10 hover:border-primary/30 transition-all duration-300"
+                        onClick={() => openExplorer(w.address, w.currency)}
+                        disabled={!w.address}
+                        title="View on Explorer"
+                      >
+                        <ExternalLink className="h-4.5 w-4.5" />
+                      </Button>
                     </div>
                   </CardFooter>
                 </Card>
@@ -800,6 +848,29 @@ export default function MyWalletsPage() {
                 </div>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Integrated Explorer Modal */}
+        <Dialog open={explorerOpen} onOpenChange={setExplorerOpen}>
+          <DialogContent className="max-w-[95vw] w-full h-[90vh] glass-module border-white/[0.1] rounded-[32px] !bg-card/95 backdrop-blur-3xl p-0 overflow-hidden flex flex-col">
+             <div className="flex-1 overflow-y-auto">
+                <div className="relative h-full">
+                   {explorerAddress && explorerCurrency && (
+                      <div className="p-0 h-full">
+                         {/* We can use the existing ExplorerContent component by passing props or just including it */}
+                         <iframe 
+                            src={`/explorer/${explorerAddress}?currency=${explorerCurrency}`} 
+                            className="w-full h-full border-none rounded-[32px]"
+                            title="Block Explorer"
+                         />
+                      </div>
+                   )}
+                </div>
+             </div>
+             <div className="p-4 border-t border-white/[0.06] flex justify-end">
+                <Button variant="ghost" onClick={() => setExplorerOpen(false)} className="rounded-xl">Close Explorer</Button>
+             </div>
           </DialogContent>
         </Dialog>
       </div>
