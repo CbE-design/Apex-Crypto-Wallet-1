@@ -243,7 +243,7 @@ export function KYCVerificationModal({
           </div>
           <div>
             <h3 className="text-lg font-semibold">Verification In Progress</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
               Our compliance team is reviewing your documents. This typically takes 1–2 business days.
             </p>
           </div>
@@ -274,7 +274,7 @@ export function KYCVerificationModal({
           </div>
           <div>
             <h3 className="text-lg font-semibold">Verification Not Approved</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
               Unfortunately your previous verification was not approved. Please resubmit with valid documents.
             </p>
           </div>
@@ -458,22 +458,31 @@ export function KYCVerificationModal({
         </div>
       )}
 
-      <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-2">
+      <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Personal Information</h4>
-        {[['Full Name', formData.fullName], ['Date of Birth', formData.dateOfBirth], ['Nationality', formData.nationality], ['Address', formData.address]].map(([label, val]) => (
-          <div key={label} className="flex justify-between text-sm">
-            <span className="text-muted-foreground">{label}</span>
-            <span className="font-medium max-w-[200px] text-right truncate">{val}</span>
+        {[
+          ['Full Name', formData.fullName],
+          ['Date of Birth', formData.dateOfBirth],
+          ['Nationality', formData.nationality],
+          ['Address', formData.address]
+        ].map(([label, val]) => (
+          <div key={label} className="text-sm">
+            <p className="text-muted-foreground text-xs">{label}</p>
+            <p className="font-medium break-words">{val}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-2">
+      <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Identity Document</h4>
-        {[['Document Type', formData.documentType.replace('_', ' ')], ['Document Number', formData.documentNumber], ['Expiry Date', formData.documentExpiry]].map(([label, val]) => (
-          <div key={label} className="flex justify-between text-sm">
-            <span className="text-muted-foreground">{label}</span>
-            <span className="font-medium capitalize">{val}</span>
+        {[
+          ['Document Type', formData.documentType.replace('_', ' ')],
+          ['Document Number', formData.documentNumber],
+          ['Expiry Date', formData.documentExpiry]
+        ].map(([label, val]) => (
+          <div key={label} className="text-sm">
+            <p className="text-muted-foreground text-xs">{label}</p>
+            <p className="font-medium capitalize">{val}</p>
           </div>
         ))}
       </div>
