@@ -4,6 +4,7 @@ import './globals.css';
 import { cn } from '@/lib/utils';
 import { Providers } from './providers';
 import { ClientShell } from './client-shell';
+import { Analytics } from '@vercel/analytics/next';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -38,6 +39,7 @@ export default function RootLayout({
             {children}
           </ClientShell>
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
