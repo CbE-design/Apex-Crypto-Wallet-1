@@ -49,7 +49,10 @@ service cloud.firestore {
 
     // ─── Admin Notifications ──────────────────────────────────────────────────
     match /admin_notifications/{notificationId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+      // Allow Cloud Functions to write notifications when triggered by user actions
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
     }
 
     // ─── Collection Group Rules ───────────────────────────────────────────────

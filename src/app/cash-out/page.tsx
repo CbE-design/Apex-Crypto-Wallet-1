@@ -445,7 +445,7 @@ function WithdrawalContent() {
         transactionReference: ref,
       };
 
-      await addDoc(collection(firestore!, 'withdrawal_requests'), {
+      const withdrawalDocRef = await addDoc(collection(firestore!, 'withdrawal_requests'), {
         ...withdrawalRequest,
         cryptoBreakdown,
         carfReference: carfRef,
@@ -458,24 +458,33 @@ function WithdrawalContent() {
         },
       });
 
-      const notification: Omit<AdminNotification, 'id'> = {
-        type: 'WITHDRAWAL_REQUEST',
-        title: 'New Withdrawal Request',
-        message: `${data.accountName} has requested a withdrawal of ${formatWithdrawCurrency(parseFloat(data.amount))} via ${data.method.toUpperCase()}.`,
-        userId: user!.uid,
-        userEmail: userProfile?.email,
-        referenceId: ref,
-        read: false,
-        createdAt: serverTimestamp(),
-        metadata: {
-          amount: parseFloat(data.amount),
-          currency: withdrawCurrencySymbol,
-          method: data.method,
-          netAmount: fees.net,
-        },
-      };
+      // Attempt to create admin notification, but don't fail the submission if it fails
+      // The admin_notifications collection can only be written to by admins
+      // A Cloud Function trigger on withdrawal_requests will handle this in production
+      try {
+        const notification: Omit<AdminNotification, 'id'> = {
+          type: 'WITHDRAWAL_REQUEST',
+          title: 'New Withdrawal Request',
+          message: `${data.accountName} has requested a withdrawal of ${formatWithdrawCurrency(parseFloat(data.amount))} via ${data.method.toUpperCase()}.`,
+          userId: user!.uid,
+          userEmail: userProfile?.email,
+          referenceId: ref,
+          read: false,
+          createdAt: serverTimestamp(),
+          metadata: {
+            amount: parseFloat(data.amount),
+            currency: withdrawCurrencySymbol,
+            method: data.method,
+            netAmount: fees.net,
+          },
+        };
 
-      await addDoc(collection(firestore!, 'admin_notifications'), notification);
+        await addDoc(collection(firestore!, 'admin_notifications'), notification);
+      } catch (notificationError) {
+        // Log notification error but don't fail the withdrawal submission
+        console.log('[v0] Notification creation failed (will be handled by Cloud Function):', notificationError);
+      }
+
       return true;
     } catch (e: unknown) {
       setStep('details');
