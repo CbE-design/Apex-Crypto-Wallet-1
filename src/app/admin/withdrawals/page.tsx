@@ -134,10 +134,10 @@ export default function WithdrawalApprovalsPage() {
                 price: crypto.priceUSD,
                 timestamp: serverTimestamp(),
                 status: 'Completed',
-                referenceNo: withdrawal.transactionReference,
-                method: withdrawal.withdrawalMethod,
-                beneficiaryName: withdrawal.accountHolder,
-                notes: `Approved withdrawal - Ref: ${withdrawal.transactionReference}`,
+                referenceNo: withdrawal.transactionReference ?? '',
+                method: withdrawal.withdrawalMethod ?? 'N/A',
+                beneficiaryName: withdrawal.accountHolder ?? 'N/A',
+                notes: `Approved withdrawal - Ref: ${withdrawal.transactionReference ?? ''}`,
               });
             }
           }
