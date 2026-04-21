@@ -124,23 +124,30 @@ export default function WithdrawalApprovalsPage() {
               const currentBalance = walletSnap.data().balance || 0;
               const newBalance = Math.max(0, currentBalance - crypto.amount);
               transaction.update(walletRef, { balance: newBalance });
-
-              // Create transaction record
-              const txRef = doc(collection(walletRef, 'transactions'));
-              transaction.set(txRef, {
-                userId: withdrawal.userId,
-                type: 'Withdrawal',
-                amount: crypto.amount,
-                price: crypto.priceUSD,
-                timestamp: serverTimestamp(),
-                status: 'Completed',
-                referenceNo: withdrawal.transactionReference,
-                method: withdrawal.withdrawalMethod,
-                beneficiaryName: withdrawal.accountHolder,
-                notes: `Approved withdrawal - Ref: ${withdrawal.transactionReference}`,
-              });
             }
           }
+
+          // Create a single consolidated transaction record in the user's transactions collection
+          // This is where TransactionHistory reads from
+          const userTxRef = doc(collection(firestore, 'users', withdrawal.userId, 'transactions'));
+          const primaryCrypto = withdrawal.cryptoBreakdown[0];
+          const totalCryptoAmount = withdrawal.cryptoBreakdown.reduce((sum, c) => sum + c.amount, 0);
+          
+          transaction.set(userTxRef, {
+            userId: withdrawal.userId,
+            type: 'Withdrawal',
+            currency: primaryCrypto.symbol,
+            amount: totalCryptoAmount,
+            price: primaryCrypto.priceUSD,
+            timestamp: serverTimestamp(),
+            status: 'Completed',
+            referenceNo: withdrawal.transactionReference,
+            method: withdrawal.withdrawalMethod,
+            beneficiaryName: withdrawal.accountHolder,
+            fiatAmount: withdrawal.fiatAmount,
+            fiatCurrency: withdrawal.fiatCurrency,
+            notes: `Approved withdrawal - Ref: ${withdrawal.transactionReference}`,
+          });
         }
       });
 
