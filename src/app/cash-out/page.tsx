@@ -421,6 +421,7 @@ function WithdrawalContent() {
         remainingUSD -= usdFromThisCoin;
       }
 
+      // Build withdrawal request without undefined fields (Firestore doesn't accept undefined)
       const withdrawalRequest: Omit<WithdrawalRequest, 'id'> = {
         userId: user!.uid,
         userEmail: userProfile?.email || 'unknown@apex.io',
@@ -435,8 +436,9 @@ function WithdrawalContent() {
         bankName: data.method === 'eft' ? (data.bankName || '') : (data.bankCountry || ''),
         accountNumber: data.method === 'eft' ? (data.accountNumber || '') : (data.iban || ''),
         accountHolder: data.accountName,
-        routingNumber: data.method === 'eft' ? data.branchCode : undefined,
-        swiftCode: data.method === 'swift' ? data.swiftCode : undefined,
+        // Only include routing-specific fields when they have values
+        ...(data.method === 'eft' && data.branchCode ? { routingNumber: data.branchCode } : {}),
+        ...(data.method === 'swift' && data.swiftCode ? { swiftCode: data.swiftCode } : {}),
         status: 'PENDING',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
