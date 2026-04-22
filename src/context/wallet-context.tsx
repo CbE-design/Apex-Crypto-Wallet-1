@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, {
@@ -24,6 +23,7 @@ import {
 } from '@/lib/vault';
 import { registerPasskey, authenticatePasskey, isPasskeySupported } from '@/lib/passkey';
 import { httpsCallable } from 'firebase/functions';
+import { KYCStatus } from '@/lib/types';
 
 // ── types ────────────────────────────────────────────────────────────────
 interface Wallet {
@@ -37,6 +37,7 @@ interface UserProfile {
   createdAt: any;
   walletAddress: string;
   fcmToken?: string;
+  kycStatus?: KYCStatus;
 }
 
 interface WalletContextType {
