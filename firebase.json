@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "source": ".",
+    "source": ". G",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -12,5 +12,8 @@
   },
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "functions": {
+    "source": "functions"
   }
 }

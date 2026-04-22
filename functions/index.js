@@ -1,32 +1,43 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * const {onCall} = require("firebase-functions/v2/https");
- * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
 
-const {setGlobalOptions} = require("firebase-functions");
-const {onRequest} = require("firebase-functions/https");
-const logger = require("firebase-functions/logger");
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+const { getFirestore } = require("firebase-admin/firestore");
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+admin.initializeApp();
 
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
+exports.getCustomToken = functions.https.onCall(async (data, context) => {
+  const { walletAddress } = data;
 
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+  if (!walletAddress) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "The function must be called with one argument 'walletAddress'.",
+    );
+  }
+
+  const db = getFirestore();
+  const usersRef = db.collection("users");
+  const q = usersRef.where("walletAddressLowercase", "==", walletAddress.toLowerCase()).limit(1);
+  const userSnap = await q.get();
+
+  if (userSnap.empty) {
+     throw new functions.https.HttpsError(
+      "not-found",
+      "No user found with this wallet address.",
+    );
+  }
+
+  const userDoc = userSnap.docs[0];
+  const uid = userDoc.id;
+
+  try {
+    const customToken = await admin.auth().createCustomToken(uid);
+    return { token: customToken };
+  } catch (error) {
+    console.error("Error creating custom token:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Could not create custom token.",
+    );
+  }
+});
