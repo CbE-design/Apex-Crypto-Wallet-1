@@ -97,14 +97,20 @@ export default function WithdrawalApprovalsPage() {
   const approvedWithdrawals = sortByDate(rawApproved);
   const rejectedWithdrawals = sortByDate(rawRejected);
 
-  const handleApprove = useCallback(async (withdrawal: WithdrawalDoc) => {
-    if (!firestore || !user) return;
+  const handleApprove = useCallback(async (withdrawal: WithdrawalDoc | null) => {
+    if (!firestore || !user || !withdrawal) {
+      console.log('[v0] handleApprove: missing firestore, user, or withdrawal');
+      return;
+    }
     
     setIsProcessing(true);
     try {
+      console.log('[v0] Starting approval for withdrawal:', withdrawal.id);
+      
       // Use transaction to update withdrawal and deduct from user's wallet
       await runTransaction(firestore, async (transaction) => {
         const withdrawalRef = doc(firestore, 'withdrawal_requests', withdrawal.id);
+        console.log('[v0] Updating withdrawal ref:', withdrawalRef.path);
         
         // Update withdrawal status
         transaction.update(withdrawalRef, {
@@ -113,9 +119,11 @@ export default function WithdrawalApprovalsPage() {
           processedBy: user.uid,
           updatedAt: serverTimestamp(),
         });
+        console.log('[v0] Withdrawal status updated to APPROVED');
 
         // Deduct crypto from user's wallets
         if (withdrawal.cryptoBreakdown) {
+          console.log('[v0] Processing crypto breakdown:', withdrawal.cryptoBreakdown);
           for (const crypto of withdrawal.cryptoBreakdown) {
             const walletRef = doc(firestore, 'users', withdrawal.userId, 'wallets', crypto.symbol);
             const walletSnap = await transaction.get(walletRef);
@@ -124,6 +132,9 @@ export default function WithdrawalApprovalsPage() {
               const currentBalance = walletSnap.data().balance || 0;
               const newBalance = Math.max(0, currentBalance - crypto.amount);
               transaction.update(walletRef, { balance: newBalance });
+              console.log(`[v0] Updated ${crypto.symbol} balance: ${currentBalance} -> ${newBalance}`);
+            } else {
+              console.log(`[v0] Wallet not found for ${crypto.symbol}`);
             }
           }
 
@@ -152,6 +163,7 @@ export default function WithdrawalApprovalsPage() {
       });
 
       // Create notification for user
+      console.log('[v0] Creating user notification for withdrawal approval');
       await addDoc(collection(firestore, 'admin_notifications'), {
         type: 'SYSTEM_ALERT',
         title: 'Withdrawal Approved',
@@ -163,11 +175,13 @@ export default function WithdrawalApprovalsPage() {
         createdAt: serverTimestamp(),
       });
 
+      console.log('[v0] Approval completed successfully');
       toast({
         title: 'Withdrawal Approved',
         description: `Successfully approved withdrawal ${withdrawal.transactionReference}. User's balance has been updated.`,
       });
       
+      console.log('[v0] Closing dialog and resetting state');
       setIsDetailOpen(false);
       setSelectedWithdrawal(null);
     } catch (error) {
@@ -321,7 +335,16 @@ export default function WithdrawalApprovalsPage() {
             <Clock className="h-3 w-3" />
             {formatDate(withdrawal.createdAt)}
           </div>
-          <Button variant="ghost" size="sm" className="h-7 text-xs">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 text-xs"
+            onClick={() => {
+              console.log('[v0] Opening withdrawal details for:', withdrawal.id);
+              setSelectedWithdrawal(withdrawal);
+              setIsDetailOpen(true);
+            }}
+          >
             <Eye className="h-3 w-3 mr-1" /> View Details
           </Button>
         </div>
@@ -521,7 +544,19 @@ export default function WithdrawalApprovalsPage() {
                       Reject
                     </Button>
                     <Button
-                      onClick={() => handleApprove(selectedWithdrawal)}
+                      onClick={() => {
+                        console.log('[v0] Approve button clicked, selectedWithdrawal:', selectedWithdrawal?.id);
+                        if (!selectedWithdrawal) {
+                          console.log('[v0] ERROR: No withdrawal selected');
+                          toast({
+                            title: 'Error',
+                            description: 'No withdrawal selected',
+                            variant: 'destructive',
+                          });
+                          return;
+                        }
+                        handleApprove(selectedWithdrawal);
+                      }}
                       disabled={isProcessing}
                       className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
                     >
