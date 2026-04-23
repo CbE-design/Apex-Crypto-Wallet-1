@@ -139,18 +139,65 @@ function ExplorerContent() {
       if (!firestore || !address) return;
       setIsLoading(true);
       try {
-        const walletsQuery = query(collectionGroup(firestore, 'wallets'), where('address', '==', address));
-        const walletSnap = await getDocs(walletsQuery);
-        if (walletSnap.empty) { setWallets([]); setTransactions([]); return; }
+        // First, find the user who owns this wallet address
+        const usersQuery = query(collection(firestore, 'users'), where('walletAddress', '==', address));
+        let userSnap = await getDocs(usersQuery);
+        
+        // If not found by exact address, try lowercase comparison
+        if (userSnap.empty) {
+          const usersQueryLower = query(collection(firestore, 'users'), where('walletAddressLowercase', '==', address.toLowerCase()));
+          userSnap = await getDocs(usersQueryLower);
+        }
+        
+        if (userSnap.empty) { 
+          // Fallback: use collectionGroup but limit to first match for the specific currency
+          const walletsQuery = query(collectionGroup(firestore, 'wallets'), where('address', '==', address));
+          const walletSnap = await getDocs(walletsQuery);
+          if (walletSnap.empty) { setWallets([]); setTransactions([]); return; }
 
-        const found = walletSnap.docs.map(d => ({ ...d.data(), id: d.id, refPath: d.ref.path }));
+          const found = walletSnap.docs.map(d => ({ ...d.data(), id: d.id, refPath: d.ref.path }));
+          setWallets(found);
+
+          const allTxs: any[] = [];
+          for (const w of found) {
+            const txSnap = await getDocs(collection(firestore, w.refPath, 'transactions'));
+            txSnap.forEach(d => allTxs.push({ ...d.data(), id: d.id }));
+          }
+          setTransactions(allTxs.sort((a, b) =>
+            (b.timestamp?.toMillis?.() ?? 0) - (a.timestamp?.toMillis?.() ?? 0)
+          ));
+          return;
+        }
+        
+        // Found the user - now get their specific wallets
+        const userId = userSnap.docs[0].id;
+        const walletsRef = collection(firestore, 'users', userId, 'wallets');
+        const walletSnap = await getDocs(walletsRef);
+        
+        const found = walletSnap.docs.map(d => ({ ...d.data(), id: d.id, refPath: d.ref.path, userId }));
         setWallets(found);
 
+        // Get transactions from the user's main transactions collection
+        const userTxRef = collection(firestore, 'users', userId, 'transactions');
+        const userTxSnap = await getDocs(userTxRef);
         const allTxs: any[] = [];
+        userTxSnap.forEach(d => allTxs.push({ ...d.data(), id: d.id }));
+        
+        // Also check per-wallet transactions for legacy data
         for (const w of found) {
-          const txSnap = await getDocs(collection(firestore, w.refPath, 'transactions'));
-          txSnap.forEach(d => allTxs.push({ ...d.data(), id: d.id }));
+          try {
+            const txSnap = await getDocs(collection(firestore, 'users', userId, 'wallets', w.id, 'transactions'));
+            txSnap.forEach(d => {
+              // Avoid duplicates by checking if tx id already exists
+              if (!allTxs.find(t => t.id === d.id)) {
+                allTxs.push({ ...d.data(), id: d.id });
+              }
+            });
+          } catch {
+            // Subcollection might not exist
+          }
         }
+        
         setTransactions(allTxs.sort((a, b) =>
           (b.timestamp?.toMillis?.() ?? 0) - (a.timestamp?.toMillis?.() ?? 0)
         ));

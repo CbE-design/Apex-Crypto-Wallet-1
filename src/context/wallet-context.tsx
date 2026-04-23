@@ -313,38 +313,94 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const firebaseUser   = userCredential.user;
 
       if (firebaseUser) {
+        // Check if this wallet address already exists in our system
         const userSnap = await getDocs(
           query(collection(firestore, 'users'), where('walletAddress', '==', importedWallet.address), limit(1)),
         );
+        
+        // Also try lowercase match
+        let existingUserSnap = userSnap;
+        if (userSnap.empty) {
+          existingUserSnap = await getDocs(
+            query(collection(firestore, 'users'), where('walletAddressLowercase', '==', importedWallet.address.toLowerCase()), limit(1)),
+          );
+        }
 
         let walletData: Wallet;
-        if (userSnap.empty) {
+        
+        if (existingUserSnap.empty) {
+          // Brand new wallet - create fresh user and wallet documents
           walletData = await setupUserAndWalletDocuments(firebaseUser, importedWallet as any);
         } else {
+          // Wallet exists - this is a re-import after disconnect
+          // Get the existing user's wallet balances to preserve them
+          const existingUserDoc = existingUserSnap.docs[0];
+          const existingUserId = existingUserDoc.id;
+          const existingUserData = existingUserDoc.data();
+          
+          // Copy wallet data from old user to new user (preserve balances)
+          const oldWalletsSnap = await getDocs(collection(firestore, 'users', existingUserId, 'wallets'));
+          const oldTransactionsSnap = await getDocs(collection(firestore, 'users', existingUserId, 'transactions'));
+          
+          const batch = writeBatch(firestore);
+          
+          // Create new user document with same wallet address
           const userRef = doc(firestore, 'users', firebaseUser.uid);
-          await setDoc(userRef, {
+          batch.set(userRef, {
             id: firebaseUser.uid,
-            email: firebaseUser.email || `${importedWallet.address.substring(0, 8)}@apex.io`,
-            createdAt: serverTimestamp(),
+            email: existingUserData.email || firebaseUser.email || `${importedWallet.address.substring(0, 8)}@apex.io`,
+            createdAt: existingUserData.createdAt || serverTimestamp(),
             walletAddress: importedWallet.address,
             walletAddressLowercase: importedWallet.address.toLowerCase(),
+            kycStatus: existingUserData.kycStatus || 'NOT_SUBMITTED',
+            kycData: existingUserData.kycData || null,
           }, { merge: true });
 
-          const batch = writeBatch(firestore);
-          marketCoins.forEach(coin => {
-            const wRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
-            batch.set(wRef, {
-              id: coin.symbol, userId: firebaseUser.uid, currency: coin.symbol,
-              address: deriveIdentityAddress(coin.symbol, importedWallet.address),
-            }, { merge: true });
-          });
+          // Copy all wallet balances from old user to new user
+          if (!oldWalletsSnap.empty) {
+            oldWalletsSnap.docs.forEach(walletDoc => {
+              const walletData = walletDoc.data();
+              const wRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', walletDoc.id);
+              batch.set(wRef, {
+                ...walletData,
+                userId: firebaseUser.uid,
+                address: deriveIdentityAddress(walletDoc.id, importedWallet.address),
+              }, { merge: true });
+            });
+          } else {
+            // No existing wallets - provision new ones
+            marketCoins.forEach(coin => {
+              const wRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
+              batch.set(wRef, {
+                id: coin.symbol, 
+                userId: firebaseUser.uid, 
+                currency: coin.symbol,
+                balance: 0,
+                address: deriveIdentityAddress(coin.symbol, importedWallet.address),
+                lastSynced: serverTimestamp(),
+              }, { merge: true });
+            });
+          }
+          
+          // Copy transaction history
+          if (!oldTransactionsSnap.empty) {
+            oldTransactionsSnap.docs.forEach(txDoc => {
+              const txData = txDoc.data();
+              const txRef = doc(firestore, 'users', firebaseUser.uid, 'transactions', txDoc.id);
+              batch.set(txRef, {
+                ...txData,
+                userId: firebaseUser.uid,
+              }, { merge: true });
+            });
+          }
+          
           await batch.commit();
           walletData = { address: importedWallet.address, privateKey: importedWallet.privateKey };
         }
 
         setPendingWallet(walletData);
       }
-    } catch (e: any) {
+    } catch {
       toast({ title: 'Identity Import Failed', description: 'Invalid seed phrase or connection error.', variant: 'destructive' });
       throw new Error('Invalid seed phrase or login failed.');
     } finally {
@@ -357,15 +413,20 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     const uid = auth.currentUser?.uid;
     signOut(auth).then(() => {
       if (uid && typeof window !== 'undefined') {
-        localStorage.removeItem(`${VAULT_PREFIX}${uid}`);
-        localStorage.removeItem(`apex-wallet-${uid}`);
+        // Clear session and legacy storage, but keep vault for potential re-login
+        // The vault is encrypted and useless without the PIN anyway
         sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`);
+        localStorage.removeItem(`apex-wallet-${uid}`);
+        // Note: We intentionally keep VAULT_PREFIX and PASSKEY_PREFIX 
+        // so users can re-unlock if they sign back in with same credentials
+        // If they want a fresh start, they can clear browser data manually
       }
       pinnedPinRef.current = null;
       setWallet(null);
       setPendingWallet(null);
       setVaultLocked(false);
       setHasPasskey(false);
+      setAddressHint('');
       router.push('/login');
     });
   }, [auth, router]);
