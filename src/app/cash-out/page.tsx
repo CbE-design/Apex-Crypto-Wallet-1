@@ -38,6 +38,7 @@ import type { KYCStatus, WithdrawalRequest, AdminNotification } from '@/lib/type
 import Image from 'next/image';
 import Link from 'next/link';
 import { CryptoIcon } from '@/components/crypto-icon';
+import { WithdrawalHistory } from '@/components/withdrawal-history';
 
 type WithdrawalMethod = 'eft' | 'swift';
 type PageStep = 'details' | 'quote' | 'review' | 'processing' | 'pending_approval' | 'success';
@@ -355,7 +356,9 @@ function WithdrawalContent() {
   };
 
   const handleConfirm = async () => {
-    if (!allCompliant || !confirmedData || !user || !firestore || !walletsColRef || !quoteData) return;
+    if (!allCompliant || !confirmedData || !user || !firestore || !walletsColRef || !quoteData) {
+      return;
+    }
 
     const ref = generateRef();
     const carf = generateCARFRef();
@@ -877,6 +880,11 @@ function WithdrawalContent() {
               <Button asChild className="w-full h-12 font-semibold"><Link href="/">Return to Dashboard</Link></Button>
             </CardContent>
           </Card>
+        )}
+
+        {/* Show withdrawal history on details and pending_approval steps */}
+        {(step === 'details' || step === 'pending_approval') && (
+          <WithdrawalHistory />
         )}
       </div>
 
