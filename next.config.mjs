@@ -1,6 +1,5 @@
-import type {NextConfig} from 'next';
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -32,6 +31,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  transpilePackages: ['undici'],
   allowedDevOrigins: [
     "*.replit.dev",
     "*.kirk.replit.dev",
