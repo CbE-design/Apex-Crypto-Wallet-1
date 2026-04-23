@@ -307,102 +307,81 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!auth || !firestore) throw new Error('Services missing');
     setIsInitializing(true);
     try {
-      const cleanMnemonic  = mnemonic.trim().toLowerCase();
-      const importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
+      // Validate and derive wallet from mnemonic first — before any network calls
+      const cleanMnemonic = mnemonic.trim().toLowerCase();
+      let importedWallet: ethers.Wallet;
+      try {
+        importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
+      } catch {
+        throw new Error('Invalid seed phrase. Please check and try again.');
+      }
+
+      // Sign in anonymously (signs out any existing session first)
       const userCredential = await initiateAnonymousSignIn(auth);
       const firebaseUser   = userCredential.user;
 
-      if (firebaseUser) {
-        // Check if this wallet address already exists in our system
-        const userSnap = await getDocs(
-          query(collection(firestore, 'users'), where('walletAddress', '==', importedWallet.address), limit(1)),
-        );
-        
-        // Also try lowercase match
-        let existingUserSnap = userSnap;
-        if (userSnap.empty) {
-          existingUserSnap = await getDocs(
-            query(collection(firestore, 'users'), where('walletAddressLowercase', '==', importedWallet.address.toLowerCase()), limit(1)),
-          );
-        }
+      if (!firebaseUser) throw new Error('Authentication failed. Please try again.');
 
-        let walletData: Wallet;
-        
-        if (existingUserSnap.empty) {
-          // Brand new wallet - create fresh user and wallet documents
-          walletData = await setupUserAndWalletDocuments(firebaseUser, importedWallet as any);
-        } else {
-          // Wallet exists - this is a re-import after disconnect
-          // Get the existing user's wallet balances to preserve them
-          const existingUserDoc = existingUserSnap.docs[0];
-          const existingUserId = existingUserDoc.id;
-          const existingUserData = existingUserDoc.data();
-          
-          // Copy wallet data from old user to new user (preserve balances)
-          const oldWalletsSnap = await getDocs(collection(firestore, 'users', existingUserId, 'wallets'));
-          const oldTransactionsSnap = await getDocs(collection(firestore, 'users', existingUserId, 'transactions'));
-          
-          const batch = writeBatch(firestore);
-          
-          // Create new user document with same wallet address
-          const userRef = doc(firestore, 'users', firebaseUser.uid);
-          batch.set(userRef, {
-            id: firebaseUser.uid,
-            email: existingUserData.email || firebaseUser.email || `${importedWallet.address.substring(0, 8)}@apex.io`,
-            createdAt: existingUserData.createdAt || serverTimestamp(),
-            walletAddress: importedWallet.address,
-            walletAddressLowercase: importedWallet.address.toLowerCase(),
-            kycStatus: existingUserData.kycStatus || 'NOT_SUBMITTED',
-            kycData: existingUserData.kycData || null,
-          }, { merge: true });
+      // Check if this wallet address already has a Firestore user document.
+      // We query by walletAddress which is stored on the user profile doc —
+      // this is a top-level /users collection query, allowed for signed-in users.
+      const existingSnap = await getDocs(
+        query(
+          collection(firestore, 'users'),
+          where('walletAddress', '==', importedWallet.address),
+          limit(1),
+        ),
+      );
 
-          // Copy all wallet balances from old user to new user
-          if (!oldWalletsSnap.empty) {
-            oldWalletsSnap.docs.forEach(walletDoc => {
-              const walletData = walletDoc.data();
-              const wRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', walletDoc.id);
-              batch.set(wRef, {
-                ...walletData,
-                userId: firebaseUser.uid,
-                address: deriveIdentityAddress(walletDoc.id, importedWallet.address),
-              }, { merge: true });
-            });
-          } else {
-            // No existing wallets - provision new ones
-            marketCoins.forEach(coin => {
-              const wRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
-              batch.set(wRef, {
-                id: coin.symbol, 
-                userId: firebaseUser.uid, 
-                currency: coin.symbol,
-                balance: 0,
-                address: deriveIdentityAddress(coin.symbol, importedWallet.address),
-                lastSynced: serverTimestamp(),
-              }, { merge: true });
-            });
-          }
-          
-          // Copy transaction history
-          if (!oldTransactionsSnap.empty) {
-            oldTransactionsSnap.docs.forEach(txDoc => {
-              const txData = txDoc.data();
-              const txRef = doc(firestore, 'users', firebaseUser.uid, 'transactions', txDoc.id);
-              batch.set(txRef, {
-                ...txData,
-                userId: firebaseUser.uid,
-              }, { merge: true });
-            });
-          }
-          
-          await batch.commit();
-          walletData = { address: importedWallet.address, privateKey: importedWallet.privateKey };
-        }
+      let walletData: Wallet;
 
-        setPendingWallet(walletData);
+      if (existingSnap.empty) {
+        // Brand-new wallet — provision user + wallet sub-documents
+        walletData = await setupUserAndWalletDocuments(firebaseUser, importedWallet as any);
+      } else {
+        // Returning user — write user doc for new UID, then mirror wallet slots.
+        // We cannot read the old user's sub-collections (different UID, no admin token),
+        // so we set wallet documents with `merge: true` which preserves any existing
+        // balance fields already present from a Cloud Function or admin credit.
+        const existingUserData = existingSnap.docs[0].data();
+
+        const batch = writeBatch(firestore);
+
+        const userRef = doc(firestore, 'users', firebaseUser.uid);
+        batch.set(userRef, {
+          id: firebaseUser.uid,
+          email: existingUserData.email || `${importedWallet.address.substring(0, 8)}@apex.io`,
+          createdAt: existingUserData.createdAt || serverTimestamp(),
+          walletAddress: importedWallet.address,
+          walletAddressLowercase: importedWallet.address.toLowerCase(),
+          kycStatus: existingUserData.kycStatus ?? 'NOT_SUBMITTED',
+          ...(existingUserData.kycData ? { kycData: existingUserData.kycData } : {}),
+        }, { merge: true });
+
+        // Re-provision wallet slots — merge keeps existing balances set by admin
+        marketCoins.forEach(coin => {
+          const wRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
+          batch.set(wRef, {
+            id: coin.symbol,
+            userId: firebaseUser.uid,
+            currency: coin.symbol,
+            address: deriveIdentityAddress(coin.symbol, importedWallet.address),
+            lastSynced: serverTimestamp(),
+          }, { merge: true }); // merge: true preserves the balance field
+        });
+
+        await batch.commit();
+        walletData = { address: importedWallet.address, privateKey: importedWallet.privateKey };
       }
-    } catch {
-      toast({ title: 'Identity Import Failed', description: 'Invalid seed phrase or connection error.', variant: 'destructive' });
-      throw new Error('Invalid seed phrase or login failed.');
+
+      setPendingWallet(walletData);
+    } catch (err: any) {
+      toast({
+        title: 'Identity Import Failed',
+        description: err.message || 'Invalid seed phrase or connection error.',
+        variant: 'destructive',
+      });
+      throw err;
     } finally {
       setIsInitializing(false);
     }
@@ -413,13 +392,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     const uid = auth.currentUser?.uid;
     signOut(auth).then(() => {
       if (uid && typeof window !== 'undefined') {
-        // Clear session and legacy storage, but keep vault for potential re-login
-        // The vault is encrypted and useless without the PIN anyway
-        sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`);
+        // Clear ALL local state tied to this session so the login page
+        // shows the import/create screen instead of the PIN lock screen
+        localStorage.removeItem(`${VAULT_PREFIX}${uid}`);
+        localStorage.removeItem(`${PASSKEY_PREFIX}${uid}`);
         localStorage.removeItem(`apex-wallet-${uid}`);
-        // Note: We intentionally keep VAULT_PREFIX and PASSKEY_PREFIX 
-        // so users can re-unlock if they sign back in with same credentials
-        // If they want a fresh start, they can clear browser data manually
+        sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`);
       }
       pinnedPinRef.current = null;
       setWallet(null);

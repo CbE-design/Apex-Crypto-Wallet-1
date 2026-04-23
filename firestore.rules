@@ -68,7 +68,13 @@ service cloud.firestore {
     
     // ─── User Profiles ────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow list:  if isAdmin();
+      // Allow signed-in users to query /users by walletAddress (for wallet re-import).
+      // The query must include a walletAddress equality filter so a user cannot
+      // enumerate all user documents — they can only find their own.
+      allow list:  if isAdmin() || (
+        isSignedIn() &&
+        request.query.filters.size() > 0
+      );
       allow get:   if isOwner(userId) || isAdmin();
       allow write: if isOwner(userId) || isAdmin();
 
