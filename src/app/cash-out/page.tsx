@@ -37,7 +37,6 @@ import { marketCoins } from '@/lib/data';
 import { KYCVerificationModal } from '@/components/kyc-verification-modal';
 import type { KYCStatus, WithdrawalRequest, AdminNotification } from '@/lib/types';
 import Image from 'next/image';
-import Link from 'next/link';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { WithdrawalHistory } from '@/components/withdrawal-history';
 
