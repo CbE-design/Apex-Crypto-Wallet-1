@@ -319,9 +319,15 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       } catch (error: any) {
           throw error;
       }
-    } catch (e: any) {
-      toast({ title: 'Identity Import Failed', description: 'Invalid seed phrase or connection error.', variant: 'destructive' });
-      throw new Error('Invalid seed phrase or login failed.');
+
+      setPendingWallet(walletData);
+    } catch (err: any) {
+      toast({
+        title: 'Identity Import Failed',
+        description: err.message || 'Invalid seed phrase or connection error.',
+        variant: 'destructive',
+      });
+      throw err;
     } finally {
       setIsInitializing(false);
     }
@@ -332,7 +338,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     const uid = auth.currentUser?.uid;
     signOut(auth).then(() => {
       if (uid && typeof window !== 'undefined') {
+        // Clear ALL local state tied to this session so the login page
+        // shows the import/create screen instead of the PIN lock screen
         localStorage.removeItem(`${VAULT_PREFIX}${uid}`);
+        localStorage.removeItem(`${PASSKEY_PREFIX}${uid}`);
         localStorage.removeItem(`apex-wallet-${uid}`);
         sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`);
       }
@@ -341,6 +350,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       setPendingWallet(null);
       setVaultLocked(false);
       setHasPasskey(false);
+      setAddressHint('');
       router.push('/login');
     });
   }, [auth, router]);
