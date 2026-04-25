@@ -1,3 +1,4 @@
+import { NormalModuleReplacementPlugin } from 'webpack';
 
 const nextConfig = {
   typescript: {
@@ -31,7 +32,7 @@ const nextConfig = {
       },
     ],
   },
-  transpilePackages: ['undici'],
+  transpilePackages: [],
   allowedDevOrigins: [
     "*.replit.dev",
     "*.kirk.replit.dev",
@@ -64,6 +65,18 @@ const nextConfig = {
         ...(process.env.REPLIT_DEV_DOMAIN ? [process.env.REPLIT_DEV_DOMAIN] : []),
       ],
     },
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.plugins.push(
+        new NormalModuleReplacementPlugin(
+          /firebase\/functions/,
+          './empty-module.js'
+        )
+      );
+    }
+
+    return config;
   },
 };
 

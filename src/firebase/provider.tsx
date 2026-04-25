@@ -4,13 +4,11 @@ import React, { createContext, useContext } from 'react';
 import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
-import { getFunctions, Functions } from 'firebase/functions';
 import { firebaseConfig } from '@/firebase/config';
 
 const FirebaseContext = createContext<FirebaseApp | undefined>(undefined);
 const AuthContext = createContext<Auth | undefined>(undefined);
 const FirestoreContext = createContext<Firestore | undefined>(undefined);
-const FunctionsContext = createContext<Functions | undefined>(undefined);
 
 let app: FirebaseApp;
 if (getApps().length === 0) {
@@ -21,16 +19,13 @@ if (getApps().length === 0) {
 
 const auth = getAuth(app);
 const firestore = getFirestore(app);
-const functions = getFunctions(app);
 
 export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <FirebaseContext.Provider value={app}>
       <AuthContext.Provider value={auth}>
         <FirestoreContext.Provider value={firestore}>
-          <FunctionsContext.Provider value={functions}>
-            {children}
-          </FunctionsContext.Provider>
+          {children}
         </FirestoreContext.Provider>
       </AuthContext.Provider>
     </FirebaseContext.Provider>
@@ -57,14 +52,6 @@ export const useFirestore = () => {
   const context = useContext(FirestoreContext);
   if (!context) {
     throw new Error("useFirestore must be used within a FirebaseProvider");
-  }
-  return context;
-};
-
-export const useFunctions = () => {
-  const context = useContext(FunctionsContext);
-  if (!context) {
-    throw new Error("useFunctions must be used within a FirebaseProvider");
   }
   return context;
 };
