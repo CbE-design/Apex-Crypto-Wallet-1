@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -877,7 +878,7 @@ function WithdrawalContent() {
                 <p className="text-[10px] uppercase font-black tracking-[0.3em] text-primary/60 mb-2">Ledger Reference Index</p>
                 <p className="font-mono font-black text-2xl tracking-widest text-white">{refNumber}</p>
               </div>
-              <Button asChild className="w-full h-12 font-semibold"><Link href="/">Return to Dashboard</Link></Button>
+              <Button asChild className="w-full h-12 font-semibold"><a href="/">Return to Dashboard</a></Button>
             </CardContent>
           </Card>
         )}
