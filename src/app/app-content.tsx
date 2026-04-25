@@ -12,15 +12,21 @@ import { EyeWatermark } from '@/components/eye-watermark';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { type ProtocolStatus } from '@/lib/types';
+import { useState, useEffect } from 'react';
 
 export default function AppContent({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [isMounted, setIsMounted] = useState(false);
   const pathname = usePathname();
   const { isAdmin, loading, user } = useWallet();
   const firestore = useFirestore();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const protocolSettingsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -30,9 +36,16 @@ export default function AppContent({
   const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
   const isProtocolHalted = protocolStatus && protocolStatus.isActive === false;
 
-  const isPublicPage = pathname === '/login' || pathname.startsWith('/legal');
+  const isPublicPage = !pathname || 
+                       pathname === '/login' || 
+                       pathname.startsWith('/login/') || 
+                       pathname.startsWith('/legal') || 
+                       pathname === '/coming-soon';
 
-  // Handle identity authentication phase
+  if (!isMounted) {
+    return null; // or a basic skeleton loader
+  }
+
   if (loading && !isPublicPage) {
     return (
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
@@ -50,7 +63,6 @@ export default function AppContent({
 
   const isAdminPage = pathname.startsWith('/admin');
 
-  // Halted State UI: High-integrity maintenance overlay for verified governance
   if (isProtocolHalted && !isAdmin) {
     return (
       <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-background text-center p-6">

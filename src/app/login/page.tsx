@@ -4,13 +4,16 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/context/wallet-context';
+import { useAuth } from '@/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import {
   Loader2, Shield, Key, AlertTriangle, ArrowRight,
-  Eye, EyeOff, Copy, CheckCircle2,
+  Eye, EyeOff, Copy, CheckCircle2, Lock, Mail,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { EyeWatermark } from '@/components/eye-watermark';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription, DialogFooter,
@@ -23,8 +26,9 @@ import { PinUnlockScreen } from '@/components/pin-unlock-screen';
 export default function ConnectWalletPage() {
   const router       = useRouter();
   const { toast }    = useToast();
+  const auth         = useAuth();
   const {
-    createWallet, importWallet, loading, user, confirmAndCreateWallet,
+    createWallet, importWallet, loading, user, isAdmin, confirmAndCreateWallet,
     vaultLocked, pendingVaultSetup, hasPasskey, passkeySupported, addressHint,
     setupVault, unlockWithPin, setupPasskey, unlockWithPasskey, disconnectWallet, wallet,
   } = useWallet();
@@ -37,17 +41,32 @@ export default function ConnectWalletPage() {
   const [copied,                 setCopied]                 = useState(false);
   const [pinSetupOpen,           setPinSetupOpen]           = useState(false);
 
+  // Admin sign-in state
+  const [showAdminLogin,  setShowAdminLogin]  = useState(false);
+  const [adminEmail,      setAdminEmail]      = useState('');
+  const [adminPassword,   setAdminPassword]   = useState('');
+  const [adminPwVisible,  setAdminPwVisible]  = useState(false);
+  const [adminLoading,    setAdminLoading]    = useState(false);
+
   // Open PIN setup dialog as soon as wallet is pending vault
   React.useEffect(() => {
     if (pendingVaultSetup) setPinSetupOpen(true);
   }, [pendingVaultSetup]);
 
-  // Redirect once wallet is unlocked and ready
+  // Redirect once wallet is unlocked and ready, BUT not while the PIN setup
+  // dialog is still open (passkey choice step would otherwise vanish in a flash).
   React.useEffect(() => {
-    if (user && wallet && !vaultLocked && !pendingVaultSetup) {
+    if (user && wallet && !vaultLocked && !pendingVaultSetup && !pinSetupOpen) {
       router.push('/');
     }
-  }, [user, wallet, vaultLocked, pendingVaultSetup, router]);
+  }, [user, wallet, vaultLocked, pendingVaultSetup, pinSetupOpen, router]);
+
+  // Redirect email-based admins straight to the admin panel (no wallet needed)
+  React.useEffect(() => {
+    if (user && isAdmin && !wallet) {
+      router.push('/admin');
+    }
+  }, [user, isAdmin, wallet, router]);
 
   // ── handlers ─────────────────────────────────────────────────────────
   const handleCreateWallet = async () => {
@@ -90,6 +109,28 @@ export default function ConnectWalletPage() {
 
   const handleUnlockWithPasskey = async () => {
     await unlockWithPasskey();
+  };
+
+  const handleAdminSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminEmail.trim() || !adminPassword.trim()) return;
+    setAdminLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, adminEmail.trim(), adminPassword);
+      // redirect is handled by the useEffect above
+    } catch (error: any) {
+      const msg =
+        error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password'
+          ? 'Incorrect email or password.'
+          : error.code === 'auth/user-not-found'
+          ? 'No account found with that email.'
+          : error.code === 'auth/too-many-requests'
+          ? 'Too many attempts. Please wait a moment.'
+          : 'Sign-in failed. Please try again.';
+      toast({ title: 'Admin Sign-In Failed', description: msg, variant: 'destructive' });
+    } finally {
+      setAdminLoading(false);
+    }
   };
 
   const copyMnemonic = () => {
@@ -253,6 +294,89 @@ export default function ConnectWalletPage() {
             <span>POPIA Compliant</span>
             <span>·</span>
             <span>FATF Travel Rule</span>
+          </div>
+
+          {/* Admin portal toggle */}
+          <div className="mt-8">
+            {!showAdminLogin ? (
+              <button
+                onClick={() => setShowAdminLogin(true)}
+                className="w-full text-[10px] text-muted-foreground/25 hover:text-muted-foreground/50 transition-colors py-2 flex items-center justify-center gap-1.5"
+              >
+                <Lock className="h-3 w-3" />
+                Admin Portal
+              </button>
+            ) : (
+              <div className="rounded-2xl border border-border/40 bg-card/60 backdrop-blur-xl overflow-hidden">
+                <div className="px-5 pt-5 pb-4 border-b border-border/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                      <span className="text-[10px] uppercase tracking-widest font-semibold text-primary">Admin Portal</span>
+                    </div>
+                    <button
+                      onClick={() => setShowAdminLogin(false)}
+                      className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <p className="text-[12px] text-muted-foreground/60 mt-1.5">Sign in with your admin credentials</p>
+                </div>
+                <form onSubmit={handleAdminSignIn} className="px-5 py-5 space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40" />
+                      <Input
+                        type="email"
+                        placeholder="admin@apexwallet.io"
+                        value={adminEmail}
+                        onChange={e => setAdminEmail(e.target.value)}
+                        disabled={adminLoading}
+                        className="pl-9 h-10 rounded-xl bg-muted/30 border-border/50 text-sm placeholder:text-muted-foreground/30 focus:border-primary/50"
+                        autoComplete="email"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40" />
+                      <Input
+                        type={adminPwVisible ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={adminPassword}
+                        onChange={e => setAdminPassword(e.target.value)}
+                        disabled={adminLoading}
+                        className="pl-9 pr-10 h-10 rounded-xl bg-muted/30 border-border/50 text-sm placeholder:text-muted-foreground/30 focus:border-primary/50"
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setAdminPwVisible(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors"
+                      >
+                        {adminPwVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full h-10 rounded-xl font-semibold btn-premium text-white text-[13px] mt-1"
+                    disabled={adminLoading || !adminEmail.trim() || !adminPassword.trim()}
+                  >
+                    {adminLoading
+                      ? <Loader2 className="animate-spin h-4 w-4" />
+                      : <><Shield className="h-4 w-4 mr-2" />Sign In to Admin Panel</>}
+                  </Button>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       </div>

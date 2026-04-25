@@ -134,10 +134,21 @@ export function KYCVerificationModal({
     formData.fullName && formData.dateOfBirth && formData.nationality && formData.address;
 
   const validateDocumentInfo = () =>
-    formData.documentType && formData.documentNumber && formData.documentExpiry;
+    formData.documentType &&
+    formData.documentNumber &&
+    formData.documentExpiry &&
+    documentFile;
 
   const handleSubmit = async () => {
-    if (!user || !firestore || !wallet) return;
+    if (!user || !firestore || !wallet) {
+      toast({
+        title: 'Submission Failed',
+        description: 'Connection error. Please check your connection and try again.',
+        variant: 'destructive',
+      });
+      console.error('KYC submission failed: missing context', { user: !!user, firestore: !!firestore, wallet: !!wallet });
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -171,42 +182,44 @@ export function KYCVerificationModal({
       }, { merge: true });
 
       // Rich admin notification — include withdrawal context if present
-      const notificationTitle = withdrawalContext
-        ? `⚠ KYC Required — Withdrawal Blocked: ${withdrawalContext.currency} ${parseFloat(withdrawalContext.amount).toLocaleString()}`
-        : 'New KYC Verification Request';
+      try {
+        const notificationTitle = withdrawalContext
+          ? `KYC Submitted for Withdrawal: ${withdrawalContext.currency} ${parseFloat(withdrawalContext.amount).toLocaleString()}`
+          : 'New KYC Verification Request';
 
-      const notificationMessage = withdrawalContext
-        ? `${formData.fullName} (${userProfile?.email}) submitted identity documents to unblock a ${withdrawalContext.method} withdrawal of ${withdrawalContext.currency} ${parseFloat(withdrawalContext.amount).toLocaleString()}. Review KYC to release the withdrawal.`
-        : `${formData.fullName} (${userProfile?.email}) has submitted identity verification documents for review.`;
+        const notificationMessage = withdrawalContext
+          ? `${formData.fullName} (${userProfile?.email}) submitted identity documents to process a ${withdrawalContext.method} withdrawal of ${withdrawalContext.currency} ${parseFloat(withdrawalContext.amount).toLocaleString()}. Review KYC to release the withdrawal.`
+          : `${formData.fullName} (${userProfile?.email}) has submitted identity verification documents for review.`;
 
-      const notification: Omit<AdminNotification, 'id'> = {
-        type: 'KYC_VERIFICATION',
-        title: notificationTitle,
-        message: notificationMessage,
-        userId: user.uid,
-        userEmail: userProfile?.email,
-        referenceId: submissionId,
-        read: false,
-        createdAt: serverTimestamp(),
-        metadata: {
-          documentType: formData.documentType,
-          nationality: formData.nationality,
-          submissionId,
-          withdrawalIntent: withdrawalContext || null,
-          fullName: formData.fullName,
-          urgent: !!withdrawalContext,
-        },
-      };
+        const notification: Omit<AdminNotification, 'id'> = {
+          type: 'KYC_VERIFICATION',
+          title: notificationTitle,
+          message: notificationMessage,
+          userId: user.uid,
+          userEmail: userProfile?.email,
+          referenceId: submissionId,
+          read: false,
+          createdAt: serverTimestamp(),
+          metadata: {
+            documentType: formData.documentType,
+            nationality: formData.nationality,
+            submissionId,
+            withdrawalIntent: withdrawalContext || null,
+            fullName: formData.fullName,
+            urgent: !!withdrawalContext,
+          },
+        };
 
-      await addDoc(collection(firestore, 'admin_notifications'), notification);
-
+        await addDoc(collection(firestore, 'admin_notifications'), notification);
+      } catch (notificationError) {
+        console.error("Failed to create admin notification:", notificationError);
+      }
       setStep('submitted');
       toast({
         title: 'Verification Submitted',
         description: 'Your identity verification is under review. We typically respond within 1–2 business days.',
       });
 
-      onSubmissionComplete?.();
     } catch (error) {
       console.error('KYC submission error:', error);
       toast({
@@ -243,7 +256,7 @@ export function KYCVerificationModal({
           </div>
           <div>
             <h3 className="text-lg font-semibold">Verification In Progress</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
               Our compliance team is reviewing your documents. This typically takes 1–2 business days.
             </p>
           </div>
@@ -262,42 +275,6 @@ export function KYCVerificationModal({
             <p className="text-xs text-muted-foreground">Compliance review in progress — you will be notified once complete.</p>
           </div>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-        </div>
-      );
-    }
-
-    if (kycStatus === 'REJECTED') {
-      return (
-        <div className="flex flex-col items-center py-6 text-center gap-4">
-          <div className="rounded-full bg-destructive/10 p-4 border border-destructive/20">
-            <AlertTriangle className="h-10 w-10 text-destructive" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold">Verification Not Approved</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-xs">
-              Unfortunately your previous verification was not approved. Please resubmit with valid documents.
-            </p>
-          </div>
-
-          {loadingReason ? (
-            <div className="w-full rounded-xl border border-border/40 bg-muted/20 p-3 flex items-center gap-2">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">Loading rejection details...</p>
-            </div>
-          ) : rejectionReason ? (
-            <div className="w-full rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-left">
-              <p className="text-[11px] font-semibold text-destructive uppercase tracking-wider mb-1.5">Reason for Rejection</p>
-              <p className="text-sm text-muted-foreground">{rejectionReason}</p>
-            </div>
-          ) : null}
-
-          <Button 
-            onClick={() => setStep('personal')}
-            className="w-full btn-premium text-white"
-          >
-            <ArrowRight className="h-4 w-4 mr-2" />
-            Resubmit Documents
-          </Button>
         </div>
       );
     }
@@ -458,22 +435,31 @@ export function KYCVerificationModal({
         </div>
       )}
 
-      <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-2">
+      <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Personal Information</h4>
-        {[['Full Name', formData.fullName], ['Date of Birth', formData.dateOfBirth], ['Nationality', formData.nationality], ['Address', formData.address]].map(([label, val]) => (
-          <div key={label} className="flex justify-between text-sm">
-            <span className="text-muted-foreground">{label}</span>
-            <span className="font-medium max-w-[200px] text-right truncate">{val}</span>
+        {[
+          ['Full Name', formData.fullName],
+          ['Date of Birth', formData.dateOfBirth],
+          ['Nationality', formData.nationality],
+          ['Address', formData.address]
+        ].map(([label, val]) => (
+          <div key={label} className="text-sm">
+            <p className="text-muted-foreground text-xs">{label}</p>
+            <p className="font-medium break-words">{val}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-2">
+      <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Identity Document</h4>
-        {[['Document Type', formData.documentType.replace('_', ' ')], ['Document Number', formData.documentNumber], ['Expiry Date', formData.documentExpiry]].map(([label, val]) => (
-          <div key={label} className="flex justify-between text-sm">
-            <span className="text-muted-foreground">{label}</span>
-            <span className="font-medium capitalize">{val}</span>
+        {[
+          ['Document Type', formData.documentType.replace('_', ' ')],
+          ['Document Number', formData.documentNumber],
+          ['Expiry Date', formData.documentExpiry]
+        ].map(([label, val]) => (
+          <div key={label} className="text-sm">
+            <p className="text-muted-foreground text-xs">{label}</p>
+            <p className="font-medium capitalize">{val}</p>
           </div>
         ))}
       </div>
@@ -527,7 +513,7 @@ export function KYCVerificationModal({
     }
   };
 
-  if (kycStatus === 'PENDING' || kycStatus === 'REJECTED') {
+  if (kycStatus === 'PENDING') {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md border-border bg-card">
@@ -546,9 +532,7 @@ export function KYCVerificationModal({
       <DialogContent className="max-w-md border-border bg-card">
         <DialogHeader>
           <DialogTitle>{getStepTitle()}</DialogTitle>
-          {step !== 'intro' && step !== 'submitted' && (
-            <DialogDescription className="sr-only">Complete the verification process</DialogDescription>
-          )}
+          <DialogDescription className="sr-only">Please follow the steps to complete identity verification.</DialogDescription>
         </DialogHeader>
         {step !== 'intro' && step !== 'submitted' && <Progress value={progress[step]} className="h-1" />}
         {step === 'intro' && renderIntro()}

@@ -22,15 +22,16 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query, orderBy, limit } from 'firebase/firestore'
 import { useCurrency } from "@/context/currency-context";
 import { CryptoIcon } from "../crypto-icon";
-import { Loader2, Activity, ArrowUpRight, ArrowDownLeft, Inbox } from "lucide-react";
+import { Loader2, Activity, ArrowUpRight, ArrowDownLeft, Inbox, AlertTriangle } from "lucide-react";
 import { marketCoins } from '@/lib/data';
+import { useLivePrices } from '@/hooks/use-live-prices';
 
 interface Transaction {
   id: string;
   type: 'Buy' | 'Sell' | 'Withdrawal' | 'Swap' | 'Internal Transfer';
   amount: number;
   price: number;
-  currency?: string;
+  currency: string; // Now mandatory at the top level
   timestamp: any;
   status: 'Completed' | 'Pending' | 'Failed' | 'Reconciling';
   notes?: string;
@@ -54,65 +55,24 @@ export function TransactionHistory() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { currency, formatCurrency } = useCurrency();
-  const [livePrices, setLivePrices] = React.useState<Record<string, number>>({});
 
-  const allTransactionsQuery = useMemoFirebase(() => {
+  const transactionsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return query(
-      collection(firestore, 'users', user.uid, 'wallets', 'ETH', 'transactions'),
+      collection(firestore, 'users', user.uid, 'transactions'), // Query the new centralized collection
       orderBy('timestamp', 'desc'),
-      limit(20)
+      limit(25)
     );
   }, [user, firestore]);
 
-  const { data: ethTxs, isLoading: ethLoading } = useCollection<Transaction>(allTransactionsQuery);
+  const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
 
-  const btcTransactionsQuery = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return query(
-      collection(firestore, 'users', user.uid, 'wallets', 'BTC', 'transactions'),
-      orderBy('timestamp', 'desc'),
-      limit(10)
-    );
-  }, [user, firestore]);
+  const transactionSymbols = React.useMemo(() => {
+    if (!transactions) return [];
+    return [...new Set(transactions.map(t => t.currency).filter(Boolean))];
+  }, [transactions]);
 
-  const { data: btcTxs } = useCollection<Transaction>(btcTransactionsQuery);
-
-  const solTransactionsQuery = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return query(
-      collection(firestore, 'users', user.uid, 'wallets', 'SOL', 'transactions'),
-      orderBy('timestamp', 'desc'),
-      limit(10)
-    );
-  }, [user, firestore]);
-
-  const { data: solTxs } = useCollection<Transaction>(solTransactionsQuery);
-
-  const allTransactions = React.useMemo(() => {
-    const combined = [
-      ...(ethTxs || []).map(t => ({ ...t, currency: 'ETH' })),
-      ...(btcTxs || []).map(t => ({ ...t, currency: 'BTC' })),
-      ...(solTxs || []).map(t => ({ ...t, currency: 'SOL' })),
-    ];
-    combined.sort((a, b) => {
-      const aTime = a.timestamp?.seconds ?? 0;
-      const bTime = b.timestamp?.seconds ?? 0;
-      return bTime - aTime;
-    });
-    return combined.slice(0, 20);
-  }, [ethTxs, btcTxs, solTxs]);
-
-  const isLoading = ethLoading;
-
-  React.useEffect(() => {
-    const symbols = [...new Set(allTransactions.map(t => t.currency).filter(Boolean))] as string[];
-    if (symbols.length === 0) return;
-    fetch(`/api/prices?symbols=${symbols.join(',')}&currency=USD`, { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(({ prices }: { prices: Record<string, number> }) => setLivePrices(prices))
-      .catch(() => {});
-  }, [allTransactions]);
+  const { prices: livePrices, error: priceError } = useLivePrices(transactionSymbols);
 
   return (
     <Card className="bg-card/50 backdrop-blur-sm overflow-hidden border-border/60">
@@ -125,6 +85,11 @@ export function TransactionHistory() {
             Your latest activity across all wallets
           </CardDescription>
         </div>
+        {priceError && (
+            <div className="p-2 bg-destructive/10 rounded-full">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+            </div>
+        )}
       </CardHeader>
       <CardContent className="p-0">
         <div className="max-h-[500px] overflow-auto scroll-container">
@@ -145,9 +110,9 @@ export function TransactionHistory() {
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
                   </TableCell>
                 </TableRow>
-              ) : allTransactions.length > 0 ? (
-                allTransactions.map((tx) => {
-                  const sym = tx.currency || 'ETH';
+              ) : transactions && transactions.length > 0 ? (
+                transactions.map((tx) => {
+                  const sym = tx.currency;
                   const coinName = marketCoins.find(c => c.symbol === sym)?.name || sym;
                   const priceUSD = tx.price > 0 ? tx.price : (livePrices[sym] || 0);
                   const valueInCurrency = tx.amount * priceUSD * currency.rate;
@@ -181,12 +146,12 @@ export function TransactionHistory() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-semibold text-sm tabular-nums">
-                        <span className={isIncoming ? "text-accent" : "text-foreground"}>
+                        <span className={cn(isIncoming ? "text-accent" : "text-foreground", priceError && "text-muted-foreground/70")}>
                           {isIncoming ? '+' : '-'}{(tx.amount ?? 0).toFixed(sym === 'BTC' ? 6 : 4)}
                         </span>
                       </TableCell>
                       <TableCell className="text-right hidden md:table-cell font-mono text-xs text-muted-foreground">
-                        {valueInCurrency > 0 ? formatCurrency(valueInCurrency) : '—'}
+                        {priceError ? 'N/A' : valueInCurrency > 0 ? formatCurrency(valueInCurrency) : '—'}
                       </TableCell>
                       <TableCell className="text-right pr-6">
                         <div className={cn(

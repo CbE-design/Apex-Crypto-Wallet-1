@@ -1,77 +1,45 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { 
-    ShieldCheck, 
-    DollarSign, 
-    Wallet, 
-    Activity, 
-    Bell, 
-    Mail, 
-    RefreshCw, 
-    Loader2, 
-    CheckCircle, 
-    Power,
-    AlertCircle,
-    Copy,
-    ExternalLink,
-    ClipboardCheck,
-    ArrowDownRight,
-    UserCheck,
-    Users,
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import {
+  ShieldCheck, Activity, Bell, Mail, Loader2, CheckCircle,
+  AlertCircle, ClipboardCheck, ArrowDownRight, UserCheck, Users,
+  TrendingUp, Clock, Settings, Eye, Power,
 } from 'lucide-react';
 import { useWallet } from '@/context/wallet-context';
-import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, limit, runTransaction, doc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { getLedgerSyncStatus } from '@/services/ledger-sync-service';
-import { Badge } from '@/components/ui/badge';
+import { useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { marketCoins } from '@/lib/data';
 import { sendNotification } from '@/ai/flows/send-notification-flow';
 import { sendEmail } from '@/ai/flows/send-email-flow';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { 
-  SendEmailInputSchema, 
+import {
+  SendEmailInputSchema,
   SendNotificationInputSchema,
-  type ProtocolStatus
+  type ProtocolStatus,
 } from '@/lib/types';
 
-const sendSchema = z.object({
-  recipientAddress: z.string().min(1, "Recipient identity is required."),
-  amount: z.string().refine(val => parseFloat(val) > 0, {
-    message: "Injection volume must exceed zero.",
-  }),
-  asset: z.string().min(1, "Asset protocol selection is required."),
-});
-
-type SendFormValues = z.infer<typeof sendSchema>;
-type NotificationFormValues = z.infer<typeof SendNotificationInputSchema>;
-type EmailFormValues = z.infer<typeof SendEmailInputSchema>;
-
+type NotificationFormValues = { title: string; body: string };
+type EmailFormValues = { subject: string; body: string };
 type OperationStatus = 'idle' | 'processing' | 'success' | 'error';
 
 export default function AdminDashboardPage() {
-  const { user, wallet: adminWallet } = useWallet();
+  const { user } = useWallet();
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  const [syncStatus, setSyncStatus] = useState<any>(null);
-  const [isReconciling, setIsReconciling] = useState(false);
-
-  // Real-time task counts for orchestration
   const pendingWithdrawalsRef = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'withdrawal_requests'), where('status', '==', 'PENDING'));
@@ -81,9 +49,6 @@ export default function AdminDashboardPage() {
     if (!firestore) return null;
     return query(collection(firestore, 'kyc_submissions'), where('status', '==', 'PENDING'));
   }, [firestore]);
-
-  const { data: pendingWithdrawals } = useCollection(pendingWithdrawalsRef);
-  const { data: pendingKyc } = useCollection(pendingKycRef);
 
   const allUsersRef = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -95,514 +60,399 @@ export default function AdminDashboardPage() {
     return query(collection(firestore, 'withdrawal_requests'), where('status', 'in', ['APPROVED', 'COMPLETED']));
   }, [firestore]);
 
+  const rejectedWithdrawalsRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'withdrawal_requests'), where('status', '==', 'REJECTED'));
+  }, [firestore]);
+
+  const approvedKycRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'kyc_submissions'), where('status', '==', 'APPROVED'));
+  }, [firestore]);
+
   const unreadNotificationsRef = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'admin_notifications'), where('read', '==', false));
   }, [firestore]);
-
-  const { data: allUsers } = useCollection(allUsersRef);
-  const { data: processedWithdrawals } = useCollection(processedWithdrawalsRef);
-  const { data: unreadNotifications } = useCollection(unreadNotificationsRef);
 
   const protocolSettingsRef = useMemoFirebase(() => {
     if (!firestore) return null;
     return doc(firestore, 'protocol_settings', 'status');
   }, [firestore]);
 
-  const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
-  const isNetworkActive = protocolStatus?.isActive ?? true;
+  const platformControlsRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return doc(firestore, 'platform_config', 'controls');
+  }, [firestore]);
 
-  const [fundingStatus, setFundingStatus] = useState<OperationStatus>('idle');
+  const { data: pendingWithdrawals } = useCollection(pendingWithdrawalsRef);
+  const { data: pendingKyc } = useCollection(pendingKycRef);
+  const { data: allUsers, error: usersError } = useCollection(allUsersRef);
+  const { data: processedWithdrawals } = useCollection(processedWithdrawalsRef);
+  const { data: rejectedWithdrawals } = useCollection(rejectedWithdrawalsRef);
+  const { data: approvedKyc } = useCollection(approvedKycRef);
+  const { data: unreadNotifications } = useCollection(unreadNotificationsRef);
+  const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
+  const { data: platformControls } = useDoc<any>(platformControlsRef);
+
+  const isNetworkActive = protocolStatus?.isActive ?? true;
+  const pendingTotal = (pendingWithdrawals?.length || 0) + (pendingKyc?.length || 0);
+
   const [broadcastStatus, setBroadcastStatus] = useState<OperationStatus>('idle');
   const [emailStatus, setEmailStatus] = useState<OperationStatus>('idle');
-
-  const ethWalletRef = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return doc(firestore, 'users', user.uid, 'wallets', 'ETH');
-  }, [user, firestore]);
-  
-  const { data: ethWallet } = useDoc<{balance: number}>(ethWalletRef);
-  const adminBalance = ethWallet?.balance ?? 0;
-
-  const fetchStatus = async () => {
-    const status = await getLedgerSyncStatus();
-    setSyncStatus(status);
-  };
-
-  useEffect(() => {
-    fetchStatus();
-  }, []);
-
-  const handleForceSync = async () => {
-    setIsReconciling(true);
-    try {
-        await fetchStatus();
-        toast({ title: "Ledger Synchronized", description: "State roots reconciled successfully." });
-    } finally {
-        setIsReconciling(false);
-    }
-  };
-
-  const handleToggleGate = async (active: boolean) => {
-      if (!firestore) return;
-      try {
-          await setDoc(doc(firestore, 'protocol_settings', 'status'), { 
-            isActive: active,
-            maintenanceMode: !active,
-            version: "5.0.1",
-            lastUpdated: Date.now(),
-          }, { merge: true });
-
-          toast({ 
-              title: `Protocol ${active ? 'ACTIVE' : 'HALTED'}`, 
-              description: active ? "Resuming verified ledger traffic..." : "Suspending all synchronization services.",
-              variant: active ? "default" : "destructive"
-          });
-      } catch (e) {
-          toast({ title: "Operation Denied", description: "Insufficient administrative permissions.", variant: "destructive" });
-      }
-  };
-
-  const fundingForm = useForm<SendFormValues>({
-    resolver: zodResolver(sendSchema),
-    defaultValues: { recipientAddress: '', amount: '', asset: 'ETH' },
-    mode: 'onChange',
-  });
-
-  const handleExecuteFunding: SubmitHandler<SendFormValues> = async (data) => {
-    if (!isNetworkActive) {
-        toast({ title: "Operation Inhibited", description: "Ledger is currently halted. Resume network pulse to continue.", variant: "destructive" });
-        return;
-    }
-    if (!user || !firestore) return;
-    setFundingStatus('processing');
-    try {
-        await runTransaction(firestore, async (transaction) => {
-            const usersRef = collection(firestore, 'users');
-            const recipientQuery = query(usersRef, where("walletAddress", "==", data.recipientAddress), limit(1));
-            const recipientSnapshot = await getDocs(recipientQuery);
-
-            if (recipientSnapshot.empty) throw new Error("Recipient identity not verified.");
-            
-            const recipientUserId = recipientSnapshot.docs[0].id;
-            const amount = parseFloat(data.amount);
-            const walletRef = doc(firestore, 'users', recipientUserId, 'wallets', data.asset);
-            const walletDoc = await transaction.get(walletRef);
-            
-            const newBalance = (walletDoc.exists() ? walletDoc.data().balance : 0) + amount;
-            transaction.set(walletRef, { 
-                balance: newBalance, 
-                currency: data.asset,
-                id: data.asset,
-                userId: recipientUserId
-            }, { merge: true });
-
-            const txRef = doc(collection(walletRef, 'transactions'));
-            transaction.set(txRef, {
-                userId: recipientUserId,
-                type: 'Buy',
-                amount: amount,
-                price: 0,
-                timestamp: serverTimestamp(),
-                status: 'Completed',
-                notes: `Authorized System Orchestration Injection`
-            });
-        });
-        setFundingStatus('success');
-        fundingForm.reset();
-        toast({ title: "Injection Finalized", description: `Dispatched ${data.amount} ${data.asset} to verified identity.` });
-    } catch (e: any) {
-        setFundingStatus('error');
-        toast({ title: "Injection Failed", description: e.message, variant: "destructive" });
-    }
-  };
 
   const broadcastForm = useForm<NotificationFormValues>({
     resolver: zodResolver(SendNotificationInputSchema),
     defaultValues: { title: '', body: '' },
   });
 
-  const handleBroadcast: SubmitHandler<NotificationFormValues> = async (data) => {
-    setBroadcastStatus('processing');
-    try {
-        const result = await sendNotification(data);
-        setBroadcastStatus('success');
-        broadcastForm.reset();
-        toast({ title: "Broadcast Dispatched", description: `${result.successCount} nodes notified.` });
-    } catch (e: any) {
-        setBroadcastStatus('error');
-        toast({ title: "Broadcast Failed", description: e.message, variant: "destructive" });
-    }
-  };
-
   const emailForm = useForm<EmailFormValues>({
     resolver: zodResolver(SendEmailInputSchema),
     defaultValues: { subject: '', body: '' },
   });
 
-  const handleSendEmail: SubmitHandler<EmailFormValues> = async (data) => {
-    setEmailStatus('processing');
+  const handleToggleGate = async (active: boolean) => {
+    if (!firestore) return;
     try {
-        const result = await sendEmail(data);
-        setEmailStatus(result.success ? 'success' : 'error');
-        if (result.success) {
-            emailForm.reset();
-            toast({ title: "Emails Finalized", description: result.message });
-        } else {
-            throw new Error(result.message);
-        }
-    } catch (e: any) {
-        setEmailStatus('error');
-        toast({ title: "Dispatch Error", description: e.message, variant: "destructive" });
+      await setDoc(doc(firestore, 'protocol_settings', 'status'), {
+        isActive: active,
+        maintenanceMode: !active,
+        version: '5.0.1',
+        lastUpdated: Date.now(),
+      }, { merge: true });
+      toast({
+        title: `Platform ${active ? 'LIVE' : 'SUSPENDED'}`,
+        description: active ? 'Platform is now live for all users.' : 'Platform suspended — all user transactions blocked.',
+        variant: active ? 'default' : 'destructive',
+      });
+    } catch {
+      toast({ title: 'Error', description: 'Could not update platform status.', variant: 'destructive' });
     }
   };
 
-  const handleCopyAdminAddress = () => {
-    if (adminWallet?.address) {
-      navigator.clipboard.writeText(adminWallet.address);
-      toast({ title: "Identity Copied", description: "Admin identity rail copied to clipboard." });
+  const handleBroadcast: SubmitHandler<NotificationFormValues> = async (data) => {
+    setBroadcastStatus('processing');
+    try {
+      const result = await sendNotification(data);
+      setBroadcastStatus('success');
+      broadcastForm.reset();
+      toast({ title: 'Notification Sent', description: `${result.successCount} users notified.` });
+    } catch (e: any) {
+      setBroadcastStatus('error');
+      toast({ title: 'Broadcast Failed', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleSendEmail: SubmitHandler<EmailFormValues> = async (data) => {
+    setEmailStatus('processing');
+    try {
+      const result = await sendEmail(data);
+      setEmailStatus(result.success ? 'success' : 'error');
+      if (result.success) {
+        emailForm.reset();
+        toast({ title: 'Emails Sent', description: result.message });
+      } else throw new Error(result.message);
+    } catch (e: any) {
+      setEmailStatus('error');
+      toast({ title: 'Email Failed', description: e.message, variant: 'destructive' });
     }
   };
 
   return (
-    <div className="space-y-6 pb-20">
-        <div className="flex justify-between items-start">
-            <div>
-                <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Orchestration Terminal</h1>
-                <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400">High-Integrity Governance v5.0</p>
-            </div>
-            <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10 rounded-xl"
-                onClick={handleForceSync}
-                disabled={isReconciling}
-            >
-                {isReconciling ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                Reconcile Ledger Roots
-            </Button>
-        </div>
+    <div className="space-y-6 pb-24">
 
-        {/* System Action Required Card */}
-        {(pendingWithdrawals?.length || 0) + (pendingKyc?.length || 0) > 0 && (
-          <Card className="border-amber-500/30 bg-amber-500/5 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-4">
-            <CardContent className="p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
-                  <ClipboardCheck className="h-6 w-6 text-amber-500" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black uppercase tracking-widest text-amber-500">System Tasks Pending</h3>
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">High-Priority Reconciliation Queue</p>
-                </div>
+      {/* Firestore error banner */}
+      {usersError && (
+        <Alert variant="destructive" className="bg-amber-500/10 border-amber-500/30 rounded-2xl">
+          <AlertCircle className="h-4 w-4 text-amber-500" />
+          <AlertTitle className="text-xs font-black uppercase tracking-widest text-amber-500">Firestore Rules Update Required</AlertTitle>
+          <AlertDescription className="text-[11px] text-muted-foreground mt-1">
+            Admin data is blocked. Update rules in{' '}
+            <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline text-amber-400">Firebase Console</a>
+            {' '}→ Firestore → Rules.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Admin Dashboard</h1>
+          <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400 mt-1">Apex Wallet Control Centre</p>
+        </div>
+        <Button variant="outline" size="sm" className="gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10 rounded-xl" asChild>
+          <Link href="/admin/settings">
+            <Settings className="h-3.5 w-3.5" />
+            Settings
+          </Link>
+        </Button>
+      </div>
+
+      {/* Pending actions banner */}
+      {pendingTotal > 0 && (
+        <Card className="border-amber-500/30 bg-amber-500/5 rounded-2xl overflow-hidden">
+          <CardContent className="p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
+                <ClipboardCheck className="h-6 w-6 text-amber-500" />
               </div>
-              <div className="flex gap-2">
-                {pendingWithdrawals && pendingWithdrawals.length > 0 && (
-                  <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 text-amber-500 text-[10px] font-black uppercase" asChild>
-                    <Link href="/admin/withdrawals">
-                      <ArrowDownRight className="h-3.5 w-3.5" />
-                      {pendingWithdrawals.length} Withdrawals
-                    </Link>
-                  </Button>
-                )}
-                {pendingKyc && pendingKyc.length > 0 && (
-                  <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20 text-blue-400 text-[10px] font-black uppercase" asChild>
-                    <Link href="/admin/kyc">
-                      <UserCheck className="h-3.5 w-3.5" />
-                      {pendingKyc.length} KYC Requests
-                    </Link>
-                  </Button>
-                )}
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-widest text-amber-500">{pendingTotal} Item{pendingTotal !== 1 ? 's' : ''} Need Your Attention</h3>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Pending approvals in the queue</p>
               </div>
+            </div>
+            <div className="flex gap-2 flex-wrap justify-end">
+              {!!pendingWithdrawals?.length && (
+                <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 text-amber-500 text-[10px] font-black uppercase" asChild>
+                  <Link href="/admin/withdrawals"><ArrowDownRight className="h-3.5 w-3.5" />{pendingWithdrawals.length} Withdrawals</Link>
+                </Button>
+              )}
+              {!!pendingKyc?.length && (
+                <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20 text-blue-400 text-[10px] font-black uppercase" asChild>
+                  <Link href="/admin/kyc"><UserCheck className="h-3.5 w-3.5" />{pendingKyc.length} KYC</Link>
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* KPI grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { href: '/admin/users', icon: Users, color: 'primary', value: allUsers?.length ?? '—', label: 'Total Users' },
+          { href: '/admin/kyc', icon: ClipboardCheck, color: 'amber-500', value: pendingTotal, label: 'Pending Actions' },
+          { href: '/admin/withdrawals', icon: ShieldCheck, color: 'green-500', value: processedWithdrawals?.length || 0, label: 'Processed' },
+          { href: '/admin/notifications', icon: Bell, color: 'blue-500', value: unreadNotifications?.length || 0, label: 'Unread Alerts' },
+        ].map(({ href, icon: Icon, color, value, label }) => (
+          <Link href={href} key={label}>
+            <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-xl bg-${color}/10 flex items-center justify-center`}>
+                    <Icon className={`h-5 w-5 text-${color}`} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{value}</p>
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      {/* Platform overview stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="glass-module border-border/30">
+          <CardContent className="p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">KYC Overview</p>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Approved</span>
+                <Badge className="bg-green-500/20 text-green-400 border-none text-[10px]">{approvedKyc?.length || 0}</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Pending Review</span>
+                <Badge className="bg-amber-500/20 text-amber-400 border-none text-[10px]">{pendingKyc?.length || 0}</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Approval Rate</span>
+                <span className="text-xs font-bold text-white">
+                  {approvedKyc && (approvedKyc.length + (pendingKyc?.length || 0)) > 0
+                    ? `${Math.round(approvedKyc.length / (approvedKyc.length + (pendingKyc?.length || 0)) * 100)}%`
+                    : '—'}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-module border-border/30">
+          <CardContent className="p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">Withdrawal Overview</p>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Processed</span>
+                <Badge className="bg-green-500/20 text-green-400 border-none text-[10px]">{processedWithdrawals?.length || 0}</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Pending</span>
+                <Badge className="bg-amber-500/20 text-amber-400 border-none text-[10px]">{pendingWithdrawals?.length || 0}</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Rejected</span>
+                <Badge className="bg-red-500/20 text-red-400 border-none text-[10px]">{rejectedWithdrawals?.length || 0}</Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-module border-border/30">
+          <CardContent className="p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">Platform Controls</p>
+            <div className="space-y-2">
+              {[
+                { label: 'Trading', value: platformControls?.tradingEnabled ?? true },
+                { label: 'Withdrawals', value: platformControls?.withdrawalsEnabled ?? true },
+                { label: 'Registrations', value: platformControls?.allowNewRegistrations ?? true },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">{label}</span>
+                  <Badge className={cn('border-none text-[10px]', value ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400')}>
+                    {value ? 'Enabled' : 'Disabled'}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Protocol Gate */}
+      <Card className={cn('relative overflow-hidden border-2 transition-colors', isNetworkActive ? 'border-green-500/30 bg-green-500/5' : 'border-destructive/40 bg-destructive/5')}>
+        <CardContent className="p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className={cn('h-14 w-14 rounded-2xl flex items-center justify-center border', isNetworkActive ? 'bg-green-500/20 border-green-500/30' : 'bg-destructive/20 border-destructive/30')}>
+              <Power className={cn('h-7 w-7', isNetworkActive ? 'text-green-400' : 'text-destructive')} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className={cn('text-lg font-black uppercase italic', isNetworkActive ? 'text-green-400' : 'text-destructive')}>
+                  Platform {isNetworkActive ? 'Live' : 'Suspended'}
+                </h3>
+                <div className={cn('h-2 w-2 rounded-full animate-pulse', isNetworkActive ? 'bg-green-400' : 'bg-destructive')} />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {isNetworkActive
+                  ? 'All systems operational. Users can register, trade, deposit, and withdraw.'
+                  : 'Platform is in maintenance mode. All user transactions are blocked.'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+              {isNetworkActive ? 'TAKE OFFLINE' : 'BRING ONLINE'}
+            </Label>
+            <Switch
+              checked={isNetworkActive}
+              onCheckedChange={handleToggleGate}
+              className="scale-110 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-destructive"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick links */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { href: '/admin/withdrawals', icon: ArrowDownRight, label: 'Review Withdrawals', badge: pendingWithdrawals?.length || 0 },
+          { href: '/admin/kyc', icon: UserCheck, label: 'KYC Queue', badge: pendingKyc?.length || 0 },
+          { href: '/admin/users', icon: Users, label: 'User Registry', badge: 0 },
+          { href: '/admin/settings', icon: Settings, label: 'Platform Settings', badge: 0 },
+        ].map(({ href, icon: Icon, label, badge }) => (
+          <Link href={href} key={label}>
+            <Card className="border-border/30 bg-card/40 hover:bg-card/70 transition-all cursor-pointer group">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors flex items-center justify-center flex-shrink-0">
+                  <Icon className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold truncate">{label}</p>
+                  {badge > 0 && <p className="text-[10px] text-amber-400 font-bold">{badge} pending</p>}
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      {/* Communications */}
+      <Tabs defaultValue="broadcast" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-white/5 rounded-2xl p-1 h-14">
+          <TabsTrigger value="broadcast" className="rounded-xl font-black uppercase tracking-widest text-[10px] gap-2">
+            <Bell className="h-3 w-3" /> Push Notification
+          </TabsTrigger>
+          <TabsTrigger value="email" className="rounded-xl font-black uppercase tracking-widest text-[10px] gap-2">
+            <Mail className="h-3 w-3" /> Email All Users
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="broadcast" className="mt-4">
+          <Card className="glass-module">
+            <CardHeader>
+              <CardTitle className="italic uppercase tracking-tighter text-base">Push Notification</CardTitle>
+              <CardDescription className="text-[10px] uppercase font-bold">Send an in-app push notification to all users.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {broadcastStatus === 'processing' ? (
+                <div className="py-14 flex flex-col items-center gap-4">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <p className="text-xs font-black uppercase tracking-widest">Sending to all users...</p>
+                </div>
+              ) : broadcastStatus === 'success' ? (
+                <div className="py-14 flex flex-col items-center gap-4 text-center">
+                  <CheckCircle className="h-10 w-10 text-green-400" />
+                  <p className="text-xs font-black uppercase tracking-widest text-green-400">Notification Sent</p>
+                  <Button onClick={() => setBroadcastStatus('idle')} variant="outline" className="rounded-xl">Send Another</Button>
+                </div>
+              ) : (
+                <form onSubmit={broadcastForm.handleSubmit(handleBroadcast)} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Title</Label>
+                    <Input className="bg-white/5 rounded-xl border-white/10" placeholder="e.g. Important Security Update" {...broadcastForm.register('title')} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Message</Label>
+                    <Textarea className="bg-white/5 rounded-xl border-white/10" rows={4} placeholder="Enter your notification message..." {...broadcastForm.register('body')} />
+                  </div>
+                  <Button type="submit" className="w-full btn-premium py-6 rounded-2xl font-black uppercase italic tracking-widest" disabled={!broadcastForm.formState.isValid}>
+                    Send Notification to All Users
+                  </Button>
+                </form>
+              )}
             </CardContent>
           </Card>
-        )}
+        </TabsContent>
 
-        {/* Live KPI Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Link href="/admin/users">
-            <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Users className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{allUsers?.length || 0}</p>
-                    <p className="text-xs text-muted-foreground">Total Users</p>
-                  </div>
+        <TabsContent value="email" className="mt-4">
+          <Card className="glass-module">
+            <CardHeader>
+              <CardTitle className="italic uppercase tracking-tighter text-base">Email All Users</CardTitle>
+              <CardDescription className="text-[10px] uppercase font-bold">Send an email to all registered users via the system mailer.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {emailStatus === 'processing' ? (
+                <div className="py-14 flex flex-col items-center gap-4">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <p className="text-xs font-black uppercase tracking-widest">Sending emails...</p>
                 </div>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/admin/withdrawals">
-            <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                    <ClipboardCheck className="h-5 w-5 text-amber-500" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{(pendingWithdrawals?.length || 0) + (pendingKyc?.length || 0)}</p>
-                    <p className="text-xs text-muted-foreground">Pending Actions</p>
-                  </div>
+              ) : emailStatus === 'success' ? (
+                <div className="py-14 flex flex-col items-center gap-4 text-center">
+                  <CheckCircle className="h-10 w-10 text-green-400" />
+                  <p className="text-xs font-black uppercase tracking-widest text-green-400">Emails Sent Successfully</p>
+                  <Button onClick={() => setEmailStatus('idle')} variant="outline" className="rounded-xl">Send Another</Button>
                 </div>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/admin/withdrawals">
-            <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-green-500/10 flex items-center justify-center">
-                    <ShieldCheck className="h-5 w-5 text-green-500" />
+              ) : (
+                <form onSubmit={emailForm.handleSubmit(handleSendEmail)} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Subject</Label>
+                    <Input className="bg-white/5 rounded-xl border-white/10" placeholder="e.g. Apex Wallet — Important Update" {...emailForm.register('subject')} />
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold">{processedWithdrawals?.length || 0}</p>
-                    <p className="text-xs text-muted-foreground">Processed</p>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">HTML Body</Label>
+                    <Textarea className="bg-white/5 rounded-xl font-mono text-[11px] border-white/10" rows={8} placeholder="<h1>Hello from Apex Wallet</h1>..." {...emailForm.register('body')} />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/admin/notifications">
-            <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                    <Bell className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{unreadNotifications?.length || 0}</p>
-                    <p className="text-xs text-muted-foreground">Unread Alerts</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-
-        {syncStatus?.isOffline && (
-            <Alert variant="destructive" className="bg-destructive/10 border-destructive/30 rounded-2xl">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle className="text-xs font-black uppercase tracking-widest">Admin Authorization Inhibited</AlertTitle>
-                <AlertDescription className="text-[10px] uppercase font-bold text-muted-foreground flex flex-col gap-2 mt-1">
-                    <p>Verified liquidity dispatch and global notification protocols are restricted. Provide an authorized configuration to restore full administrative integrity.</p>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="h-7 text-[9px] uppercase font-black px-3 rounded-lg border-destructive/20 hover:bg-destructive/20" asChild>
-                            <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="mr-1 h-3 w-3" /> Restore Auth
-                            </a>
-                        </Button>
-                    </div>
-                </AlertDescription>
-            </Alert>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="glass-module border-primary/20 relative overflow-hidden group">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <Activity className={cn("h-4 w-4", !isNetworkActive ? "text-destructive" : "text-primary")} /> 
-                            Network Pulse
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Label className="text-[8px] font-bold text-muted-foreground">PROTOCOL GATE</Label>
-                            <Switch 
-                                checked={isNetworkActive} 
-                                onCheckedChange={handleToggleGate}
-                                className="scale-75 data-[state=checked]:bg-primary data-[state=unchecked]:bg-destructive"
-                            />
-                        </div>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex justify-between items-center">
-                        <span className={cn("text-2xl font-black uppercase italic", !isNetworkActive ? "text-destructive" : "text-white")}>
-                            {isNetworkActive ? 'Active' : 'Halted'}
-                        </span>
-                        <Badge className={cn("border-none h-5 px-1.5 uppercase text-[8px] font-black", !isNetworkActive ? "bg-destructive/20 text-destructive" : "bg-green-500/20 text-green-400")}>
-                            {isNetworkActive ? 'Online' : 'Restricted'}
-                        </Badge>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-2 font-mono truncate">
-                        STATE_ROOT: {syncStatus?.stateRoot?.substring(0, 32)}...
-                    </p>
-                </CardContent>
-            </Card>
-
-            <Card className="glass-module border-blue-400/20">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <Wallet className="h-4 w-4 text-blue-400" /> System Vault
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <div className="text-2xl font-black text-white italic">{adminBalance.toFixed(4)} ETH</div>
-                            <p className="text-[10px] text-muted-foreground mt-1 uppercase font-bold tracking-widest">Authorized Liquidity Pool</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5">
-                            <Badge variant="outline" className="text-[8px] border-blue-400/30 text-blue-400 font-black uppercase tracking-tighter">Verified Admin Identity</Badge>
-                            <div className="flex items-center gap-2 p-1.5 bg-white/5 rounded-lg border border-white/10 group/id cursor-pointer" onClick={handleCopyAdminAddress}>
-                                <code className="text-[9px] font-mono text-muted-foreground group-hover/id:text-blue-400 transition-colors">
-                                    {adminWallet?.address ? `${adminWallet.address.slice(0, 12)}...${adminWallet.address.slice(-8)}` : '0x9858...7e819f'}
-                                </code>
-                                <Copy className="h-2.5 w-2.5 text-muted-foreground/40 group-hover/id:text-blue-400" />
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-
-        <Tabs defaultValue="ledger" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-white/5 rounded-2xl p-1 h-14">
-                <TabsTrigger value="ledger" className="rounded-xl font-black uppercase tracking-widest text-[10px] gap-2">
-                    <DollarSign className="h-3 w-3" /> Liquidity Dispatch
-                </TabsTrigger>
-                <TabsTrigger value="broadcast" className="rounded-xl font-black uppercase tracking-widest text-[10px] gap-2">
-                    <Bell className="h-3 w-3" /> Multi-Cast Alert
-                </TabsTrigger>
-                <TabsTrigger value="marketing" className="rounded-xl font-black uppercase tracking-widest text-[10px] gap-2">
-                    <Mail className="h-3 w-3" /> Network Comms
-                </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="ledger" className="mt-6">
-                <Card className="glass-module">
-                    <CardHeader>
-                        <CardTitle className="italic uppercase tracking-tighter">Authorized Asset Injection</CardTitle>
-                        <CardDescription className="text-[10px] uppercase font-bold">Credit verified identities on the Apex Private Ledger through secure orchestration.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {!isNetworkActive ? (
-                            <div className="py-20 flex flex-col items-center gap-4 text-center">
-                                <Power className="h-12 w-12 text-destructive animate-pulse" />
-                                <h3 className="text-sm font-black uppercase tracking-widest text-destructive">Network State: Halted</h3>
-                                <p className="text-xs text-muted-foreground max-w-xs">Asset injection protocols are suspended while the Protocol Gate is closed. Restore the network pulse to authorize new transactions.</p>
-                            </div>
-                        ) : fundingStatus === 'processing' ? (
-                            <div className="py-20 flex flex-col items-center gap-4">
-                                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                                <p className="text-xs font-black uppercase tracking-widest">Finalizing Ledger State...</p>
-                            </div>
-                        ) : fundingStatus === 'success' ? (
-                            <div className="py-20 flex flex-col items-center gap-4 text-center">
-                                <CheckCircle className="h-12 w-12 text-accent" />
-                                <p className="text-xs font-black uppercase tracking-widest">Transaction Finalized</p>
-                                <Button onClick={() => setFundingStatus('idle')} variant="outline" className="rounded-xl">Authorize New Dispatch</Button>
-                            </div>
-                        ) : (
-                            <form onSubmit={fundingForm.handleSubmit(handleExecuteFunding)} className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Identity Rail ID</Label>
-                                        <Input className="bg-white/5 rounded-xl font-mono text-xs border-white/10" placeholder="0x..." {...fundingForm.register('recipientAddress')} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Asset Protocol</Label>
-                                        <Select onValueChange={(val) => fundingForm.setValue('asset', val, { shouldValidate: true })}>
-                                            <SelectTrigger className="bg-white/5 rounded-xl border-white/10">
-                                                <SelectValue placeholder="Select Protocol" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {marketCoins.map(coin => (
-                                                    <SelectItem key={coin.symbol} value={coin.symbol}>{coin.name} ({coin.symbol})</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Injection Volume</Label>
-                                    <Input type="number" step="any" className="bg-white/5 rounded-xl text-lg font-black border-white/10" placeholder="0.00" {...fundingForm.register('amount')} />
-                                </div>
-                                <Button type="submit" className="w-full btn-premium py-7 rounded-2xl font-black uppercase italic tracking-widest" disabled={!fundingForm.formState.isValid}>
-                                    Authorize Liquidity Dispatch
-                                </Button>
-                            </form>
-                        )}
-                    </CardContent>
-                </Card>
-            </TabsContent>
-
-            <TabsContent value="broadcast" className="mt-6">
-                <Card className="glass-module">
-                    <CardHeader>
-                        <CardTitle className="italic uppercase tracking-tighter">Global Broadcast Protocol</CardTitle>
-                        <CardDescription className="text-[10px] uppercase font-bold">Dispatch high-integrity push notifications across all active network nodes.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {syncStatus?.isOffline ? (
-                            <div className="py-20 flex flex-col items-center gap-4 text-center">
-                                <AlertCircle className="h-12 w-12 text-destructive" />
-                                <h3 className="text-sm font-black uppercase tracking-widest text-destructive">Broadcast Rails Inhibited</h3>
-                                <p className="text-xs text-muted-foreground max-w-xs">Global broadcast functionality requires verified administrative configuration.</p>
-                            </div>
-                        ) : broadcastStatus === 'processing' ? (
-                            <div className="py-20 flex flex-col items-center gap-4">
-                                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                                <p className="text-xs font-black uppercase tracking-widest">Relaying to Network Nodes...</p>
-                            </div>
-                        ) : (
-                            <form onSubmit={broadcastForm.handleSubmit(handleBroadcast)} className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Alert Headline</Label>
-                                    <Input className="bg-white/5 rounded-xl border-white/10" placeholder="e.g. Verified System Update" {...broadcastForm.register('title')} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Payload Content</Label>
-                                    <Textarea className="bg-white/5 rounded-xl border-white/10" rows={4} placeholder="Enter robust broadcast details..." {...broadcastForm.register('body')} />
-                                </div>
-                                <Button type="submit" className="w-full bg-accent text-accent-foreground py-7 rounded-2xl font-black uppercase italic hover:bg-accent/80 tracking-widest">
-                                    Authorize Multi-Cast Dispatch
-                                </Button>
-                            </form>
-                        )}
-                    </CardContent>
-                </Card>
-            </TabsContent>
-
-            <TabsContent value="marketing" className="mt-6">
-                <Card className="glass-module">
-                    <CardHeader>
-                        <CardTitle className="italic uppercase tracking-tighter">Enterprise Comms Suite</CardTitle>
-                        <CardDescription className="text-[10px] uppercase font-bold">Deploy high-integrity system updates to the entire registry via secure SMTP rails.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {syncStatus?.isOffline ? (
-                            <div className="py-20 flex flex-col items-center gap-4 text-center">
-                                <AlertCircle className="h-12 w-12 text-destructive" />
-                                <h3 className="text-sm font-black uppercase tracking-widest text-destructive">Comms Rails Inhibited</h3>
-                                <p className="text-xs text-muted-foreground max-w-xs">Bulk communication dispatching requires verified administrative configuration.</p>
-                            </div>
-                        ) : emailStatus === 'processing' ? (
-                            <div className="py-20 flex flex-col items-center gap-4">
-                                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                                <p className="text-xs font-black uppercase tracking-widest">Routing SMTP Traffic...</p>
-                            </div>
-                        ) : (
-                            <form onSubmit={emailForm.handleSubmit(handleSendEmail)} className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Comms Subject Line</Label>
-                                    <Input className="bg-white/5 rounded-xl border-white/10" placeholder="e.g. Apex Security Protocol Implementation" {...emailForm.register('subject')} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">HTML Content Payload</Label>
-                                    <Textarea className="bg-white/5 rounded-xl font-mono text-[10px] border-white/10" rows={10} placeholder="<h1>System Protocol Finalized</h1>..." {...emailForm.register('body')} />
-                                </div>
-                                <Button type="submit" className="w-full bg-blue-600 text-white py-7 rounded-2xl font-black uppercase italic hover:bg-blue-500 tracking-widest">
-                                    Authorize Comms Dispatch
-                                </Button>
-                            </form>
-                        )}
-                    </CardContent>
-                </Card>
-            </TabsContent>
-        </Tabs>
+                  <Button type="submit" className="w-full bg-blue-600 text-white py-6 rounded-2xl font-black uppercase italic hover:bg-blue-500 tracking-widest" disabled={!emailForm.formState.isValid}>
+                    Send Email to All Users
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -22,7 +22,6 @@ import {
   collection, 
   query, 
   where, 
-  orderBy, 
   doc, 
   updateDoc, 
   serverTimestamp,
@@ -69,22 +68,29 @@ export default function KYCApprovalsPage() {
 
   const pendingQuery = useMemoFirebase(() => {
     if (!kycRef) return null;
-    return query(kycRef, where('status', '==', 'PENDING'), orderBy('submittedAt', 'desc'));
+    return query(kycRef, where('status', '==', 'PENDING'));
   }, [kycRef]);
 
   const approvedQuery = useMemoFirebase(() => {
     if (!kycRef) return null;
-    return query(kycRef, where('status', '==', 'APPROVED'), orderBy('submittedAt', 'desc'));
+    return query(kycRef, where('status', '==', 'APPROVED'));
   }, [kycRef]);
 
   const rejectedQuery = useMemoFirebase(() => {
     if (!kycRef) return null;
-    return query(kycRef, where('status', '==', 'REJECTED'), orderBy('submittedAt', 'desc'));
+    return query(kycRef, where('status', '==', 'REJECTED'));
   }, [kycRef]);
 
-  const { data: pendingSubmissions, isLoading: loadingPending } = useCollection<KYCSubmission>(pendingQuery);
-  const { data: approvedSubmissions, isLoading: loadingApproved } = useCollection<KYCSubmission>(approvedQuery);
-  const { data: rejectedSubmissions, isLoading: loadingRejected } = useCollection<KYCSubmission>(rejectedQuery);
+  const { data: rawPending, isLoading: loadingPending } = useCollection<KYCSubmission>(pendingQuery);
+  const { data: rawApproved, isLoading: loadingApproved } = useCollection<KYCSubmission>(approvedQuery);
+  const { data: rawRejected, isLoading: loadingRejected } = useCollection<KYCSubmission>(rejectedQuery);
+
+  const sortByDate = (items: KYCSubmission[] | null) =>
+    items ? [...items].sort((a, b) => (b.submittedAt?.toMillis?.() ?? 0) - (a.submittedAt?.toMillis?.() ?? 0)) : null;
+
+  const pendingSubmissions = sortByDate(rawPending);
+  const approvedSubmissions = sortByDate(rawApproved);
+  const rejectedSubmissions = sortByDate(rawRejected);
 
   const handleApprove = useCallback(async (submission: KYCSubmission) => {
     if (!firestore || !user) return;

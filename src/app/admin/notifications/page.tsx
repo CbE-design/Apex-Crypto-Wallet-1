@@ -6,19 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { 
-  collection, 
-  query, 
-  orderBy, 
-  doc, 
-  updateDoc, 
+import { useWallet } from '@/context/wallet-context';
+import {
+  collection,
+  query,
+  doc,
+  updateDoc,
+  deleteDoc,
   writeBatch,
   where,
 } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import {
   Bell,
-  CheckCircle2,
   Clock,
   Loader2,
   UserCheck,
@@ -29,68 +29,109 @@ import {
   Trash2,
   ExternalLink,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import type { AdminNotification, AdminNotificationType } from '@/lib/types';
 import Link from 'next/link';
 
 export default function AdminNotificationsPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useWallet();
   const [isMarkingAll, setIsMarkingAll] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Fetch all notifications
+  // Fetch all notifications — no orderBy to avoid composite index requirement;
+  // sorted client-side by createdAt descending.
   const notificationsRef = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'admin_notifications'), orderBy('createdAt', 'desc'));
-  }, [firestore]);
+    if (!firestore || !user) return null;
+    return collection(firestore, 'admin_notifications');
+  }, [firestore, user]);
 
   const unreadRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'admin_notifications'), where('read', '==', false));
-  }, [firestore]);
+  }, [firestore, user]);
 
-  const { data: notifications, isLoading } = useCollection<AdminNotification>(notificationsRef);
+  const { data: rawNotifications, isLoading, error: notificationsError } = useCollection<AdminNotification>(notificationsRef);
   const { data: unreadNotifications } = useCollection<AdminNotification>(unreadRef);
+
+  // Sort newest-first client-side
+  const notifications = rawNotifications
+    ? [...rawNotifications].sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
+        const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
+        return bTime - aTime;
+      })
+    : rawNotifications;
 
   const unreadCount = unreadNotifications?.length || 0;
 
-  const handleMarkAsRead = useCallback(async (notification: AdminNotification) => {
-    if (!firestore || notification.read) return;
-    
-    try {
-      const notifRef = doc(firestore, 'admin_notifications', notification.id);
-      await updateDoc(notifRef, { read: true });
-    } catch (error) {
-      console.error('Error marking as read:', error);
-    }
-  }, [firestore]);
+  const handleMarkAsRead = useCallback(
+    async (notification: AdminNotification) => {
+      if (!firestore || notification.read) return;
+      try {
+        await updateDoc(doc(firestore, 'admin_notifications', notification.id), { read: true });
+      } catch (error) {
+        console.error('Error marking as read:', error);
+      }
+    },
+    [firestore]
+  );
 
   const handleMarkAllAsRead = useCallback(async () => {
     if (!firestore || !unreadNotifications || unreadNotifications.length === 0) return;
-    
     setIsMarkingAll(true);
     try {
-      const batch = writeBatch(firestore);
-      unreadNotifications.forEach((notif) => {
-        const notifRef = doc(firestore, 'admin_notifications', notif.id);
-        batch.update(notifRef, { read: true });
-      });
-      await batch.commit();
-      
+      // Firestore batch limit is 500 — chunk if necessary
+      const chunks: AdminNotification[][] = [];
+      for (let i = 0; i < unreadNotifications.length; i += 499) {
+        chunks.push(unreadNotifications.slice(i, i + 499));
+      }
+      for (const chunk of chunks) {
+        const batch = writeBatch(firestore);
+        chunk.forEach((notif) => {
+          batch.update(doc(firestore, 'admin_notifications', notif.id), { read: true });
+        });
+        await batch.commit();
+      }
       toast({
         title: 'All Marked as Read',
-        description: `${unreadNotifications.length} notifications marked as read.`,
+        description: `${unreadNotifications.length} notification${unreadNotifications.length === 1 ? '' : 's'} marked as read.`,
       });
     } catch (error) {
       console.error('Error marking all as read:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to mark notifications as read.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to mark notifications as read.', variant: 'destructive' });
     } finally {
       setIsMarkingAll(false);
     }
   }, [firestore, unreadNotifications, toast]);
+
+  const handleDelete = useCallback(
+    async (notificationId: string) => {
+      if (!firestore) return;
+      setDeletingId(notificationId);
+      try {
+        await deleteDoc(doc(firestore, 'admin_notifications', notificationId));
+        toast({ title: 'Notification Dismissed', description: 'Notification removed from feed.' });
+      } catch (error) {
+        console.error('Error deleting notification:', error);
+        toast({ title: 'Error', description: 'Could not delete notification.', variant: 'destructive' });
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [firestore, toast]
+  );
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
@@ -100,17 +141,11 @@ export default function AdminNotificationsPage() {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-    
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-    });
+    return date.toLocaleDateString('en-ZA', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const getNotificationIcon = (type: AdminNotificationType) => {
@@ -121,35 +156,32 @@ export default function AdminNotificationsPage() {
       SYSTEM_ALERT: { icon: AlertTriangle, className: 'text-primary bg-primary/10' },
       NEW_USER: { icon: Check, className: 'text-green-500 bg-green-500/10' },
     };
-    return icons[type] || { icon: Bell, className: 'text-muted-foreground bg-muted/30' };
+    return icons[type] ?? { icon: Bell, className: 'text-muted-foreground bg-muted/30' };
   };
 
   const getNotificationLink = (notification: AdminNotification) => {
     switch (notification.type) {
-      case 'KYC_VERIFICATION':
-        return '/admin/kyc';
-      case 'WITHDRAWAL_REQUEST':
-        return '/admin/withdrawals';
-      case 'NEW_USER':
-        return '/admin/users';
-      default:
-        return null;
+      case 'KYC_VERIFICATION': return '/admin/kyc';
+      case 'WITHDRAWAL_REQUEST': return '/admin/withdrawals';
+      case 'NEW_USER': return '/admin/users';
+      default: return null;
     }
   };
 
   const NotificationCard = ({ notification }: { notification: AdminNotification }) => {
     const { icon: Icon, className } = getNotificationIcon(notification.type);
     const link = getNotificationLink(notification);
+    const isDeleting = deletingId === notification.id;
 
     return (
-      <Card 
+      <Card
         className={cn(
-          'border-border/50 transition-all cursor-pointer',
-          notification.read 
-            ? 'bg-card/40 opacity-70' 
-            : 'bg-card/80 border-l-2 border-l-primary'
+          'border-border/50 transition-all',
+          notification.read
+            ? 'bg-card/40 opacity-70'
+            : 'bg-card/80 border-l-2 border-l-primary cursor-pointer hover:bg-card/90'
         )}
-        onClick={() => handleMarkAsRead(notification)}
+        onClick={() => !notification.read && handleMarkAsRead(notification)}
       >
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
@@ -159,21 +191,20 @@ export default function AdminNotificationsPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className={cn(
-                    'text-sm truncate',
-                    notification.read ? 'font-medium' : 'font-semibold'
-                  )}>
+                  <p className={cn('text-sm truncate', notification.read ? 'font-medium' : 'font-semibold')}>
                     {notification.title}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                     {notification.message}
                   </p>
                 </div>
-                {!notification.read && (
-                  <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />
-                )}
+                <div className="flex items-center gap-1 shrink-0">
+                  {!notification.read && (
+                    <div className="h-2 w-2 rounded-full bg-primary mt-1.5" />
+                  )}
+                </div>
               </div>
-              
+
               <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/30">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
@@ -185,13 +216,57 @@ export default function AdminNotificationsPage() {
                     </>
                   )}
                 </div>
-                {link && (
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                    <Link href={link}>
-                      View <ExternalLink className="h-3 w-3 ml-1" />
-                    </Link>
-                  </Button>
-                )}
+                <div className="flex items-center gap-1">
+                  {link && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      asChild
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Link href={link}>
+                        View <ExternalLink className="h-3 w-3 ml-1" />
+                      </Link>
+                    </Button>
+                  )}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        disabled={isDeleting}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Dismiss notification"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Dismiss Notification</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently remove <strong>"{notification.title}"</strong> from the notification feed.
+                          This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Keep</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive hover:bg-destructive/90"
+                          onClick={() => handleDelete(notification.id)}
+                        >
+                          Dismiss
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
             </div>
           </div>
@@ -244,7 +319,7 @@ export default function AdminNotificationsPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="border-border/50 bg-card/60">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -258,7 +333,7 @@ export default function AdminNotificationsPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="border-border/50 bg-card/60">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -267,14 +342,14 @@ export default function AdminNotificationsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {notifications?.filter(n => n.type === 'WITHDRAWAL_REQUEST').length || 0}
+                  {notifications?.filter((n) => n.type === 'WITHDRAWAL_REQUEST').length || 0}
                 </p>
                 <p className="text-xs text-muted-foreground">Withdrawals</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="border-border/50 bg-card/60">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -283,7 +358,7 @@ export default function AdminNotificationsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {notifications?.filter(n => n.type === 'KYC_VERIFICATION').length || 0}
+                  {notifications?.filter((n) => n.type === 'KYC_VERIFICATION').length || 0}
                 </p>
                 <p className="text-xs text-muted-foreground">KYC Requests</p>
               </div>
@@ -297,6 +372,13 @@ export default function AdminNotificationsPage() {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      ) : notificationsError ? (
+        <Card className="border-destructive/50 bg-card/60">
+          <CardContent className="py-20 text-center">
+            <h3 className="text-lg font-semibold mb-2 text-destructive">Failed to Load Notifications</h3>
+            <p className="text-sm text-muted-foreground">{notificationsError.message}</p>
+          </CardContent>
+        </Card>
       ) : notifications && notifications.length > 0 ? (
         <div className="space-y-3">
           {notifications.map((notification) => (

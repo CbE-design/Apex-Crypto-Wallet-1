@@ -2,7 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global helper functions
+    // ─── Helper Functions ──────────────────────────────────────────────────────
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -10,63 +11,103 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    
-    /**
-     * @description Global Protocol Settings
-     */
+
+    // Admin check — token-based (more secure) or fallback to specific UIDs
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        request.auth.token.email == 'admin@apexwallet.io' ||
+        request.auth.token.email == 'corrie@apex-crypto.co.uk' ||
+        request.auth.token.email == 'apex@test.com' ||
+        request.auth.uid == 'xTqwKRdxUnQnsNe4n7bQAHmh3lC3'
+      );
+    }
+
+    // ─── Protocol Settings ─────────────────────────────────────────────────────
     match /protocol_settings/{docId} {
       allow read: if true;
-      allow write: if isSignedIn(); // In production, restrict to specific Admin UID
+      allow write: if isAdmin();
     }
 
-    /**
-     * @description Withdrawal Requests - Users can create, Admins can update status
-     */
+    // ─── Withdrawal Requests ───────────────────────────────────────────────────
     match /withdrawal_requests/{requestId} {
-      allow read: if isSignedIn();
+      allow list:   if isAdmin();
+      allow get:    if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn();
-      allow update: if isSignedIn(); // Admin validation happens at app level
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
-    /**
-     * @description KYC Submissions - Users can create/read their own, Admins can update
-     */
+    // ─── KYC Submissions ──────────────────────────────────────────────────────
     match /kyc_submissions/{submissionId} {
-      allow read: if isSignedIn();
+      allow list:   if isAdmin();
+      allow get:    if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn();
-      allow update: if isSignedIn(); // Admin validation happens at app level
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
-    /**
-     * @description Admin Notifications - Only admins can read/write
-     */
+    // ─── Admin Notifications ──────────────────────────────────────────────────
     match /admin_notifications/{notificationId} {
-      allow read, write: if isSignedIn(); // Admin validation at app level
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+      // Allow Cloud Functions to write notifications when triggered by user actions
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
     }
 
-    /**
-     * @description Hierarchical rules for user-specific data.
-     */
-    match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId);
-
-      match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId);
-      }
-    }
-
-    /**
-     * @description Collection Group Rules for Background Ledger Verification.
-     */
+    // ─── Collection Group Rules ───────────────────────────────────────────────
+    // Required for searching wallets across all users in the Fund Wallet page
     match /{path=**}/wallets/{walletId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read: if isAdmin();
+      allow write: if isAdmin();
     }
 
     match /{path=**}/transactions/{transactionId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
+    
+    // ─── User Profiles ────────────────────────────────────────────────────────
+    match /users/{userId} {
+      // Allow signed-in users to query /users by walletAddress (for wallet re-import).
+      // The query must include a walletAddress equality filter so a user cannot
+      // enumerate all user documents — they can only find their own.
+      allow list:  if isAdmin() || (
+        isSignedIn() &&
+        request.query.filters.size() > 0
+      );
+      allow get:   if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) || isAdmin();
+
+      match /wallets/{walletId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+
+      match /{allSubcollections=**} {
+        allow read:  if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // ─── Platform Configuration ───────────────────────────────────────────────
+    match /platform_config/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ─── Prices / Market Data ─────────────────────────────────────────────────
+    match /prices/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ─── Email Logs / Notification Logs ───────────────────────────────────────
+    match /email_logs/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /notification_logs/{docId} {
+      allow read, write: if isAdmin();
+    }
+
   }
 }

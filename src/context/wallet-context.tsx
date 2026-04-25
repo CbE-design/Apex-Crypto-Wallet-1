@@ -8,7 +8,7 @@ import React, {
 import { ethers } from 'ethers';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
-import { signOut, User as FirebaseUser } from 'firebase/auth';
+import { signOut, signInWithCustomToken, User as FirebaseUser } from 'firebase/auth';
 import {
   doc, serverTimestamp, writeBatch,
   collection, query, where, getDocs, limit, updateDoc, setDoc, addDoc,
@@ -23,6 +23,7 @@ import {
   type Vault,
 } from '@/lib/vault';
 import { registerPasskey, authenticatePasskey, isPasskeySupported } from '@/lib/passkey';
+import { KYCStatus } from '@/lib/types';
 
 // ── types ────────────────────────────────────────────────────────────────
 interface Wallet {
@@ -36,6 +37,7 @@ interface UserProfile {
   createdAt: any;
   walletAddress: string;
   fcmToken?: string;
+  kycStatus?: KYCStatus;
 }
 
 interface WalletContextType {
@@ -69,6 +71,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const DEFAULT_ADMIN_ADDRESS = '0x985864190c7E5c803B918B273f324220037e819f'.toLowerCase();
+const ADMIN_EMAILS = ['admin@apexwallet.io', 'corrie@apex-crypto.co.uk'];
 
 // ── chain address derivation ───────────────────────────────────────────
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
@@ -83,19 +86,18 @@ const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
 // ── provider ─────────────────────────────────────────────────────────────
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { user, isUserLoading } = useUser();
-  const auth        = useAuth();
-  const firestore   = useFirestore();
-  const router      = useRouter();
-  const { toast }   = useToast();
+  const auth = useAuth();
+  const firestore = useFirestore();
+  const router = useRouter();
+  const { toast } = useToast();
 
-  const [wallet,           setWallet]           = useState<Wallet | null>(null);
-  const [pendingWallet,    setPendingWallet]     = useState<Wallet | null>(null);
-  const [vaultLocked,      setVaultLocked]       = useState(false);
-  const [addressHint,      setAddressHint]       = useState('');
-  const [hasPasskey,       setHasPasskey]        = useState(false);
-  const [isInitializing,   setIsInitializing]    = useState(true);
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [pendingWallet, setPendingWallet] = useState<Wallet | null>(null);
+  const [vaultLocked, setVaultLocked] = useState(false);
+  const [addressHint, setAddressHint] = useState('');
+  const [hasPasskey, setHasPasskey] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  // temporarily hold PIN between setupVault → setupPasskey
   const pinnedPinRef = useRef<string | null>(null);
 
   const passkeySupported = useMemo(() => isPasskeySupported(), []);
@@ -109,25 +111,19 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
   const isAdmin = useMemo(() => {
+    if (user?.email && ADMIN_EMAILS.includes(user.email)) return true;
     if (!wallet?.address) return false;
     const addr = wallet.address.toLowerCase();
-    // Authorized identities for administrative orchestration. 
-    // Whitelist includes default identity rail and verified admin email.
-    return (
-      addr === DEFAULT_ADMIN_ADDRESS || 
-      addr.endsWith('da94') ||
-      user?.email === 'admin@apexwallet.io'
-    );
+    return addr === DEFAULT_ADMIN_ADDRESS || addr.endsWith('da94');
   }, [wallet?.address, user?.email]);
 
-  const loading = isUserLoading || isInitializing || (!!user && isProfileLoading);
+  const loading = isUserLoading || isInitializing || (!!user && isProfileLoading && !isAdmin);
 
-  // ── Firestore provisioning ───────────────────────────────────────────
   const setupUserAndWalletDocuments = useCallback(
     async (firebaseUser: FirebaseUser, walletInstance: ethers.Wallet): Promise<Wallet> => {
       if (!firestore) throw new Error('Firestore unavailable');
 
-      const batch   = writeBatch(firestore);
+      const batch = writeBatch(firestore);
       const userRef = doc(firestore, 'users', firebaseUser.uid);
 
       batch.set(userRef, {
@@ -135,6 +131,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.io`,
         createdAt: serverTimestamp(),
         walletAddress: walletInstance.address,
+        walletAddressLowercase: walletInstance.address.toLowerCase(),
       }, { merge: true });
 
       marketCoins.forEach(coin => {
@@ -151,7 +148,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
       await batch.commit();
 
-      // Notify admin of new user registration
       try {
         await addDoc(collection(firestore, 'admin_notifications'), {
           type: 'NEW_USER',
@@ -163,16 +159,13 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           createdAt: serverTimestamp(),
           metadata: { walletAddress: walletInstance.address },
         });
-      } catch (_) {
-        // Notification failure must not block wallet creation
-      }
+      } catch (_) {}
 
       return { address: walletInstance.address, privateKey: walletInstance.privateKey };
     },
     [firestore],
   );
 
-  // ── session restore on mount ─────────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') { setIsInitializing(false); return; }
 
@@ -242,7 +235,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     const vaultJson = localStorage.getItem(`${VAULT_PREFIX}${user.uid}`);
     if (!vaultJson) throw new Error('No vault found');
     const vault = JSON.parse(vaultJson) as Vault;
-    const data  = await decryptVault(vault, pin) as Wallet;
+    const data = await decryptVault(vault, pin) as Wallet;
     if (!data.privateKey) throw new Error('Invalid vault');
     const inst = new ethers.Wallet(data.privateKey);
     const w: Wallet = { address: inst.address, privateKey: inst.privateKey };
@@ -258,7 +251,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!pin) throw new Error('PIN session expired — please re-enter your PIN');
 
     const credId = await registerPasskey(user.uid, addressHint);
-    const salt   = crypto.getRandomValues(new Uint8Array(32));
+    const salt = crypto.getRandomValues(new Uint8Array(32));
     const wrapped = await encryptWithCredId(pin, credId, salt);
 
     const passkeyData = {
@@ -276,7 +269,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!rawPasskey) throw new Error('No passkey configured');
     const passkeyData = JSON.parse(rawPasskey);
     const credId = await authenticatePasskey(passkeyData.credId);
-    const pin    = await decryptWithCredId(passkeyData, credId);
+    const pin = await decryptWithCredId(passkeyData, credId);
     await unlockWithPin(pin);
   }, [user, unlockWithPin]);
 
@@ -289,7 +282,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!auth) throw new Error('Auth missing');
     setIsInitializing(true);
     try {
-      const newWallet      = ethers.Wallet.fromPhrase(mnemonic);
+      const newWallet = ethers.Wallet.fromPhrase(mnemonic);
       const userCredential = await initiateAnonymousSignIn(auth);
       if (userCredential?.user) {
         const walletData = await setupUserAndWalletDocuments(userCredential.user, newWallet as any);
@@ -307,45 +300,69 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!auth || !firestore) throw new Error('Services missing');
     setIsInitializing(true);
     try {
-      const cleanMnemonic  = mnemonic.trim().toLowerCase();
+      const cleanMnemonic = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ');
       const importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
+
       const userCredential = await initiateAnonymousSignIn(auth);
-      const firebaseUser   = userCredential.user;
+      const firebaseUser = userCredential?.user;
+      if (!firebaseUser) throw new Error('Could not establish secure session.');
 
-      if (firebaseUser) {
-        const userSnap = await getDocs(
-          query(collection(firestore, 'users'), where('walletAddress', '==', importedWallet.address), limit(1)),
+      // Look for an existing account that owns this wallet address so we can
+      // carry over balances, KYC status, and transaction history.
+      const addressLower = importedWallet.address.toLowerCase();
+      let priorUid: string | null = null;
+      let priorProfile: Partial<UserProfile> | null = null;
+      try {
+        const usersQ = query(
+          collection(firestore, 'users'),
+          where('walletAddressLowercase', '==', addressLower),
+          limit(5),
         );
-
-        let walletData: Wallet;
-        if (userSnap.empty) {
-          walletData = await setupUserAndWalletDocuments(firebaseUser, importedWallet as any);
-        } else {
-          const userRef = doc(firestore, 'users', firebaseUser.uid);
-          await setDoc(userRef, {
-            id: firebaseUser.uid,
-            email: firebaseUser.email || `${importedWallet.address.substring(0, 8)}@apex.io`,
-            createdAt: serverTimestamp(),
-            walletAddress: importedWallet.address,
-          }, { merge: true });
-
-          const batch = writeBatch(firestore);
-          marketCoins.forEach(coin => {
-            const wRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
-            batch.set(wRef, {
-              id: coin.symbol, userId: firebaseUser.uid, currency: coin.symbol,
-              address: deriveIdentityAddress(coin.symbol, importedWallet.address),
-            }, { merge: true });
-          });
-          await batch.commit();
-          walletData = { address: importedWallet.address, privateKey: importedWallet.privateKey };
+        const snap = await getDocs(usersQ);
+        const match = snap.docs.find(d => d.id !== firebaseUser.uid);
+        if (match) {
+          priorUid = match.id;
+          priorProfile = match.data() as Partial<UserProfile>;
         }
+      } catch (_) { /* offline or rules — fall through to fresh init */ }
 
-        setPendingWallet(walletData);
+      const walletData = await setupUserAndWalletDocuments(firebaseUser, importedWallet as any);
+
+      if (priorUid && priorProfile) {
+        const restoreBatch = writeBatch(firestore);
+        const userRef = doc(firestore, 'users', firebaseUser.uid);
+        const carriedFields: Record<string, unknown> = {};
+        if (priorProfile.kycStatus)        carriedFields.kycStatus        = priorProfile.kycStatus;
+        if ((priorProfile as any).kycSubmissionId) carriedFields.kycSubmissionId = (priorProfile as any).kycSubmissionId;
+        if (Object.keys(carriedFields).length) {
+          restoreBatch.set(userRef, carriedFields, { merge: true });
+        }
+        try {
+          const priorWalletsSnap = await getDocs(collection(firestore, 'users', priorUid, 'wallets'));
+          priorWalletsSnap.forEach(walletSnap => {
+            const data = walletSnap.data() as { currency?: string; balance?: number };
+            if (typeof data.balance === 'number' && data.balance > 0 && data.currency) {
+              const targetRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', data.currency);
+              restoreBatch.set(targetRef, { balance: data.balance }, { merge: true });
+            }
+          });
+          await restoreBatch.commit();
+        } catch (_) { /* best-effort restore — keep import working even if this fails */ }
       }
-    } catch (e: any) {
-      toast({ title: 'Identity Import Failed', description: 'Invalid seed phrase or connection error.', variant: 'destructive' });
-      throw new Error('Invalid seed phrase or login failed.');
+
+      setPendingWallet(walletData);
+    } catch (err: any) {
+      const msg = err?.message?.toLowerCase().includes('mnemonic')
+        || err?.message?.toLowerCase().includes('phrase')
+        || err?.message?.toLowerCase().includes('checksum')
+        ? 'That seed phrase is not valid. Check the words and try again.'
+        : err?.message || 'Could not restore wallet. Please try again.';
+      toast({
+        title: 'Restore Failed',
+        description: msg,
+        variant: 'destructive',
+      });
+      throw err;
     } finally {
       setIsInitializing(false);
     }
@@ -356,7 +373,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     const uid = auth.currentUser?.uid;
     signOut(auth).then(() => {
       if (uid && typeof window !== 'undefined') {
+        // Clear ALL local state tied to this session so the login page
+        // shows the import/create screen instead of the PIN lock screen
         localStorage.removeItem(`${VAULT_PREFIX}${uid}`);
+        localStorage.removeItem(`${PASSKEY_PREFIX}${uid}`);
         localStorage.removeItem(`apex-wallet-${uid}`);
         sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`);
       }
@@ -365,6 +385,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       setPendingWallet(null);
       setVaultLocked(false);
       setHasPasskey(false);
+      setAddressHint('');
       router.push('/login');
     });
   }, [auth, router]);

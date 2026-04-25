@@ -22,7 +22,6 @@ import {
   collection, 
   query, 
   where, 
-  orderBy, 
   doc, 
   updateDoc, 
   serverTimestamp,
@@ -74,100 +73,152 @@ export default function WithdrawalApprovalsPage() {
 
   const pendingQuery = useMemoFirebase(() => {
     if (!withdrawalsRef) return null;
-    return query(withdrawalsRef, where('status', '==', 'PENDING'), orderBy('createdAt', 'desc'));
+    return query(withdrawalsRef, where('status', '==', 'PENDING'));
   }, [withdrawalsRef]);
 
   const approvedQuery = useMemoFirebase(() => {
     if (!withdrawalsRef) return null;
-    return query(withdrawalsRef, where('status', 'in', ['APPROVED', 'PROCESSING', 'COMPLETED']), orderBy('createdAt', 'desc'));
+    return query(withdrawalsRef, where('status', 'in', ['APPROVED', 'PROCESSING', 'COMPLETED']));
   }, [withdrawalsRef]);
 
   const rejectedQuery = useMemoFirebase(() => {
     if (!withdrawalsRef) return null;
-    return query(withdrawalsRef, where('status', '==', 'REJECTED'), orderBy('createdAt', 'desc'));
+    return query(withdrawalsRef, where('status', '==', 'REJECTED'));
   }, [withdrawalsRef]);
 
-  const { data: pendingWithdrawals, isLoading: loadingPending } = useCollection<WithdrawalDoc>(pendingQuery);
-  const { data: approvedWithdrawals, isLoading: loadingApproved } = useCollection<WithdrawalDoc>(approvedQuery);
-  const { data: rejectedWithdrawals, isLoading: loadingRejected } = useCollection<WithdrawalDoc>(rejectedQuery);
+  const sortByDate = (items: WithdrawalDoc[] | null) =>
+    items ? [...items].sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0)) : null;
+
+  const { data: rawPending, isLoading: loadingPending } = useCollection<WithdrawalDoc>(pendingQuery);
+  const { data: rawApproved, isLoading: loadingApproved } = useCollection<WithdrawalDoc>(approvedQuery);
+  const { data: rawRejected, isLoading: loadingRejected } = useCollection<WithdrawalDoc>(rejectedQuery);
+
+  const pendingWithdrawals = sortByDate(rawPending);
+  const approvedWithdrawals = sortByDate(rawApproved);
+  const rejectedWithdrawals = sortByDate(rawRejected);
 
   const handleApprove = useCallback(async (withdrawal: WithdrawalDoc) => {
-    if (!firestore || !user) return;
-    
+    if (!firestore || !user) {
+        toast({
+            title: 'Authentication Error',
+            description: 'Please log in to approve withdrawals.',
+            variant: 'destructive',
+        });
+        return;
+    }
+
+    if (!withdrawal || !withdrawal.id || !withdrawal.userId) {
+        toast({
+            title: 'Invalid Data',
+            description: 'The withdrawal request data is incomplete.',
+            variant: 'destructive',
+        });
+        return;
+    }
+
     setIsProcessing(true);
     try {
-      // Use transaction to update withdrawal and deduct from user's wallet
-      await runTransaction(firestore, async (transaction) => {
-        const withdrawalRef = doc(firestore, 'withdrawal_requests', withdrawal.id);
-        
-        // Update withdrawal status
-        transaction.update(withdrawalRef, {
-          status: 'APPROVED',
-          processedAt: serverTimestamp(),
-          processedBy: user.uid,
-          updatedAt: serverTimestamp(),
+        await runTransaction(firestore, async (transaction) => {
+            const withdrawalRef = doc(firestore, 'withdrawal_requests', withdrawal.id);
+            const withdrawalSnap = await transaction.get(withdrawalRef);
+
+            if (!withdrawalSnap.exists() || withdrawalSnap.data().status !== 'PENDING') {
+                throw new Error('Withdrawal request not found or already processed.');
+            }
+
+            // De-duplication check
+            if (withdrawalSnap.data().processedAt) {
+                throw new Error('This withdrawal has already been processed.');
+            }
+
+            if (withdrawal.cryptoBreakdown) {
+                for (const crypto of withdrawal.cryptoBreakdown) {
+                    if (!crypto.symbol || !crypto.amount || crypto.amount <= 0) {
+                        throw new Error(`Invalid crypto breakdown for ${crypto.symbol}.`);
+                    }
+
+                    const walletRef = doc(firestore, 'users', withdrawal.userId, 'wallets', crypto.symbol);
+                    const walletSnap = await transaction.get(walletRef);
+
+                    if (!walletSnap.exists()) {
+                        throw new Error(`Wallet for ${crypto.symbol} not found.`);
+                    }
+
+                    const currentBalance = walletSnap.data().balance || 0;
+                    if (currentBalance < crypto.amount) {
+                        throw new Error(`Insufficient funds for ${crypto.symbol}.`);
+                    }
+
+                    const newBalance = currentBalance - crypto.amount;
+                    transaction.update(walletRef, { balance: newBalance });
+
+                    const txRef = doc(collection(walletRef, 'transactions'));
+                    transaction.set(txRef, {
+                        userId: withdrawal.userId,
+                        type: 'Withdrawal',
+                        amount: crypto.amount,
+                        price: crypto.priceUSD,
+                        timestamp: serverTimestamp(),
+                        status: 'Completed',
+                        referenceNo: withdrawal.transactionReference ?? '',
+                        method: withdrawal.withdrawalMethod ?? 'N/A',
+                        beneficiaryName: withdrawal.accountHolder ?? 'N/A',
+                        notes: `Approved withdrawal - Ref: ${withdrawal.transactionReference ?? ''}`,
+                    });
+                }
+            }
+
+            transaction.update(withdrawalRef, {
+                status: 'APPROVED',
+                processedAt: serverTimestamp(),
+                processedBy: user.uid,
+                updatedAt: serverTimestamp(),
+            });
         });
 
-        // Deduct crypto from user's wallets
-        if (withdrawal.cryptoBreakdown) {
-          for (const crypto of withdrawal.cryptoBreakdown) {
-            const walletRef = doc(firestore, 'users', withdrawal.userId, 'wallets', crypto.symbol);
-            const walletSnap = await transaction.get(walletRef);
-            
-            if (walletSnap.exists()) {
-              const currentBalance = walletSnap.data().balance || 0;
-              const newBalance = Math.max(0, currentBalance - crypto.amount);
-              transaction.update(walletRef, { balance: newBalance });
+        await addDoc(collection(firestore, 'admin_notifications'), {
+            type: 'SYSTEM_ALERT',
+            title: 'Withdrawal Approved',
+            message: `Withdrawal request ${withdrawal.transactionReference} has been approved and is being processed.`,
+            userId: withdrawal.userId,
+            userEmail: withdrawal.userEmail,
+            referenceId: withdrawal.transactionReference,
+            read: false,
+            createdAt: serverTimestamp(),
+        });
 
-              // Create transaction record
-              const txRef = doc(collection(walletRef, 'transactions'));
-              transaction.set(txRef, {
-                userId: withdrawal.userId,
-                type: 'Withdrawal',
-                amount: crypto.amount,
-                price: crypto.priceUSD,
-                timestamp: serverTimestamp(),
-                status: 'Completed',
-                referenceNo: withdrawal.transactionReference,
-                method: withdrawal.withdrawalMethod,
-                beneficiaryName: withdrawal.accountHolder,
-                notes: `Approved withdrawal - Ref: ${withdrawal.transactionReference}`,
-              });
+        toast({
+            title: 'Withdrawal Approved',
+            description: `Successfully approved withdrawal ${withdrawal.transactionReference}. User\'s balance has been updated.`,
+        });
+
+        setIsDetailOpen(false);
+        setSelectedWithdrawal(null);
+    } catch (error: any) {
+        console.error('Error approving withdrawal:', error);
+        toast({
+            title: 'Approval Failed',
+            description: error.message || 'Failed to approve withdrawal. Please try again.',
+            variant: 'destructive',
+        });
+
+        // Optionally, update the withdrawal status to FAILED
+        if (withdrawal && withdrawal.id) {
+            try {
+                const withdrawalRef = doc(firestore, 'withdrawal_requests', withdrawal.id);
+                await updateDoc(withdrawalRef, {
+                    status: 'FAILED',
+                    updatedAt: serverTimestamp(),
+                    failureReason: error.message || 'An unknown error occurred during approval.',
+                });
+            } catch (updateError) {
+                console.error('Error updating withdrawal to FAILED:', updateError);
             }
-          }
         }
-      });
-
-      // Create notification for user
-      await addDoc(collection(firestore, 'admin_notifications'), {
-        type: 'SYSTEM_ALERT',
-        title: 'Withdrawal Approved',
-        message: `Withdrawal request ${withdrawal.transactionReference} has been approved and is being processed.`,
-        userId: withdrawal.userId,
-        userEmail: withdrawal.userEmail,
-        referenceId: withdrawal.transactionReference,
-        read: false,
-        createdAt: serverTimestamp(),
-      });
-
-      toast({
-        title: 'Withdrawal Approved',
-        description: `Successfully approved withdrawal ${withdrawal.transactionReference}. User's balance has been updated.`,
-      });
-      
-      setIsDetailOpen(false);
-      setSelectedWithdrawal(null);
-    } catch (error) {
-      console.error('Error approving withdrawal:', error);
-      toast({
-        title: 'Approval Failed',
-        description: 'Failed to approve withdrawal. Please try again.',
-        variant: 'destructive',
-      });
     } finally {
-      setIsProcessing(false);
+        setIsProcessing(false);
     }
-  }, [firestore, user, toast]);
+}, [firestore, user, toast]);
 
   const handleReject = useCallback(async (withdrawal: WithdrawalDoc) => {
     if (!firestore || !user || !rejectionReason.trim()) {
@@ -308,7 +359,15 @@ export default function WithdrawalApprovalsPage() {
             <Clock className="h-3 w-3" />
             {formatDate(withdrawal.createdAt)}
           </div>
-          <Button variant="ghost" size="sm" className="h-7 text-xs">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 text-xs"
+            onClick={() => {
+              setSelectedWithdrawal(withdrawal);
+              setIsDetailOpen(true);
+            }}
+          >
             <Eye className="h-3 w-3 mr-1" /> View Details
           </Button>
         </div>
@@ -508,7 +567,17 @@ export default function WithdrawalApprovalsPage() {
                       Reject
                     </Button>
                     <Button
-                      onClick={() => handleApprove(selectedWithdrawal)}
+                      onClick={() => {
+                        if (!selectedWithdrawal) {
+                          toast({
+                            title: 'Error',
+                            description: 'No withdrawal selected',
+                            variant: 'destructive',
+                          });
+                          return;
+                        }
+                        handleApprove(selectedWithdrawal);
+                      }}
                       disabled={isProcessing}
                       className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
                     >
