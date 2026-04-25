@@ -53,12 +53,13 @@ export default function ConnectWalletPage() {
     if (pendingVaultSetup) setPinSetupOpen(true);
   }, [pendingVaultSetup]);
 
-  // Redirect once wallet is unlocked and ready
+  // Redirect once wallet is unlocked and ready, BUT not while the PIN setup
+  // dialog is still open (passkey choice step would otherwise vanish in a flash).
   React.useEffect(() => {
-    if (user && wallet && !vaultLocked && !pendingVaultSetup) {
+    if (user && wallet && !vaultLocked && !pendingVaultSetup && !pinSetupOpen) {
       router.push('/');
     }
-  }, [user, wallet, vaultLocked, pendingVaultSetup, router]);
+  }, [user, wallet, vaultLocked, pendingVaultSetup, pinSetupOpen, router]);
 
   // Redirect email-based admins straight to the admin panel (no wallet needed)
   React.useEffect(() => {

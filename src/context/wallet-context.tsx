@@ -300,28 +300,69 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!auth || !firestore) throw new Error('Services missing');
     setIsInitializing(true);
     try {
-      const cleanMnemonic = mnemonic.trim().toLowerCase();
+      const cleanMnemonic = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ');
       const importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
-      
-      // As we can't use a Cloud Function directly from the client, we'll need to adjust the logic.
-      // We'll try to sign in, but if it fails, we assume it's a new user and create an account.
-      try {
-        // This part would ideally be a secure backend call
-        // For now, we'll simulate the behavior. If a user exists, they are logged in.
-        // If not, a new user is created. This is NOT a secure implementation for production.
-        const userCredential = await initiateAnonymousSignIn(auth);
-        const firebaseUser = userCredential.user;
-        if (firebaseUser) {
-            const walletData = await setupUserAndWalletDocuments(firebaseUser, importedWallet as any);
-            setPendingWallet(walletData);
-        }
 
-      } catch (error: any) {
-          throw error;
+      const userCredential = await initiateAnonymousSignIn(auth);
+      const firebaseUser = userCredential?.user;
+      if (!firebaseUser) throw new Error('Could not establish secure session.');
+
+      // Look for an existing account that owns this wallet address so we can
+      // carry over balances, KYC status, and transaction history.
+      const addressLower = importedWallet.address.toLowerCase();
+      let priorUid: string | null = null;
+      let priorProfile: Partial<UserProfile> | null = null;
+      try {
+        const usersQ = query(
+          collection(firestore, 'users'),
+          where('walletAddressLowercase', '==', addressLower),
+          limit(5),
+        );
+        const snap = await getDocs(usersQ);
+        const match = snap.docs.find(d => d.id !== firebaseUser.uid);
+        if (match) {
+          priorUid = match.id;
+          priorProfile = match.data() as Partial<UserProfile>;
+        }
+      } catch (_) { /* offline or rules — fall through to fresh init */ }
+
+      const walletData = await setupUserAndWalletDocuments(firebaseUser, importedWallet as any);
+
+      if (priorUid && priorProfile) {
+        const restoreBatch = writeBatch(firestore);
+        const userRef = doc(firestore, 'users', firebaseUser.uid);
+        const carriedFields: Record<string, unknown> = {};
+        if (priorProfile.kycStatus)        carriedFields.kycStatus        = priorProfile.kycStatus;
+        if ((priorProfile as any).kycSubmissionId) carriedFields.kycSubmissionId = (priorProfile as any).kycSubmissionId;
+        if (Object.keys(carriedFields).length) {
+          restoreBatch.set(userRef, carriedFields, { merge: true });
+        }
+        try {
+          const priorWalletsSnap = await getDocs(collection(firestore, 'users', priorUid, 'wallets'));
+          priorWalletsSnap.forEach(walletSnap => {
+            const data = walletSnap.data() as { currency?: string; balance?: number };
+            if (typeof data.balance === 'number' && data.balance > 0 && data.currency) {
+              const targetRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', data.currency);
+              restoreBatch.set(targetRef, { balance: data.balance }, { merge: true });
+            }
+          });
+          await restoreBatch.commit();
+        } catch (_) { /* best-effort restore — keep import working even if this fails */ }
       }
-    } catch (e: any) {
-      toast({ title: 'Identity Import Failed', description: 'Invalid seed phrase or connection error.', variant: 'destructive' });
-      throw new Error('Invalid seed phrase or login failed.');
+
+      setPendingWallet(walletData);
+    } catch (err: any) {
+      const msg = err?.message?.toLowerCase().includes('mnemonic')
+        || err?.message?.toLowerCase().includes('phrase')
+        || err?.message?.toLowerCase().includes('checksum')
+        ? 'That seed phrase is not valid. Check the words and try again.'
+        : err?.message || 'Could not restore wallet. Please try again.';
+      toast({
+        title: 'Restore Failed',
+        description: msg,
+        variant: 'destructive',
+      });
+      throw err;
     } finally {
       setIsInitializing(false);
     }
@@ -332,7 +373,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     const uid = auth.currentUser?.uid;
     signOut(auth).then(() => {
       if (uid && typeof window !== 'undefined') {
+        // Clear ALL local state tied to this session so the login page
+        // shows the import/create screen instead of the PIN lock screen
         localStorage.removeItem(`${VAULT_PREFIX}${uid}`);
+        localStorage.removeItem(`${PASSKEY_PREFIX}${uid}`);
         localStorage.removeItem(`apex-wallet-${uid}`);
         sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`);
       }
@@ -341,6 +385,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       setPendingWallet(null);
       setVaultLocked(false);
       setHasPasskey(false);
+      setAddressHint('');
       router.push('/login');
     });
   }, [auth, router]);

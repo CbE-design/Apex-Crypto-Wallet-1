@@ -359,7 +359,15 @@ export default function WithdrawalApprovalsPage() {
             <Clock className="h-3 w-3" />
             {formatDate(withdrawal.createdAt)}
           </div>
-          <Button variant="ghost" size="sm" className="h-7 text-xs">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 text-xs"
+            onClick={() => {
+              setSelectedWithdrawal(withdrawal);
+              setIsDetailOpen(true);
+            }}
+          >
             <Eye className="h-3 w-3 mr-1" /> View Details
           </Button>
         </div>
@@ -559,7 +567,17 @@ export default function WithdrawalApprovalsPage() {
                       Reject
                     </Button>
                     <Button
-                      onClick={() => handleApprove(selectedWithdrawal)}
+                      onClick={() => {
+                        if (!selectedWithdrawal) {
+                          toast({
+                            title: 'Error',
+                            description: 'No withdrawal selected',
+                            variant: 'destructive',
+                          });
+                          return;
+                        }
+                        handleApprove(selectedWithdrawal);
+                      }}
                       disabled={isProcessing}
                       className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
                     >

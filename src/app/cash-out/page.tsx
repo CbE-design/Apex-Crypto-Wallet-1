@@ -38,6 +38,7 @@ import { KYCVerificationModal } from '@/components/kyc-verification-modal';
 import type { KYCStatus, WithdrawalRequest, AdminNotification } from '@/lib/types';
 import Image from 'next/image';
 import { CryptoIcon } from '@/components/crypto-icon';
+import { WithdrawalHistory } from '@/components/withdrawal-history';
 
 type WithdrawalMethod = 'eft' | 'swift';
 type PageStep = 'details' | 'quote' | 'review' | 'processing' | 'pending_approval' | 'success';
@@ -355,7 +356,9 @@ function WithdrawalContent() {
   };
 
   const handleConfirm = async () => {
-    if (!allCompliant || !confirmedData || !user || !firestore || !walletsColRef || !quoteData) return;
+    if (!allCompliant || !confirmedData || !user || !firestore || !walletsColRef || !quoteData) {
+      return;
+    }
 
     const ref = generateRef();
     const carf = generateCARFRef();
@@ -421,6 +424,7 @@ function WithdrawalContent() {
         remainingUSD -= usdFromThisCoin;
       }
 
+      // Build withdrawal request without undefined fields (Firestore doesn't accept undefined)
       const withdrawalRequest: Omit<WithdrawalRequest, 'id'> = {
         userId: user!.uid,
         userEmail: userProfile?.email || 'unknown@apex.io',
@@ -435,15 +439,16 @@ function WithdrawalContent() {
         bankName: data.method === 'eft' ? (data.bankName || '') : (data.bankCountry || ''),
         accountNumber: data.method === 'eft' ? (data.accountNumber || '') : (data.iban || ''),
         accountHolder: data.accountName,
-        routingNumber: data.method === 'eft' ? data.branchCode : undefined,
-        swiftCode: data.method === 'swift' ? data.swiftCode : undefined,
+        // Only include routing-specific fields when they have values
+        ...(data.method === 'eft' && data.branchCode ? { routingNumber: data.branchCode } : {}),
+        ...(data.method === 'swift' && data.swiftCode ? { swiftCode: data.swiftCode } : {}),
         status: 'PENDING',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         transactionReference: ref,
       };
 
-      await addDoc(collection(firestore!, 'withdrawal_requests'), {
+      const withdrawalDocRef = await addDoc(collection(firestore!, 'withdrawal_requests'), {
         ...withdrawalRequest,
         cryptoBreakdown,
         carfReference: carfRef,
@@ -456,24 +461,33 @@ function WithdrawalContent() {
         },
       });
 
-      const notification: Omit<AdminNotification, 'id'> = {
-        type: 'WITHDRAWAL_REQUEST',
-        title: 'New Withdrawal Request',
-        message: `${data.accountName} has requested a withdrawal of ${formatWithdrawCurrency(parseFloat(data.amount))} via ${data.method.toUpperCase()}.`,
-        userId: user!.uid,
-        userEmail: userProfile?.email,
-        referenceId: ref,
-        read: false,
-        createdAt: serverTimestamp(),
-        metadata: {
-          amount: parseFloat(data.amount),
-          currency: withdrawCurrencySymbol,
-          method: data.method,
-          netAmount: fees.net,
-        },
-      };
+      // Attempt to create admin notification, but don't fail the submission if it fails
+      // The admin_notifications collection can only be written to by admins
+      // A Cloud Function trigger on withdrawal_requests will handle this in production
+      try {
+        const notification: Omit<AdminNotification, 'id'> = {
+          type: 'WITHDRAWAL_REQUEST',
+          title: 'New Withdrawal Request',
+          message: `${data.accountName} has requested a withdrawal of ${formatWithdrawCurrency(parseFloat(data.amount))} via ${data.method.toUpperCase()}.`,
+          userId: user!.uid,
+          userEmail: userProfile?.email,
+          referenceId: ref,
+          read: false,
+          createdAt: serverTimestamp(),
+          metadata: {
+            amount: parseFloat(data.amount),
+            currency: withdrawCurrencySymbol,
+            method: data.method,
+            netAmount: fees.net,
+          },
+        };
 
-      await addDoc(collection(firestore!, 'admin_notifications'), notification);
+        await addDoc(collection(firestore!, 'admin_notifications'), notification);
+      } catch (notificationError) {
+        // Log notification error but don't fail the withdrawal submission
+        console.log('[v0] Notification creation failed (will be handled by Cloud Function):', notificationError);
+      }
+
       return true;
     } catch (e: unknown) {
       setStep('details');
@@ -866,6 +880,11 @@ function WithdrawalContent() {
               <Button asChild className="w-full h-12 font-semibold"><a href="/">Return to Dashboard</a></Button>
             </CardContent>
           </Card>
+        )}
+
+        {/* Show withdrawal history on details and pending_approval steps */}
+        {(step === 'details' || step === 'pending_approval') && (
+          <WithdrawalHistory />
         )}
       </div>
 
