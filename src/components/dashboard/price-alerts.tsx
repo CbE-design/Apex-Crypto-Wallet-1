@@ -60,9 +60,14 @@ export function PriceAlerts() {
   };
 
   const handleDeleteAlert = (id: string) => {
-    if (!user || !firestore) return;
-    deleteDocumentNonBlocking(doc(firestore, 'users', user.uid, 'price_alerts', id));
-    toast({ title: "Alert removed" });
+    if (!user || !firestore || !alerts) return;
+
+    try {
+      deleteDocumentNonBlocking(doc(firestore, 'users', user.uid, 'price_alerts', id));
+      toast({ title: "Alert removed" });
+    } catch (error) {
+      toast({ title: "Error", description: "Could not remove alert. Please try again.", variant: "destructive" });
+    }
   };
 
   const getCoinName = (symbol: string) =>
@@ -122,7 +127,7 @@ export function PriceAlerts() {
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-muted-foreground">Condition</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  {(['Above', 'Below'] as const).map(type => (
+                  {(["Above", "Below"] as const).map(type => (
                     <button
                       key={type}
                       type="button"

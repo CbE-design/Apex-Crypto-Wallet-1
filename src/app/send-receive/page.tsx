@@ -129,7 +129,7 @@ export default function SendReceivePage() {
     try {
         await runTransaction(firestore, async (transaction) => {
             const usersRef = collection(firestore, 'users');
-            const recipientQuery = query(usersRef, where("walletAddress", "==", data.recipientAddress), limit(1));
+            const recipientQuery = query(usersRef, where("walletAddressLowercase", "==", data.recipientAddress.toLowerCase()), limit(1));
             const recipientSnapshot = await getDocs(recipientQuery);
             
             if (recipientSnapshot.empty) {

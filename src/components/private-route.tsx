@@ -4,6 +4,7 @@
 import { useWallet } from '@/context/wallet-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, ReactNode } from 'react';
+import { LoadingSpinner } from './loading-spinner';
 
 export const PrivateRoute = ({ children }: { children: ReactNode }) => {
   const { user, loading } = useWallet();
@@ -16,8 +17,7 @@ export const PrivateRoute = ({ children }: { children: ReactNode }) => {
   }, [user, loading, router]);
 
   if (loading || !user) {
-    // You can return a loading spinner here
-    return null;
+    return <LoadingSpinner />;
   }
 
   return <>{children}</>;

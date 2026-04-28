@@ -70,11 +70,11 @@ export function PinSetupDialog({
     setBusy(true);
     try {
       await onPasskeySetup();
-      onSkipPasskey(); // done
     } catch (e: any) {
       triggerShake(e?.message?.includes('cancel') ? 'Passkey cancelled' : 'Passkey setup failed');
     } finally {
       setBusy(false);
+      onSkipPasskey(); // done
     }
   };
 

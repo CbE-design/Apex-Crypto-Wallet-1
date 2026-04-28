@@ -1,6 +1,6 @@
-import type {NextConfig} from 'next';
+import { NormalModuleReplacementPlugin } from 'webpack';
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -32,6 +32,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  transpilePackages: [],
   allowedDevOrigins: [
     "*.replit.dev",
     "*.kirk.replit.dev",
@@ -64,6 +65,18 @@ const nextConfig: NextConfig = {
         ...(process.env.REPLIT_DEV_DOMAIN ? [process.env.REPLIT_DEV_DOMAIN] : []),
       ],
     },
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.plugins.push(
+        new NormalModuleReplacementPlugin(
+          /firebase\/functions/,
+          './empty-module.js'
+        )
+      );
+    }
+
+    return config;
   },
 };
 
