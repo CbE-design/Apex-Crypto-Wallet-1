@@ -133,10 +133,16 @@ export function KYCVerificationModal({
   const validatePersonalInfo = () =>
     formData.fullName && formData.dateOfBirth && formData.nationality && formData.address;
 
+  // SA National ID Cards (the new "smart" green card) have no expiry.
+  // Other government photo IDs (passport, driver's licence) do.
+  const documentRequiresExpiry =
+    formData.documentType === 'passport' ||
+    formData.documentType === 'drivers_license';
+
   const validateDocumentInfo = () =>
     formData.documentType &&
     formData.documentNumber &&
-    formData.documentExpiry &&
+    (!documentRequiresExpiry || formData.documentExpiry) &&
     documentFile;
 
   const handleSubmit = async () => {
@@ -165,7 +171,7 @@ export function KYCVerificationModal({
         address: formData.address,
         documentType: formData.documentType as 'passport' | 'drivers_license' | 'national_id',
         documentNumber: formData.documentNumber,
-        documentExpiry: formData.documentExpiry,
+        documentExpiry: documentRequiresExpiry ? formData.documentExpiry : 'N/A',
         submittedAt: serverTimestamp(),
       };
 
@@ -362,12 +368,28 @@ export function KYCVerificationModal({
       </div>
       <div className="space-y-2">
         <Label htmlFor="documentNumber">Document Number</Label>
-        <Input id="documentNumber" placeholder="Enter document number" value={formData.documentNumber} onChange={(e) => handleInputChange('documentNumber', e.target.value)} />
+        <Input
+          id="documentNumber"
+          placeholder={
+            formData.documentType === 'national_id'
+              ? '13-digit RSA ID number'
+              : 'Enter document number'
+          }
+          value={formData.documentNumber}
+          onChange={(e) => handleInputChange('documentNumber', e.target.value)}
+        />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="documentExpiry">Expiry Date</Label>
-        <Input id="documentExpiry" type="date" value={formData.documentExpiry} onChange={(e) => handleInputChange('documentExpiry', e.target.value)} />
-      </div>
+      {documentRequiresExpiry && (
+        <div className="space-y-2">
+          <Label htmlFor="documentExpiry">Expiry Date</Label>
+          <Input id="documentExpiry" type="date" value={formData.documentExpiry} onChange={(e) => handleInputChange('documentExpiry', e.target.value)} />
+        </div>
+      )}
+      {formData.documentType === 'national_id' && (
+        <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5 text-[11px] text-muted-foreground">
+          SA National ID Cards do not have an expiry date — none required.
+        </div>
+      )}
       <div className="space-y-2">
         <Label>Document Image</Label>
         <label
@@ -452,11 +474,13 @@ export function KYCVerificationModal({
 
       <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Identity Document</h4>
-        {[
+        {([
           ['Document Type', formData.documentType.replace('_', ' ')],
           ['Document Number', formData.documentNumber],
-          ['Expiry Date', formData.documentExpiry]
-        ].map(([label, val]) => (
+          ...(documentRequiresExpiry
+            ? [['Expiry Date', formData.documentExpiry] as [string, string]]
+            : []),
+        ] as [string, string][]).map(([label, val]) => (
           <div key={label} className="text-sm">
             <p className="text-muted-foreground text-xs">{label}</p>
             <p className="font-medium capitalize">{val}</p>
