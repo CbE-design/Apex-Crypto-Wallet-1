@@ -1,5 +1,4 @@
-import { NormalModuleReplacementPlugin } from 'webpack';
-
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
@@ -66,10 +65,10 @@ const nextConfig = {
       ],
     },
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, webpack }) => {
     if (!isServer) {
       config.plugins.push(
-        new NormalModuleReplacementPlugin(
+        new webpack.NormalModuleReplacementPlugin(
           /firebase\/functions/,
           './empty-module.js'
         )
