@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo, type DependencyList } from 'react';
 import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
@@ -55,3 +55,13 @@ export const useFirestore = () => {
   }
   return context;
 };
+
+/**
+ * Memoize a Firebase reference (collection, query, or doc) so it has a
+ * stable identity across renders. Required by useCollection / useDoc to
+ * avoid re-subscribing on every render.
+ */
+export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(factory, deps);
+}
