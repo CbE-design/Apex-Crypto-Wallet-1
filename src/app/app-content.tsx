@@ -7,7 +7,9 @@ import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
 import { useWallet } from '@/context/wallet-context';
-import { ShieldAlert, Loader2, Power } from 'lucide-react';
+import { ShieldAlert, Loader2, Power, Lock } from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import { EyeWatermark } from '@/components/eye-watermark';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -72,14 +74,26 @@ export default function AppContent({
                   <ShieldAlert className="h-20 w-20 text-destructive" />
               </div>
           </div>
-          <h1 className="text-3xl font-black uppercase italic tracking-tighter mb-3">System Reconciling</h1>
-          <p className="text-sm text-muted-foreground mb-8 max-w-sm font-bold uppercase tracking-tight">
-              Ledger synchronization and asset settlement have been temporarily suspended for verified system orchestration.
+          <h1 className="text-3xl font-bold tracking-tight mb-3">Scheduled Maintenance</h1>
+          <p className="text-base text-muted-foreground mb-2 max-w-md">
+              Apex Wallet is temporarily offline while we perform scheduled maintenance.
           </p>
-          <div className="flex items-center gap-2 px-4 py-2 bg-destructive/5 border border-destructive/20 rounded-xl">
+          <p className="text-sm text-muted-foreground mb-8 max-w-md">
+              Your funds and account are safe. Please check back shortly — we apologise for the inconvenience.
+          </p>
+          <div className="flex items-center gap-2 px-4 py-2 mb-8 bg-destructive/5 border border-destructive/20 rounded-xl">
               <Power className="h-4 w-4 text-destructive animate-pulse" />
-              <span className="text-sm font-black text-destructive uppercase tracking-widest">Protocol State: HALTED</span>
+              <span className="text-xs font-semibold text-destructive uppercase tracking-widest">System Status: Maintenance Mode</span>
           </div>
+          <Button asChild variant="outline" size="lg" className="gap-2">
+              <Link href="/login">
+                  <Lock className="h-4 w-4" />
+                  Admin Login
+              </Link>
+          </Button>
+          <p className="text-xs text-muted-foreground mt-4 max-w-xs">
+              Authorised administrators can sign in to continue maintenance work.
+          </p>
       </div>
     );
   }
