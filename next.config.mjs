@@ -31,7 +31,7 @@ const nextConfig = {
       },
     ],
   },
-  transpilePackages: [],
+  transpilePackages: ['undici'],
   allowedDevOrigins: [
     "*.replit.dev",
     "*.kirk.replit.dev",
