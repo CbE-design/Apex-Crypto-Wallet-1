@@ -300,8 +300,46 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!auth || !firestore) throw new Error('Services missing');
     setIsInitializing(true);
     try {
-      const cleanMnemonic = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ');
-      const importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
+      // Strip any zero-width chars, quotes, line breaks, and unicode whitespace
+      // that often sneak in when copy-pasting from PDFs / messaging apps.
+      const cleanMnemonic = mnemonic
+        .replace(/[\u200B-\u200D\uFEFF]/g, '')
+        .replace(/["'`]/g, '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+
+      const wordCount = cleanMnemonic.split(' ').filter(Boolean).length;
+      if (![12, 15, 18, 21, 24].includes(wordCount)) {
+        throw new Error(
+          `Seed phrases must be 12, 15, 18, 21, or 24 words. You entered ${wordCount}.`,
+        );
+      }
+
+      let importedWallet: ethers.HDNodeWallet;
+      try {
+        importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
+      } catch (phraseErr) {
+        // Re-throw with a stable shape the catch block below can recognise.
+        throw new Error('Invalid mnemonic phrase.');
+      }
+
+      // Clear any leftover vault from a prior, abandoned import on this device
+      // BEFORE we start a new anonymous session, so a fresh PIN setup can run.
+      if (typeof window !== 'undefined') {
+        const previousUid = auth.currentUser?.uid;
+        if (previousUid) {
+          localStorage.removeItem(`${VAULT_PREFIX}${previousUid}`);
+          localStorage.removeItem(`${PASSKEY_PREFIX}${previousUid}`);
+          localStorage.removeItem(`apex-wallet-${previousUid}`);
+          sessionStorage.removeItem(`${SESSION_PREFIX}${previousUid}`);
+        }
+      }
+      pinnedPinRef.current = null;
+      setVaultLocked(false);
+      setHasPasskey(false);
+      setAddressHint('');
+      setWallet(null);
 
       const userCredential = await initiateAnonymousSignIn(auth);
       const firebaseUser = userCredential?.user;
@@ -352,11 +390,25 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
       setPendingWallet(walletData);
     } catch (err: any) {
-      const msg = err?.message?.toLowerCase().includes('mnemonic')
-        || err?.message?.toLowerCase().includes('phrase')
-        || err?.message?.toLowerCase().includes('checksum')
-        ? 'That seed phrase is not valid. Check the words and try again.'
-        : err?.message || 'Could not restore wallet. Please try again.';
+      console.error('[importWallet] failed:', err);
+      const lower = (err?.message || '').toLowerCase();
+      let msg: string;
+      if (lower.includes('seed phrases must be')) {
+        msg = err.message;
+      } else if (
+        lower.includes('mnemonic') ||
+        lower.includes('phrase') ||
+        lower.includes('checksum') ||
+        lower.includes('wordlist')
+      ) {
+        msg = 'That seed phrase is not valid. Check the spelling, order, and word count.';
+      } else if (lower.includes('auth') || lower.includes('network')) {
+        msg = 'Could not reach the secure session service. Check your connection and try again.';
+      } else if (lower.includes('permission')) {
+        msg = 'The wallet service rejected this request. Please refresh and try again.';
+      } else {
+        msg = err?.message || 'Could not restore wallet. Please try again.';
+      }
       toast({
         title: 'Restore Failed',
         description: msg,
