@@ -158,7 +158,7 @@ export function PortfolioOverview() {
         <div className="relative w-full md:w-1/2 h-72">
           <ChartContainer
             config={chartConfig}
-            className="min-h-[200px] w-full h-full"
+            className="min-h-[200px] w-full h-full aspect-auto"
           >
             {totalBalance > 0 ? (
                  <PieChart>
