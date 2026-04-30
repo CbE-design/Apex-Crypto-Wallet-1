@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/context/wallet-context';
@@ -10,7 +10,7 @@ import {
   Loader2, Shield, Key, AlertTriangle, ArrowRight,
   Eye, EyeOff, Copy, CheckCircle2, Lock, Mail,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EyeWatermark } from '@/components/eye-watermark';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import { PinUnlockScreen } from '@/components/pin-unlock-screen';
 
 export default function ConnectWalletPage() {
   const router       = useRouter();
+  const searchParams = useSearchParams();
   const { toast }    = useToast();
   const auth         = useAuth();
   const {
@@ -48,6 +49,12 @@ export default function ConnectWalletPage() {
   const [adminPwVisible,  setAdminPwVisible]  = useState(false);
   const [adminLoading,    setAdminLoading]    = useState(false);
 
+  useEffect(() => {
+    if (searchParams.get('admin') === 'true') {
+      setShowAdminLogin(true);
+    }
+  }, [searchParams]);
+  
   // Open PIN setup dialog as soon as wallet is pending vault
   React.useEffect(() => {
     if (pendingVaultSetup) setPinSetupOpen(true);
