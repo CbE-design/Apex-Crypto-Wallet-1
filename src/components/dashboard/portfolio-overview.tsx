@@ -110,7 +110,7 @@ export function PortfolioOverview() {
                 <Skeleton className="h-4 w-64" />
             </CardHeader>
             <CardContent className="flex flex-col md:flex-row items-center gap-8">
-                <div className="relative w-full md:w-1/2 h-72">
+                <div className="relative w-full md:w-1/2 h-72 min-w-0">
                     <Skeleton className="h-full w-full rounded-full" />
                 </div>
                 <div className="w-full md:w-1/2 space-y-4">
@@ -155,7 +155,7 @@ export function PortfolioOverview() {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col md:flex-row items-center gap-8 relative z-10">
-        <div className="relative w-full md:w-1/2 h-72">
+        <div className="relative w-full md:w-1/2 h-72 min-w-0">
           <ChartContainer
             config={chartConfig}
             className="min-h-[200px] w-full h-full aspect-auto"
@@ -217,8 +217,7 @@ export function PortfolioOverview() {
                 <div
                   className="w-1 h-8 rounded-full"
                   style={{
-                    backgroundColor: `hsl(var(--chart-${
-                      (Object.keys(chartConfig).indexOf(asset.symbol.toLowerCase()) % 5) + 1
+                    backgroundColor: `hsl(var(--chart-${(Object.keys(chartConfig).indexOf(asset.symbol.toLowerCase()) % 5) + 1
                     }))`,
                   }}
                 />
