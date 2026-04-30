@@ -24,10 +24,10 @@ import { PinSetupDialog } from '@/components/pin-setup-dialog';
 import { PinUnlockScreen } from '@/components/pin-unlock-screen';
 
 export default function ConnectWalletPage() {
-  const router       = useRouter();
-  const searchParams = useSearchParams();
-  const { toast }    = useToast();
-  const auth         = useAuth();
+  const router                   = useRouter();
+  const searchParams             = useSearchParams();
+  const { toast }                = useToast();
+  const auth                     = useAuth();
   const {
     createWallet, importWallet, loading, user, isAdmin, confirmAndCreateWallet,
     vaultLocked, pendingVaultSetup, hasPasskey, passkeySupported, addressHint,
@@ -182,126 +182,130 @@ export default function ConnectWalletPage() {
 
         {/* Card */}
         <div className="w-full max-w-sm relative z-10">
-          <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl shadow-2xl overflow-hidden">
-            {/* Header */}
-            <div className="px-6 pt-6 pb-5 border-b border-border/40">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-                <span className="text-[11px] uppercase tracking-widest font-semibold text-accent">Secure Connection</span>
+          {!showAdminLogin && (
+            <>
+              <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl shadow-2xl overflow-hidden">
+                {/* Header */}
+                <div className="px-6 pt-6 pb-5 border-b border-border/40">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+                    <span className="text-[11px] uppercase tracking-widest font-semibold text-accent">Secure Connection</span>
+                  </div>
+                  <h2 className="text-[17px] font-semibold text-foreground">
+                    {isImporting ? 'Import Wallet' : 'Access Your Wallet'}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {isImporting
+                      ? 'Enter your seed phrase to restore access'
+                      : 'Create a new wallet or restore from seed phrase'}
+                  </p>
+                </div>
+
+                {/* Body */}
+                <div className="px-6 py-6">
+                  {isImporting ? (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
+                          Seed Phrase
+                        </label>
+                        <Textarea
+                          placeholder="Enter your 12 or 24 word seed phrase separated by spaces…"
+                          value={mnemonic}
+                          onChange={e => setMnemonic(e.target.value)}
+                          rows={4}
+                          disabled={loading}
+                          className="bg-muted/30 border-border/60 resize-none text-sm font-mono placeholder:text-muted-foreground/40 focus:border-primary/60 rounded-xl"
+                        />
+                      </div>
+                      <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                          Never share your seed phrase. Apex will never ask for it outside this setup screen.
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleImportWallet}
+                        className="w-full h-11 rounded-xl font-semibold btn-premium text-white"
+                        disabled={loading || !mnemonic.trim()}
+                      >
+                        {loading
+                          ? <Loader2 className="animate-spin h-4 w-4" />
+                          : <><Key className="h-4 w-4 mr-2" />Restore Wallet</>}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setIsImporting(false)}
+                        className="w-full h-10 rounded-xl text-muted-foreground hover:text-foreground"
+                        disabled={loading}
+                      >
+                        Back
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <Button
+                        onClick={handleCreateWallet}
+                        className="w-full h-12 rounded-xl font-semibold btn-premium text-white text-[14px] group"
+                        disabled={loading}
+                      >
+                        {loading
+                          ? <Loader2 className="animate-spin h-4 w-4" />
+                          : <>Create New Wallet <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-0.5 transition-transform" /></>}
+                      </Button>
+                      <div className="relative flex items-center gap-3">
+                        <div className="flex-1 h-px bg-border/40" />
+                        <span className="text-[11px] text-muted-foreground uppercase tracking-widest">or</span>
+                        <div className="flex-1 h-px bg-border/40" />
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsImporting(true)}
+                        className="w-full h-12 rounded-xl font-semibold border-border/60 hover:border-primary/40 hover:bg-primary/5 text-[14px]"
+                        disabled={loading}
+                      >
+                        <Key className="h-4 w-4 mr-2" />
+                        Import Existing Wallet
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <h2 className="text-[17px] font-semibold text-foreground">
-                {isImporting ? 'Import Wallet' : 'Access Your Wallet'}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {isImporting
-                  ? 'Enter your seed phrase to restore access'
-                  : 'Create a new wallet or restore from seed phrase'}
+
+              {/* Trust indicators */}
+              <div className="flex items-center justify-center gap-4 mt-6 text-muted-foreground/50">
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <Shield className="h-3 w-3" />
+                  <span>Non-custodial</span>
+                </div>
+                <div className="h-3 w-px bg-border/30" />
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <Shield className="h-3 w-3" />
+                  <span>End-to-end encrypted</span>
+                </div>
+              </div>
+
+              {/* T&C acceptance notice */}
+              <p className="text-center text-[10px] text-muted-foreground/40 mt-4 max-w-xs mx-auto leading-relaxed">
+                By creating or importing a wallet you agree to our{' '}
+                <a href="/legal/terms" className="underline hover:text-muted-foreground/60 transition-colors">Terms of Service</a>,{' '}
+                <a href="/legal/privacy" className="underline hover:text-muted-foreground/60 transition-colors">Privacy Policy</a>, and{' '}
+                <a href="/legal/risk-disclosure" className="underline hover:text-muted-foreground/60 transition-colors">Risk Disclosure</a>.
+                Crypto assets are high-risk instruments — you may lose your entire investment.
               </p>
-            </div>
 
-            {/* Body */}
-            <div className="px-6 py-6">
-              {isImporting ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
-                      Seed Phrase
-                    </label>
-                    <Textarea
-                      placeholder="Enter your 12 or 24 word seed phrase separated by spaces…"
-                      value={mnemonic}
-                      onChange={e => setMnemonic(e.target.value)}
-                      rows={4}
-                      disabled={loading}
-                      className="bg-muted/30 border-border/60 resize-none text-sm font-mono placeholder:text-muted-foreground/40 focus:border-primary/60 rounded-xl"
-                    />
-                  </div>
-                  <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-[11px] text-amber-300/80 leading-relaxed">
-                      Never share your seed phrase. Apex will never ask for it outside this setup screen.
-                    </p>
-                  </div>
-                  <Button
-                    onClick={handleImportWallet}
-                    className="w-full h-11 rounded-xl font-semibold btn-premium text-white"
-                    disabled={loading || !mnemonic.trim()}
-                  >
-                    {loading
-                      ? <Loader2 className="animate-spin h-4 w-4" />
-                      : <><Key className="h-4 w-4 mr-2" />Restore Wallet</>}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setIsImporting(false)}
-                    className="w-full h-10 rounded-xl text-muted-foreground hover:text-foreground"
-                    disabled={loading}
-                  >
-                    Back
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <Button
-                    onClick={handleCreateWallet}
-                    className="w-full h-12 rounded-xl font-semibold btn-premium text-white text-[14px] group"
-                    disabled={loading}
-                  >
-                    {loading
-                      ? <Loader2 className="animate-spin h-4 w-4" />
-                      : <>Create New Wallet <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-0.5 transition-transform" /></>}
-                  </Button>
-                  <div className="relative flex items-center gap-3">
-                    <div className="flex-1 h-px bg-border/40" />
-                    <span className="text-[11px] text-muted-foreground uppercase tracking-widest">or</span>
-                    <div className="flex-1 h-px bg-border/40" />
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsImporting(true)}
-                    className="w-full h-12 rounded-xl font-semibold border-border/60 hover:border-primary/40 hover:bg-primary/5 text-[14px]"
-                    disabled={loading}
-                  >
-                    <Key className="h-4 w-4 mr-2" />
-                    Import Existing Wallet
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Trust indicators */}
-          <div className="flex items-center justify-center gap-4 mt-6 text-muted-foreground/50">
-            <div className="flex items-center gap-1.5 text-[11px]">
-              <Shield className="h-3 w-3" />
-              <span>Non-custodial</span>
-            </div>
-            <div className="h-3 w-px bg-border/30" />
-            <div className="flex items-center gap-1.5 text-[11px]">
-              <Shield className="h-3 w-3" />
-              <span>End-to-end encrypted</span>
-            </div>
-          </div>
-
-          {/* T&C acceptance notice */}
-          <p className="text-center text-[10px] text-muted-foreground/40 mt-4 max-w-xs mx-auto leading-relaxed">
-            By creating or importing a wallet you agree to our{' '}
-            <a href="/legal/terms" className="underline hover:text-muted-foreground/60 transition-colors">Terms of Service</a>,{' '}
-            <a href="/legal/privacy" className="underline hover:text-muted-foreground/60 transition-colors">Privacy Policy</a>, and{' '}
-            <a href="/legal/risk-disclosure" className="underline hover:text-muted-foreground/60 transition-colors">Risk Disclosure</a>.
-            Crypto assets are high-risk instruments — you may lose your entire investment.
-          </p>
-
-          {/* Regulatory footer */}
-          <div className="flex flex-wrap items-center justify-center gap-3 mt-5 text-[9px] text-muted-foreground/30 uppercase tracking-widest">
-            <span>FICA Compliant</span>
-            <span>·</span>
-            <span>FSCA Regulated</span>
-            <span>·</span>
-            <span>POPIA Compliant</span>
-            <span>·</span>
-            <span>FATF Travel Rule</span>
-          </div>
+              {/* Regulatory footer */}
+              <div className="flex flex-wrap items-center justify-center gap-3 mt-5 text-[9px] text-muted-foreground/30 uppercase tracking-widest">
+                <span>FICA Compliant</span>
+                <span>·</span>
+                <span>FSCA Regulated</span>
+                <span>·</span>
+                <span>POPIA Compliant</span>
+                <span>·</span>
+                <span>FATF Travel Rule</span>
+              </div>
+            </>
+          )}
 
           {/* Admin portal toggle */}
           <div className="mt-8">
