@@ -86,7 +86,7 @@ export default function AppContent({
               <span className="text-xs font-semibold text-destructive uppercase tracking-widest">System Status: Maintenance Mode</span>
           </div>
           <Button asChild variant="outline" size="lg" className="gap-2">
-              <Link href="/login">
+              <Link href="/login?admin=true">
                   <Lock className="h-4 w-4" />
                   Admin Login
               </Link>
