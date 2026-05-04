@@ -8,7 +8,7 @@ import { useAuth } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import {
   Loader2, Shield, Key, AlertTriangle, ArrowRight,
-  Eye, EyeOff, Copy, CheckCircle2, Lock, Mail,
+  Eye, EyeOff, Copy, CheckCircle2, Lock, Mail, Code,
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { EyeWatermark } from '@/components/eye-watermark';
@@ -42,8 +42,8 @@ export default function ConnectWalletPage() {
   const [copied,                 setCopied]                 = useState(false);
   const [pinSetupOpen,           setPinSetupOpen]           = useState(false);
 
-  // Admin sign-in state
-  const [showAdminLogin,  setShowAdminLogin]  = useState(false);
+  // Developer sign-in state — initialised directly from URL to prevent redirect loops
+  const [showAdminLogin,  setShowAdminLogin]  = useState(searchParams.get('admin') === 'true');
   const [adminEmail,      setAdminEmail]      = useState('');
   const [adminPassword,   setAdminPassword]   = useState('');
   const [adminPwVisible,  setAdminPwVisible]  = useState(false);
@@ -52,6 +52,8 @@ export default function ConnectWalletPage() {
   useEffect(() => {
     if (searchParams.get('admin') === 'true') {
       setShowAdminLogin(true);
+    } else {
+      setShowAdminLogin(false);
     }
   }, [searchParams]);
   
@@ -61,14 +63,15 @@ export default function ConnectWalletPage() {
   }, [pendingVaultSetup]);
 
   // Redirect once wallet is unlocked and ready, BUT not while the PIN setup
-  // dialog is still open (passkey choice step would otherwise vanish in a flash).
+  // dialog is still open, and NOT if the user is explicitly in the developer portal.
   React.useEffect(() => {
-    if (user && wallet && !vaultLocked && !pendingVaultSetup && !pinSetupOpen) {
+    const isDevRequest = searchParams.get('admin') === 'true' || showAdminLogin;
+    if (user && wallet && !vaultLocked && !pendingVaultSetup && !pinSetupOpen && !isDevRequest) {
       router.push('/');
     }
-  }, [user, wallet, vaultLocked, pendingVaultSetup, pinSetupOpen, router]);
+  }, [user, wallet, vaultLocked, pendingVaultSetup, pinSetupOpen, showAdminLogin, searchParams, router]);
 
-  // Redirect email-based admins straight to the admin panel (no wallet needed)
+  // Redirect email-based developers straight to the admin panel (no wallet needed)
   React.useEffect(() => {
     if (user && isAdmin && !wallet) {
       router.push('/admin');
@@ -134,7 +137,7 @@ export default function ConnectWalletPage() {
           : error.code === 'auth/too-many-requests'
           ? 'Too many attempts. Please wait a moment.'
           : 'Sign-in failed. Please try again.';
-      toast({ title: 'Admin Sign-In Failed', description: msg, variant: 'destructive' });
+      toast({ title: 'Developer Sign-In Failed', description: msg, variant: 'destructive' });
     } finally {
       setAdminLoading(false);
     }
@@ -307,15 +310,15 @@ export default function ConnectWalletPage() {
             </>
           )}
 
-          {/* Admin portal toggle */}
+          {/* Developer portal toggle */}
           <div className="mt-8">
             {!showAdminLogin ? (
               <button
                 onClick={() => setShowAdminLogin(true)}
                 className="w-full text-[10px] text-muted-foreground/25 hover:text-muted-foreground/50 transition-colors py-2 flex items-center justify-center gap-1.5"
               >
-                <Lock className="h-3 w-3" />
-                Admin Portal
+                <Code className="h-3 w-3" />
+                Developer Portal
               </button>
             ) : (
               <div className="rounded-2xl border border-border/40 bg-card/60 backdrop-blur-xl overflow-hidden">
@@ -323,7 +326,7 @@ export default function ConnectWalletPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                      <span className="text-[10px] uppercase tracking-widest font-semibold text-primary">Admin Portal</span>
+                      <span className="text-[10px] uppercase tracking-widest font-semibold text-primary">Developer Portal</span>
                     </div>
                     <button
                       onClick={() => setShowAdminLogin(false)}
@@ -332,7 +335,7 @@ export default function ConnectWalletPage() {
                       Cancel
                     </button>
                   </div>
-                  <p className="text-[12px] text-muted-foreground/60 mt-1.5">Sign in with your admin credentials</p>
+                  <p className="text-[12px] text-muted-foreground/60 mt-1.5">Sign in with your developer credentials</p>
                 </div>
                 <form onSubmit={handleAdminSignIn} className="px-5 py-5 space-y-3">
                   <div className="space-y-1.5">
@@ -383,7 +386,7 @@ export default function ConnectWalletPage() {
                   >
                     {adminLoading
                       ? <Loader2 className="animate-spin h-4 w-4" />
-                      : <><Shield className="h-4 w-4 mr-2" />Sign In to Admin Panel</>}
+                      : <><Shield className="h-4 w-4 mr-2" />Sign In to Developer Panel</>}
                   </Button>
                 </form>
               </div>

@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, formatAppDate, formatAppTimeShort } from "@/lib/utils";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, where } from 'firebase/firestore';
 import { useCurrency } from "@/context/currency-context";
@@ -52,27 +52,6 @@ const STATUS_CONFIG: Record<WithdrawalStatus, { label: string; color: string; ic
   REJECTED: { label: 'Rejected', color: 'text-destructive', icon: XCircle },
   FAILED: { label: 'Failed', color: 'text-destructive', icon: AlertTriangle },
 };
-
-function formatDate(timestamp: any): string {
-  if (!timestamp) return '—';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return new Intl.DateTimeFormat('en-ZA', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-}
-
-function formatShortDate(timestamp: any): string {
-  if (!timestamp) return '—';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return new Intl.DateTimeFormat('en-ZA', {
-    day: '2-digit',
-    month: 'short',
-  }).format(date);
-}
 
 export function WithdrawalHistory() {
   const { user } = useUser();
@@ -147,7 +126,9 @@ export function WithdrawalHistory() {
                         onClick={() => handleViewDetails(withdrawal)}
                       >
                         <TableCell className="pl-4 py-3">
-                          <div className="text-xs font-medium">{formatShortDate(withdrawal.createdAt)}</div>
+                          <div className="text-xs font-medium">
+                            {formatAppDate(withdrawal.createdAt, { day: '2-digit', month: 'short' })}
+                          </div>
                           <div className="text-[10px] text-muted-foreground font-mono">
                             {withdrawal.transactionReference?.slice(-8) || '—'}
                           </div>
@@ -322,12 +303,28 @@ export function WithdrawalHistory() {
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Timeline</p>
                 <div className="flex justify-between items-center py-1">
                   <span className="text-xs text-muted-foreground">Submitted</span>
-                  <span className="text-xs font-medium">{formatDate(selectedWithdrawal.createdAt)}</span>
+                  <span className="text-xs font-medium">
+                    {formatAppDate(selectedWithdrawal.createdAt, {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
                 </div>
                 {selectedWithdrawal.processedAt && (
                   <div className="flex justify-between items-center py-1">
                     <span className="text-xs text-muted-foreground">Processed</span>
-                    <span className="text-xs font-medium">{formatDate(selectedWithdrawal.processedAt)}</span>
+                    <span className="text-xs font-medium">
+                        {formatAppDate(selectedWithdrawal.processedAt, {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                    </span>
                   </div>
                 )}
               </div>

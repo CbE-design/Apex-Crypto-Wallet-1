@@ -7,7 +7,7 @@ import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
 import { useWallet } from '@/context/wallet-context';
-import { ShieldAlert, Loader2, Power, Lock } from 'lucide-react';
+import { ShieldAlert, Loader2, Power, Lock, Code } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { EyeWatermark } from '@/components/eye-watermark';
@@ -31,9 +31,10 @@ export default function AppContent({
   }, []);
 
   const protocolSettingsRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
+    // Removed dependency on 'user' so guests also see maintenance status
     return doc(firestore, 'protocol_settings', 'status');
-  }, [firestore, user]);
+  }, [firestore]);
 
   const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
   const isProtocolHalted = protocolStatus && protocolStatus.isActive === false;
@@ -59,13 +60,9 @@ export default function AppContent({
     );
   }
 
-  if (isPublicPage) {
-    return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
-  }
-
-  const isAdminPage = pathname.startsWith('/admin');
-
-  if (isProtocolHalted && !isAdmin) {
+  // If protocol is halted and user is NOT an admin, show maintenance screen
+  // This now works for both logged-in users and guests.
+  if (isProtocolHalted && !isAdmin && !isPublicPage) {
     return (
       <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-background text-center p-6">
           <div className="relative mb-8">
@@ -87,16 +84,22 @@ export default function AppContent({
           </div>
           <Button asChild variant="outline" size="lg" className="gap-2">
               <Link href="/login?admin=true">
-                  <Lock className="h-4 w-4" />
-                  Admin Login
+                  <Code className="h-4 w-4" />
+                  Developer Login
               </Link>
           </Button>
           <p className="text-xs text-muted-foreground mt-4 max-w-xs">
-              Authorised administrators can sign in to continue maintenance work.
+              Authorised developers can sign in to continue maintenance work.
           </p>
       </div>
     );
   }
+
+  if (isPublicPage) {
+    return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
+  }
+
+  const isAdminPage = pathname.startsWith('/admin');
 
   return (
     <SidebarProvider defaultOpen={true}>

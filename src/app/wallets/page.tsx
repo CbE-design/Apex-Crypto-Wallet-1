@@ -26,7 +26,7 @@ import Link from 'next/link';
 import QRCode from 'qrcode';
 import { useCurrency } from '@/context/currency-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+import { cn, formatAppTimeShort, formatAppDate } from '@/lib/utils';
 import { marketCoins } from '@/lib/data';
 import { currencies } from '@/lib/currencies';
 import { useLivePrices } from '@/hooks/use-live-prices';
@@ -128,7 +128,6 @@ function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string
   return (
     <div className="px-3 py-2 space-y-2 max-h-[350px] overflow-y-auto scroll-container bg-black/10">
       {transactions.map(tx => {
-        const date = tx.timestamp ? tx.timestamp.toDate() : new Date();
         const fiatAmountUSD = tx.amount * (tx.price ?? 0);
         return (
           <div key={tx.id} className="flex items-center justify-between px-3 py-3 rounded-xl glass-module border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200 group">
@@ -157,7 +156,7 @@ function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string
                   <span className="text-[9px] text-muted-foreground/30 italic">No ref</span>
                 )}
                 <span className="text-[10px] text-muted-foreground/40 ml-auto shrink-0 font-medium">
-                  {date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' })} • {date.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
+                  {formatAppDate(tx.timestamp, { day: '2-digit', month: 'short' })} • {formatAppTimeShort(tx.timestamp)}
                 </span>
               </div>
             </div>
@@ -258,7 +257,7 @@ export default function MyWalletsPage() {
   const handleCopy = (address: string) => {
     if (!address) return;
     navigator.clipboard.writeText(address);
-    toast({ title: "Address Copied", description: "Wallet address copied to clipboard." });
+    toast({ title: "Address Copies", description: "Wallet address copied to clipboard." });
   };
 
   const SYNC_STEPS: Record<string, string[]> = {
@@ -398,7 +397,7 @@ export default function MyWalletsPage() {
                     </div>
                     {lastUpdated && (
                       <span className="text-[10px] text-muted-foreground/40 font-medium">
-                        Synced {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        Synced {formatAppTimeShort(lastUpdated)}
                       </span>
                     )}
                   </div>
@@ -790,7 +789,7 @@ export default function MyWalletsPage() {
                     </div>
                     <div className="text-left">
                       <DialogTitle className="text-xl font-bold">Receive {selectedQrAddress?.currency}</DialogTitle>
-                      <p className="text-sm text-muted-foreground/60 font-medium">Use this address to deposit funds</p>
+                      <DialogDescription className="text-sm text-muted-foreground/60 font-medium">Use this address to deposit funds</DialogDescription>
                     </div>
                   </div>
                 </div>
@@ -841,7 +840,7 @@ export default function MyWalletsPage() {
                   Copy Address
                 </Button>
                 <div className="flex items-center gap-2 justify-center py-2 px-4 rounded-xl bg-amber-500/5 border border-amber-500/10">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
                   <p className="text-[10px] font-bold text-amber-500/80 leading-tight">
                     Only send {selectedQrAddress?.currency} ({getChainType(selectedQrAddress?.currency || '')}) to this address.
                   </p>
@@ -854,6 +853,10 @@ export default function MyWalletsPage() {
         {/* Integrated Explorer Modal */}
         <Dialog open={explorerOpen} onOpenChange={setExplorerOpen}>
           <DialogContent className="max-w-[95vw] w-full h-[90vh] glass-module border-white/[0.1] rounded-[32px] !bg-card/95 backdrop-blur-3xl p-0 overflow-hidden flex flex-col">
+             <DialogHeader className="sr-only">
+               <DialogTitle>Block Explorer</DialogTitle>
+               <DialogDescription>View transaction history and wallet details on the blockchain.</DialogDescription>
+             </DialogHeader>
              <div className="flex-1 overflow-y-auto">
                 <div className="relative h-full">
                    {explorerAddress && explorerCurrency && (
