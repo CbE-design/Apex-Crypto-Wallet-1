@@ -107,3 +107,24 @@ All Firestore queries that combine `where` + `orderBy` sort client-side to avoid
 - Dev server binds to `0.0.0.0` for proxy compatibility
 - Replit domains whitelisted in `next.config.ts` for server actions
 - Dependencies installed with `--legacy-peer-deps` due to genkit peer conflict
+
+## Onboarding Flow Notes
+
+### Wallet Import (`importWallet` in `src/context/wallet-context.tsx`)
+- Sanitises the seed phrase: strips zero-width chars, quotes, normalises spaces, lowercases.
+- Validates word count is 12 / 15 / 18 / 21 / 24 before calling `ethers.Wallet.fromPhrase`.
+- Wipes any leftover vault from a prior, abandoned import on the same device before starting a fresh anonymous session.
+- Logs failures via `console.error('[importWallet] failed:', err)` for diagnostics.
+
+### PIN Setup Dialog (`src/components/pin-setup-dialog.tsx`)
+- Steps: `create` → `confirm` → `passkey` → `done`.
+- Always reaches a step the user must explicitly dismiss — the dialog never auto-closes after PIN confirmation.
+- When the device does not support passkeys, the `passkey` step still renders and shows a "Continue to Wallet" CTA so the screen never flashes.
+- `confirmInFlight` ref guards against double-execution from React's auto-advance effect.
+- Escape key and outside clicks are blocked to prevent accidental dismissal.
+
+### KYC Verification Modal (`src/components/kyc-verification-modal.tsx`)
+- `documentRequiresExpiry` derived value drives both the form and the review step.
+- Expiry input only renders for `passport` and `drivers_license` (not for SA `national_id`).
+- When SA National ID is selected, an explanatory note replaces the expiry field and the document number placeholder switches to "13-digit RSA ID number".
+- On submission, `documentExpiry` is stored as `'N/A'` for SA National ID so admin views still display a value.

@@ -1,8 +1,20 @@
-import type {NextConfig} from 'next';
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
+  },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: 'clipboard-write=(self)',
+          },
+        ],
+      },
+    ]
   },
   images: {
     remotePatterns: [
@@ -32,6 +44,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  transpilePackages: ['undici'],
   allowedDevOrigins: [
     "*.replit.dev",
     "*.kirk.replit.dev",
@@ -64,6 +77,18 @@ const nextConfig: NextConfig = {
         ...(process.env.REPLIT_DEV_DOMAIN ? [process.env.REPLIT_DEV_DOMAIN] : []),
       ],
     },
+  },
+  webpack: (config, { isServer, webpack }) => {
+    if (!isServer) {
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(
+          /firebase\/functions/,
+          './empty-module.js'
+        )
+      );
+    }
+
+    return config;
   },
 };
 
