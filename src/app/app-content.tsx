@@ -7,7 +7,7 @@ import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
 import { useWallet } from '@/context/wallet-context';
-import { ShieldAlert, Loader2, Power, Lock, Code } from 'lucide-react';
+import { ShieldAlert, Loader2, Power, Code } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { EyeWatermark } from '@/components/eye-watermark';
@@ -32,7 +32,6 @@ export default function AppContent({
 
   const protocolSettingsRef = useMemoFirebase(() => {
     if (!firestore) return null;
-    // Removed dependency on 'user' so guests also see maintenance status
     return doc(firestore, 'protocol_settings', 'status');
   }, [firestore]);
 
@@ -45,10 +44,7 @@ export default function AppContent({
                        pathname.startsWith('/legal') || 
                        pathname === '/coming-soon';
 
-  if (!isMounted) {
-    return null; // or a basic skeleton loader
-  }
-
+  // Auth/Initial loading state
   if (loading && !isPublicPage) {
     return (
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
@@ -60,9 +56,10 @@ export default function AppContent({
     );
   }
 
-  // If protocol is halted and user is NOT an admin, show maintenance screen
-  // This now works for both logged-in users and guests.
-  if (isProtocolHalted && !isAdmin && !isPublicPage) {
+  // If protocol is halted and user is NOT an admin, show maintenance screen.
+  // IMPORTANT: isMounted check ensures we only show this on the client to avoid 
+  // hydration mismatch between server (halted: unknown) and client (halted: true).
+  if (isMounted && isProtocolHalted && !isAdmin && !isPublicPage) {
     return (
       <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-background text-center p-6">
           <div className="relative mb-8">
@@ -95,6 +92,8 @@ export default function AppContent({
     );
   }
 
+  // During hydration/initial render, render the structure without sidebar logic
+  // if not public, or just the children if public.
   if (isPublicPage) {
     return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
   }

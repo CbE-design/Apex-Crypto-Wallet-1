@@ -97,10 +97,15 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [addressHint, setAddressHint] = useState('');
   const [hasPasskey, setHasPasskey] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [passkeySupported, setPasskeySupported] = useState(false);
 
   const pinnedPinRef = useRef<string | null>(null);
 
-  const passkeySupported = useMemo(() => isPasskeySupported(), []);
+  // Safety: Only check passkey support on client mount to avoid hydration mismatch
+  useEffect(() => {
+    setPasskeySupported(isPasskeySupported());
+  }, []);
+
   const pendingVaultSetup = pendingWallet !== null;
 
   const userDocRef = useMemoFirebase(() => {

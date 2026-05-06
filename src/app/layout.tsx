@@ -4,6 +4,7 @@ import './globals.css';
 import { cn } from '@/lib/utils';
 import { Providers } from './providers';
 import { ClientShell } from './client-shell';
+import { Suspense } from 'react';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -46,9 +47,11 @@ export default function RootLayout({
     <html lang="en" className={cn('h-full', inter.variable, roboto_mono.variable, space_grotesk.variable)} suppressHydrationWarning>
       <body className={cn('font-body antialiased h-full', inter.className)}>
         <Providers>
-          <ClientShell>
-            {children}
-          </ClientShell>
+          <Suspense fallback={null}>
+            <ClientShell>
+              {children}
+            </ClientShell>
+          </Suspense>
         </Providers>
       </body>
     </html>

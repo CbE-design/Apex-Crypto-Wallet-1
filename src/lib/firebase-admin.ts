@@ -13,3 +13,11 @@ if (!admin.apps.length) {
 }
 
 export const firebaseAdmin = admin;
+
+export function getAdminFirestore() {
+  return admin.firestore();
+}
+
+export function getAdminMessaging() {
+  return admin.messaging();
+}
