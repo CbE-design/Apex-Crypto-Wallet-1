@@ -24,6 +24,7 @@ import {
 } from '@/lib/vault';
 import { registerPasskey, authenticatePasskey, isPasskeySupported } from '@/lib/passkey';
 import { KYCStatus } from '@/lib/types';
+import { getAuthToken } from '@/ai/flows/auth-flow';
 
 // ── types ────────────────────────────────────────────────────────────────
 interface Wallet {
@@ -301,129 +302,92 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [auth, setupUserAndWalletDocuments, toast]);
 
-  const importWallet = useCallback(async (mnemonic: string) => {
-    if (!auth || !firestore) throw new Error('Services missing');
-    setIsInitializing(true);
-    try {
-      // Strip any zero-width chars, quotes, line breaks, and unicode whitespace
-      // that often sneak in when copy-pasting from PDFs / messaging apps.
-      const cleanMnemonic = mnemonic
-        .replace(/[\u200B-\u200D\uFEFF]/g, '')
-        .replace(/["'`]/g, '')
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, ' ');
-
-      const wordCount = cleanMnemonic.split(' ').filter(Boolean).length;
-      if (![12, 15, 18, 21, 24].includes(wordCount)) {
-        throw new Error(
-          `Seed phrases must be 12, 15, 18, 21, or 24 words. You entered ${wordCount}.`,
-        );
-      }
-
-      let importedWallet: ethers.HDNodeWallet;
+  const importWallet = useCallback(
+    async (mnemonic: string) => {
+      if (!auth || !firestore) throw new Error('Services missing');
+      setIsInitializing(true);
       try {
-        importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
-      } catch (phraseErr) {
-        // Re-throw with a stable shape the catch block below can recognise.
-        throw new Error('Invalid mnemonic phrase.');
-      }
+        const cleanMnemonic = mnemonic
+          .replace(/[\u200B-\u200D\uFEFF]/g, '')
+          .replace(/[\"'`]/g, '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
 
-      // Clear any leftover vault from a prior, abandoned import on this device
-      // BEFORE we start a new anonymous session, so a fresh PIN setup can run.
-      if (typeof window !== 'undefined') {
-        const previousUid = auth.currentUser?.uid;
-        if (previousUid) {
-          localStorage.removeItem(`${VAULT_PREFIX}${previousUid}`);
-          localStorage.removeItem(`${PASSKEY_PREFIX}${previousUid}`);
-          localStorage.removeItem(`apex-wallet-${previousUid}`);
-          sessionStorage.removeItem(`${SESSION_PREFIX}${previousUid}`);
+        const wordCount = cleanMnemonic.split(' ').filter(Boolean).length;
+        if (![12, 15, 18, 21, 24].includes(wordCount)) {
+          throw new Error(`Seed phrases must be 12, 15, 18, 21, or 24 words. You entered ${wordCount}.`);
         }
-      }
-      pinnedPinRef.current = null;
-      setVaultLocked(false);
-      setHasPasskey(false);
-      setAddressHint('');
-      setWallet(null);
 
-      const userCredential = await initiateAnonymousSignIn(auth);
-      const firebaseUser = userCredential?.user;
-      if (!firebaseUser) throw new Error('Could not establish secure session.');
+        const importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
+        const address = importedWallet.address;
 
-      // Look for an existing account that owns this wallet address so we can
-      // carry over balances, KYC status, and transaction history.
-      const addressLower = importedWallet.address.toLowerCase();
-      let priorUid: string | null = null;
-      let priorProfile: Partial<UserProfile> | null = null;
-      try {
-        const usersQ = query(
-          collection(firestore, 'users'),
-          where('walletAddressLowercase', '==', addressLower),
-          limit(5),
-        );
-        const snap = await getDocs(usersQ);
-        const match = snap.docs.find(d => d.id !== firebaseUser.uid);
-        if (match) {
-          priorUid = match.id;
-          priorProfile = match.data() as Partial<UserProfile>;
+        // Clear any leftover vault from a prior, abandoned import on this device.
+        if (typeof window !== 'undefined') {
+          const previousUid = auth.currentUser?.uid;
+          if (previousUid) {
+            localStorage.removeItem(`${VAULT_PREFIX}${previousUid}`);
+            localStorage.removeItem(`${PASSKEY_PREFIX}${previousUid}`);
+            localStorage.removeItem(`apex-wallet-${previousUid}`);
+            sessionStorage.removeItem(`${SESSION_PREFIX}${previousUid}`);
+          }
         }
-      } catch (_) { /* offline or rules — fall through to fresh init */ }
 
-      const walletData = await setupUserAndWalletDocuments(firebaseUser, importedWallet as any);
+        pinnedPinRef.current = null;
+        setVaultLocked(false);
+        setHasPasskey(false);
+        setAddressHint('');
+        setWallet(null);
 
-      if (priorUid && priorProfile) {
-        const restoreBatch = writeBatch(firestore);
-        const userRef = doc(firestore, 'users', firebaseUser.uid);
-        const carriedFields: Record<string, unknown> = {};
-        if (priorProfile.kycStatus)        carriedFields.kycStatus        = priorProfile.kycStatus;
-        if ((priorProfile as any).kycSubmissionId) carriedFields.kycSubmissionId = (priorProfile as any).kycSubmissionId;
-        if (Object.keys(carriedFields).length) {
-          restoreBatch.set(userRef, carriedFields, { merge: true });
-        }
+        let userCredential;
         try {
-          const priorWalletsSnap = await getDocs(collection(firestore, 'users', priorUid, 'wallets'));
-          priorWalletsSnap.forEach(walletSnap => {
-            const data = walletSnap.data() as { currency?: string; balance?: number };
-            if (typeof data.balance === 'number' && data.balance > 0 && data.currency) {
-              const targetRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', data.currency);
-              restoreBatch.set(targetRef, { balance: data.balance }, { merge: true });
-            }
-          });
-          await restoreBatch.commit();
-        } catch (_) { /* best-effort restore — keep import working even if this fails */ }
-      }
+          const token = await getAuthToken({ address });
+          userCredential = await signInWithCustomToken(auth, token);
+        } catch (e) {
+          userCredential = await initiateAnonymousSignIn(auth);
+          const walletData = await setupUserAndWalletDocuments(userCredential.user, importedWallet as any);
+          setPendingWallet(walletData);
+          return;
+        }
 
-      setPendingWallet(walletData);
-    } catch (err: any) {
-      console.error('[importWallet] failed:', err);
-      const lower = (err?.message || '').toLowerCase();
-      let msg: string;
-      if (lower.includes('seed phrases must be')) {
-        msg = err.message;
-      } else if (
-        lower.includes('mnemonic') ||
-        lower.includes('phrase') ||
-        lower.includes('checksum') ||
-        lower.includes('wordlist')
-      ) {
-        msg = 'That seed phrase is not valid. Check the spelling, order, and word count.';
-      } else if (lower.includes('auth') || lower.includes('network')) {
-        msg = 'Could not reach the secure session service. Check your connection and try again.';
-      } else if (lower.includes('permission')) {
-        msg = 'The wallet service rejected this request. Please refresh and try again.';
-      } else {
-        msg = err?.message || 'Could not restore wallet. Please try again.';
+        const w: Wallet = { address: importedWallet.address, privateKey: importedWallet.privateKey };
+        sessionStorage.setItem(`${SESSION_PREFIX}${userCredential.user.uid}`, JSON.stringify(w));
+        setWallet(w);
+        setVaultLocked(false);
+
+      } catch (err: any) {
+        console.error('[importWallet] failed:', err);
+        const lower = (err?.message || '').toLowerCase();
+        let msg: string;
+        if (lower.includes('seed phrases must be')) {
+          msg = err.message;
+        } else if (
+          lower.includes('mnemonic') ||
+          lower.includes('phrase') ||
+          lower.includes('checksum') ||
+          lower.includes('wordlist')
+        ) {
+          msg = 'That seed phrase is not valid. Check the spelling, order, and word count.';
+        } else if (lower.includes('auth') || lower.includes('network')) {
+          msg = 'Could not reach the secure session service. Check your connection and try again.';
+        } else if (lower.includes('permission')) {
+          msg = 'The wallet service rejected this request. Please refresh and try again.';
+        } else {
+          msg = err?.message || 'Could not restore wallet. Please try again.';
+        }
+        toast({
+          title: 'Restore Failed',
+          description: msg,
+          variant: 'destructive',
+        });
+        throw err;
+      } finally {
+        setIsInitializing(false);
       }
-      toast({
-        title: 'Restore Failed',
-        description: msg,
-        variant: 'destructive',
-      });
-      throw err;
-    } finally {
-      setIsInitializing(false);
-    }
-  }, [auth, firestore, setupUserAndWalletDocuments, toast]);
+    },
+    [auth, firestore, setupUserAndWalletDocuments, toast]
+  );
+
 
   const disconnectWallet = useCallback(() => {
     if (!auth) return;
