@@ -51,6 +51,7 @@ const STATUS_CONFIG: Record<WithdrawalStatus, { label: string; color: string; ic
   COMPLETED: { label: 'Completed', color: 'text-accent', icon: CheckCircle2 },
   REJECTED: { label: 'Rejected', color: 'text-destructive', icon: XCircle },
   FAILED: { label: 'Failed', color: 'text-destructive', icon: AlertTriangle },
+  CANCELLED: { label: 'Cancelled', color: 'text-muted-foreground', icon: XCircle },
 };
 
 export function WithdrawalHistory() {
@@ -222,6 +223,7 @@ export function WithdrawalHistory() {
                 selectedWithdrawal.status === 'PROCESSING' && "bg-blue-500/10 border-blue-500/20",
                 (selectedWithdrawal.status === 'APPROVED' || selectedWithdrawal.status === 'COMPLETED') && "bg-accent/10 border-accent/20",
                 (selectedWithdrawal.status === 'REJECTED' || selectedWithdrawal.status === 'FAILED') && "bg-destructive/10 border-destructive/20",
+                selectedWithdrawal.status === 'CANCELLED' && "bg-muted/30 border-muted/40"
               )}>
                 {(() => {
                   const config = STATUS_CONFIG[selectedWithdrawal.status];
@@ -238,6 +240,7 @@ export function WithdrawalHistory() {
                           {selectedWithdrawal.status === 'COMPLETED' && 'Funds have been transferred'}
                           {selectedWithdrawal.status === 'REJECTED' && (selectedWithdrawal.rejectionReason || 'Your request was not approved')}
                           {selectedWithdrawal.status === 'FAILED' && 'An error occurred during processing'}
+                          {selectedWithdrawal.status === 'CANCELLED' && 'This withdrawal request was cancelled'}
                         </p>
                       </div>
                     </>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, Roboto_Mono, Space_Grotesk } from 'next/font/google';
+import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Providers } from './providers';
@@ -44,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn('h-full', inter.variable, roboto_mono.variable, space_grotesk.variable)} suppressHydrationWarning>
+    <html lang="en" className={cn('h-full', inter.variable, roboto_mono.variable, space_grotesk.variable, GeistSans.variable)} suppressHydrationWarning>
       <body className={cn('font-body antialiased h-full', inter.className)}>
         <Providers>
           <Suspense fallback={null}>

@@ -306,54 +306,65 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     async (mnemonic: string) => {
       if (!auth || !firestore) throw new Error('Services missing');
       setIsInitializing(true);
-      try {
-        const cleanMnemonic = mnemonic
-          .replace(/[\u200B-\u200D\uFEFF]/g, '')
-          .replace(/[\"'`]/g, '')
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, ' ');
 
+      try {
+        // 1. Validate and derive wallet from mnemonic
+        const cleanMnemonic = mnemonic.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/[\"'`]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
         const wordCount = cleanMnemonic.split(' ').filter(Boolean).length;
         if (![12, 15, 18, 21, 24].includes(wordCount)) {
           throw new Error(`Seed phrases must be 12, 15, 18, 21, or 24 words. You entered ${wordCount}.`);
         }
-
         const importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
         const address = importedWallet.address;
 
-        // Clear any leftover vault from a prior, abandoned import on this device.
+        // 2. Clean up any previous session state from a different user
         if (typeof window !== 'undefined') {
           const previousUid = auth.currentUser?.uid;
           if (previousUid) {
             localStorage.removeItem(`${VAULT_PREFIX}${previousUid}`);
             localStorage.removeItem(`${PASSKEY_PREFIX}${previousUid}`);
-            localStorage.removeItem(`apex-wallet-${previousUid}`);
             sessionStorage.removeItem(`${SESSION_PREFIX}${previousUid}`);
           }
         }
-
         pinnedPinRef.current = null;
-        setVaultLocked(false);
-        setHasPasskey(false);
-        setAddressHint('');
         setWallet(null);
+        setPendingWallet(null);
+        setVaultLocked(false);
+        setAddressHint('');
 
         let userCredential;
+        let isNewUser = false;
+
+        // 3. Authenticate: Try to sign in as an existing user, or create a new one.
         try {
           const token = await getAuthToken({ address });
           userCredential = await signInWithCustomToken(auth, token);
-        } catch (e) {
-          userCredential = await initiateAnonymousSignIn(auth);
-          const walletData = await setupUserAndWalletDocuments(userCredential.user, importedWallet as any);
-          setPendingWallet(walletData);
-          return;
+        } catch (e: any) {
+          if ((e.message || '').toLowerCase().includes('user not found')) {
+            isNewUser = true;
+            userCredential = await initiateAnonymousSignIn(auth);
+          } else {
+            throw e; // Re-throw network or other unexpected errors
+          }
         }
+        
+        const walletData: Wallet = { address: importedWallet.address, privateKey: importedWallet.privateKey };
 
-        const w: Wallet = { address: importedWallet.address, privateKey: importedWallet.privateKey };
-        sessionStorage.setItem(`${SESSION_PREFIX}${userCredential.user.uid}`, JSON.stringify(w));
-        setWallet(w);
-        setVaultLocked(false);
+        if (isNewUser) {
+          // 4a. New User: Set up their documents and trigger the PIN creation flow.
+          await setupUserAndWalletDocuments(userCredential.user, importedWallet as any);
+          setPendingWallet(walletData);
+        } else {
+          // 4b. Existing User: The `user` state is now set. The main `useEffect` will handle
+          // wallet initialization. We just need to check if this is a new device.
+          const vaultJson = localStorage.getItem(`${VAULT_PREFIX}${userCredential.user.uid}`);
+          if (!vaultJson) {
+            // This is a new device for an existing user. Trigger PIN setup.
+            setPendingWallet(walletData);
+          }
+          // If a vault exists, the `useEffect` will set `vaultLocked=true`, and the user
+          // will be prompted for their existing PIN. Nothing more to do here.
+        }
 
       } catch (err: any) {
         console.error('[importWallet] failed:', err);
@@ -361,26 +372,13 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         let msg: string;
         if (lower.includes('seed phrases must be')) {
           msg = err.message;
-        } else if (
-          lower.includes('mnemonic') ||
-          lower.includes('phrase') ||
-          lower.includes('checksum') ||
-          lower.includes('wordlist')
-        ) {
+        } else if (lower.includes('mnemonic') || lower.includes('phrase') || lower.includes('checksum') || lower.includes('wordlist')) {
           msg = 'That seed phrase is not valid. Check the spelling, order, and word count.';
-        } else if (lower.includes('auth') || lower.includes('network')) {
-          msg = 'Could not reach the secure session service. Check your connection and try again.';
-        } else if (lower.includes('permission')) {
-          msg = 'The wallet service rejected this request. Please refresh and try again.';
         } else {
-          msg = err?.message || 'Could not restore wallet. Please try again.';
+          msg = 'Could not restore wallet. Please check your connection and try again.';
         }
-        toast({
-          title: 'Restore Failed',
-          description: msg,
-          variant: 'destructive',
-        });
-        throw err;
+        toast({ title: 'Restore Failed', description: msg, variant: 'destructive' });
+        throw err; // Re-throw to allow the calling component to handle it if needed
       } finally {
         setIsInitializing(false);
       }
@@ -388,17 +386,13 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     [auth, firestore, setupUserAndWalletDocuments, toast]
   );
 
-
   const disconnectWallet = useCallback(() => {
     if (!auth) return;
     const uid = auth.currentUser?.uid;
     signOut(auth).then(() => {
       if (uid && typeof window !== 'undefined') {
-        // Clear ALL local state tied to this session so the login page
-        // shows the import/create screen instead of the PIN lock screen
         localStorage.removeItem(`${VAULT_PREFIX}${uid}`);
         localStorage.removeItem(`${PASSKEY_PREFIX}${uid}`);
-        localStorage.removeItem(`apex-wallet-${uid}`);
         sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`);
       }
       pinnedPinRef.current = null;
