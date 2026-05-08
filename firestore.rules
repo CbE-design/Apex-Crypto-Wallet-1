@@ -69,7 +69,7 @@ service cloud.firestore {
       // querying by `walletAddress`. This prevents a user from listing all documents.
       // Firestore rules are not filters, so this rule ensures that the query itself
       // is permissible. The actual documents returned are still protected by `get` rules.
-      allow list: if request.query.keys.hasAny(['walletAddress']);
+      allow list: if request.query.keys.hasAny(['walletAddress', 'walletAddressLowercase']);
 
       // A user can get their own document, or an admin can get any document.
       allow get:   if isOwner(userId) || isAdmin();
