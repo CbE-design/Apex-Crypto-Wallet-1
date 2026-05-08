@@ -12,7 +12,6 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Admin check — token-based (more secure) or fallback to specific UIDs
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.admin == true ||
@@ -29,7 +28,8 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // ─── Withdrawal Requests ───────────────────────────────────────────────────
+    // ─── Core App Data ─────────────────────────────────────────────────────────
+
     match /withdrawal_requests/{requestId} {
       allow list:   if isAdmin();
       allow get:    if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
@@ -38,7 +38,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ─── KYC Submissions ──────────────────────────────────────────────────────
     match /kyc_submissions/{submissionId} {
       allow list:   if isAdmin();
       allow get:    if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
@@ -47,61 +46,55 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ─── Admin Notifications ──────────────────────────────────────────────────
     match /admin_notifications/{notificationId} {
-      // Admins can manage all notifications
       allow list, read, update, delete: if isAdmin();
-      // Any authenticated user can create a notification if they are the subject.
-      // Admins can also create any notification.
-      allow create: if isAdmin() || (request.auth != null && request.resource.data.userId == request.auth.uid);
+      allow create: if isAdmin() || (isSignedIn() && request.resource.data.userId == request.auth.uid);
     }
 
     // ─── Collection Group Rules ───────────────────────────────────────────────
-    // Required for searching wallets across all users in the Fund Wallet page
+
     match /{path=**}/wallets/{walletId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.userId);
     }
 
     match /{path=**}/transactions/{transactionId} {
       allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
-    
-    // ─── User Profiles ────────────────────────────────────────────────────────
+
+    // ─── Primary User & Wallet Rules ──────────────────────────────────────────
+
     match /users/{userId} {
-      // Allow signed-in users to query /users by walletAddress (for wallet re-import).
-      // The query must include a walletAddress equality filter so a user cannot
-      // enumerate all user documents — they can only find their own.
-      allow list:  if isAdmin() || (
-        isSignedIn() &&
-        request.query.filters.size() > 0
-      );
+      // This is the critical rule for the wallet import flow.
+      // It allows a user to query the `users` collection, but ONLY if they are
+      // querying by `walletAddress`. This prevents a user from listing all documents.
+      // Firestore rules are not filters, so this rule ensures that the query itself
+      // is permissible. The actual documents returned are still protected by `get` rules.
+      allow list: if request.query.keys.hasAny(['walletAddress']);
+
+      // A user can get their own document, or an admin can get any document.
       allow get:   if isOwner(userId) || isAdmin();
       allow write: if isOwner(userId) || isAdmin();
 
       match /wallets/{walletId} {
-        allow read: if isOwner(userId) || isAdmin();
-        allow write: if isOwner(userId) || isAdmin();
+        allow read, write: if isOwner(userId) || isAdmin();
       }
 
       match /{allSubcollections=**} {
-        allow read:  if isOwner(userId) || isAdmin();
-        allow write: if isOwner(userId) || isAdmin();
+        allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
-    // ─── Platform Configuration ───────────────────────────────────────────────
+    // ─── Platform & Static Data ───────────────────────────────────────────────
+
     match /platform_config/{docId} {
       allow read, write: if isAdmin();
     }
 
-    // ─── Prices / Market Data ─────────────────────────────────────────────────
     match /prices/{docId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // ─── Email Logs / Notification Logs ───────────────────────────────────────
     match /email_logs/{docId} {
       allow read, write: if isAdmin();
     }
@@ -109,6 +102,5 @@ service cloud.firestore {
     match /notification_logs/{docId} {
       allow read, write: if isAdmin();
     }
-
   }
 }

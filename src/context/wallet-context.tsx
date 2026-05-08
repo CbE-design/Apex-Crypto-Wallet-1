@@ -332,40 +332,35 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         setVaultLocked(false);
         setAddressHint('');
 
-        let userCredential;
-        let isNewUser = false;
+        // 3. Check if user with this wallet address already exists.
+        const usersRef = collection(firestore, 'users');
+        const q = query(usersRef, where('walletAddressLowercase', '==', address.toLowerCase()), limit(1));
+        const querySnapshot = await getDocs(q);
 
-        // 3. Authenticate: Try to sign in as an existing user, or create a new one.
-        try {
-          const token = await getAuthToken({ address });
-          userCredential = await signInWithCustomToken(auth, token);
-        } catch (e: any) {
-          if ((e.message || '').toLowerCase().includes('user not found')) {
-            isNewUser = true;
-            userCredential = await initiateAnonymousSignIn(auth);
-          } else {
-            throw e; // Re-throw network or other unexpected errors
-          }
-        }
-        
         const walletData: Wallet = { address: importedWallet.address, privateKey: importedWallet.privateKey };
+        let userCredential;
 
-        if (isNewUser) {
-          // 4a. New User: Set up their documents and trigger the PIN creation flow.
-          await setupUserAndWalletDocuments(userCredential.user, importedWallet as any);
-          setPendingWallet(walletData);
-        } else {
-          // 4b. Existing User: The `user` state is now set. The main `useEffect` will handle
-          // wallet initialization. We just need to check if this is a new device.
+        if (!querySnapshot.empty) {
+          // 4a. Existing User: Authenticate and trigger PIN setup for the new device.
+          const token = await getAuthToken({ address }); // Use address to get token for existing user
+          userCredential = await signInWithCustomToken(auth, token);
+
+          // The main useEffect will handle wallet initialization.
+          // On a new device, a vault won't exist, so we set pendingWallet to trigger PIN setup.
           const vaultJson = localStorage.getItem(`${VAULT_PREFIX}${userCredential.user.uid}`);
           if (!vaultJson) {
-            // This is a new device for an existing user. Trigger PIN setup.
             setPendingWallet(walletData);
           }
-          // If a vault exists, the `useEffect` will set `vaultLocked=true`, and the user
-          // will be prompted for their existing PIN. Nothing more to do here.
+        } else {
+          // 4b. New User: Create an anonymous account and set up their documents.
+          userCredential = await initiateAnonymousSignIn(auth);
+          if (userCredential.user) {
+            await setupUserAndWalletDocuments(userCredential.user, importedWallet as any);
+            setPendingWallet(walletData);
+          } else {
+            throw new Error('Failed to create a new user.');
+          }
         }
-
       } catch (err: any) {
         console.error('[importWallet] failed:', err);
         const lower = (err?.message || '').toLowerCase();

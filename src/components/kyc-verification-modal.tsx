@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ShieldCheck, ArrowRight } from 'lucide-react';
 import { useKycVerification } from '@/hooks/use-kyc-verification';
 
-export function KycVerificationModal() {
+export default function KycVerificationModal() {
   const { isKycRequired, isKycModalOpen, setKycModalOpen } = useKycVerification();
 
   const handleContinue = () => {

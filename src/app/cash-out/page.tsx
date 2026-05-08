@@ -1,6 +1,6 @@
 'use client';
 
-import { KycVerificationModal } from '@/components/kyc-verification-modal';
+import KycVerificationModal from '@/components/kyc-verification-modal';
 import { WithdrawalContent } from '@/app/cash-out/withdrawal-content';
 
 /**

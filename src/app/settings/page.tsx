@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePrivacyMode } from '@/hooks/use-privacy-mode';
-import { KYCVerificationModal } from '@/components/kyc-verification-modal';
+import KYCVerificationModal from '@/components/kyc-verification-modal';
 import type { KYCStatus } from '@/lib/types';
 
 export default function SettingsPage() {

@@ -7,7 +7,7 @@ import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit as firestoreLimit, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
-import { KYCVerificationModal } from '@/components/kyc-verification-modal';
+import KYCVerificationModal from '@/components/kyc-verification-modal';
 import type { KYCStatus } from '@/lib/types';
 import {
   Copy, RefreshCw, Loader2, QrCode, Wallet, ExternalLink,

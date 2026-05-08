@@ -6,7 +6,7 @@ import {z, defineFlow, run} from 'genkit';
 import {getFirestore} from 'firebase-admin/firestore';
 
 // Initialize Firebase Admin SDK if not already done
-import {adminApp} from '@/lib/firebase-admin';
+import {firebaseAdmin} from '@/lib/firebase-admin';
 
 export const getAuthToken = defineFlow(
   {
@@ -15,7 +15,7 @@ export const getAuthToken = defineFlow(
     outputSchema: z.string(),
   },
   async ({address}) => {
-    const db = getFirestore(adminApp);
+    const db = getFirestore(firebaseAdmin);
     const usersRef = db.collection('users');
     // Always query by lowercase address for consistency
     const q = usersRef.where('walletAddressLowercase', '==', address.toLowerCase()).limit(1);
@@ -27,7 +27,7 @@ export const getAuthToken = defineFlow(
 
     const user = snapshot.docs[0];
     const token = await run('create-token', () =>
-      getAuth(adminApp).createCustomToken(user.id)
+      getAuth(firebaseAdmin).createCustomToken(user.id)
     );
 
     return token;
