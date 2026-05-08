@@ -138,6 +138,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         createdAt: serverTimestamp(),
         walletAddress: walletInstance.address,
         walletAddressLowercase: walletInstance.address.toLowerCase(),
+        kycStatus: "NOT_SUBMITTED",
       }, { merge: true });
 
       marketCoins.forEach(coin => {
