@@ -1,4 +1,4 @@
-const { onRequest } = require('firebase-functions/v2/https');
+import { onRequest } from 'firebase-functions/v2/https';
   const server = import('firebase-frameworks');
-  exports.ssrstudio8025635453a486 = onRequest({"region":"us-central1"}, (req, res) => server.then(it => it.handle(req, res)));
+  export const ssrstudio8025635453a486 = onRequest({"region":"us-central1"}, (req, res) => server.then(it => it.handle(req, res)));
   

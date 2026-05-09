@@ -22,6 +22,7 @@ import {
 } from '@/lib/vault';
 import { registerPasskey, authenticatePasskey, isPasskeySupported } from '@/lib/passkey';
 import { KYCStatus } from '@/lib/types';
+import { getAuthToken } from '@/ai/flows/auth-flow';
 
 // ── types ────────────────────────────────────────────────────────────────
 interface Wallet {
@@ -108,10 +109,15 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [addressHint, setAddressHint] = useState('');
   const [hasPasskey, setHasPasskey] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [passkeySupported, setPasskeySupported] = useState(false);
 
   const pinnedPinRef = useRef<string | null>(null);
 
-  const passkeySupported = useMemo(() => isPasskeySupported(), []);
+  // Safety: Only check passkey support on client mount to avoid hydration mismatch
+  useEffect(() => {
+    setPasskeySupported(isPasskeySupported());
+  }, []);
+
   const pendingVaultSetup = pendingWallet !== null;
 
   const userDocRef = useMemoFirebase(() => {
@@ -364,7 +370,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         throw new Error(`Seed phrases must be 12, 15, 18, 21, or 24 words. You entered ${wordCount}.`);
       }
 
-      let importedWallet: ethers.HDNodeWallet;
       try {
         importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
       } catch {

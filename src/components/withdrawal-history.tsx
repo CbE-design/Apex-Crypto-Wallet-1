@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, formatAppDate, formatAppTimeShort } from "@/lib/utils";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, where } from 'firebase/firestore';
 import { useCurrency } from "@/context/currency-context";
@@ -51,28 +51,8 @@ const STATUS_CONFIG: Record<WithdrawalStatus, { label: string; color: string; ic
   COMPLETED: { label: 'Completed', color: 'text-accent', icon: CheckCircle2 },
   REJECTED: { label: 'Rejected', color: 'text-destructive', icon: XCircle },
   FAILED: { label: 'Failed', color: 'text-destructive', icon: AlertTriangle },
+  CANCELLED: { label: 'Cancelled', color: 'text-muted-foreground', icon: XCircle },
 };
-
-function formatDate(timestamp: any): string {
-  if (!timestamp) return '—';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return new Intl.DateTimeFormat('en-ZA', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-}
-
-function formatShortDate(timestamp: any): string {
-  if (!timestamp) return '—';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return new Intl.DateTimeFormat('en-ZA', {
-    day: '2-digit',
-    month: 'short',
-  }).format(date);
-}
 
 export function WithdrawalHistory() {
   const { user } = useUser();
@@ -147,7 +127,9 @@ export function WithdrawalHistory() {
                         onClick={() => handleViewDetails(withdrawal)}
                       >
                         <TableCell className="pl-4 py-3">
-                          <div className="text-xs font-medium">{formatShortDate(withdrawal.createdAt)}</div>
+                          <div className="text-xs font-medium">
+                            {formatAppDate(withdrawal.createdAt, { day: '2-digit', month: 'short' })}
+                          </div>
                           <div className="text-[10px] text-muted-foreground font-mono">
                             {withdrawal.transactionReference?.slice(-8) || '—'}
                           </div>
@@ -241,6 +223,7 @@ export function WithdrawalHistory() {
                 selectedWithdrawal.status === 'PROCESSING' && "bg-blue-500/10 border-blue-500/20",
                 (selectedWithdrawal.status === 'APPROVED' || selectedWithdrawal.status === 'COMPLETED') && "bg-accent/10 border-accent/20",
                 (selectedWithdrawal.status === 'REJECTED' || selectedWithdrawal.status === 'FAILED') && "bg-destructive/10 border-destructive/20",
+                selectedWithdrawal.status === 'CANCELLED' && "bg-muted/30 border-muted/40"
               )}>
                 {(() => {
                   const config = STATUS_CONFIG[selectedWithdrawal.status];
@@ -257,6 +240,7 @@ export function WithdrawalHistory() {
                           {selectedWithdrawal.status === 'COMPLETED' && 'Funds have been transferred'}
                           {selectedWithdrawal.status === 'REJECTED' && (selectedWithdrawal.rejectionReason || 'Your request was not approved')}
                           {selectedWithdrawal.status === 'FAILED' && 'An error occurred during processing'}
+                          {selectedWithdrawal.status === 'CANCELLED' && 'This withdrawal request was cancelled'}
                         </p>
                       </div>
                     </>
@@ -322,12 +306,28 @@ export function WithdrawalHistory() {
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Timeline</p>
                 <div className="flex justify-between items-center py-1">
                   <span className="text-xs text-muted-foreground">Submitted</span>
-                  <span className="text-xs font-medium">{formatDate(selectedWithdrawal.createdAt)}</span>
+                  <span className="text-xs font-medium">
+                    {formatAppDate(selectedWithdrawal.createdAt, {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
                 </div>
                 {selectedWithdrawal.processedAt && (
                   <div className="flex justify-between items-center py-1">
                     <span className="text-xs text-muted-foreground">Processed</span>
-                    <span className="text-xs font-medium">{formatDate(selectedWithdrawal.processedAt)}</span>
+                    <span className="text-xs font-medium">
+                        {formatAppDate(selectedWithdrawal.processedAt, {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                    </span>
                   </div>
                 )}
               </div>

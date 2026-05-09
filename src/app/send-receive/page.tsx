@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowRight, Copy, Loader2, ShieldCheck, Send, ArrowDownToLine, QrCode } from 'lucide-react';
 import { RiskDisclaimer } from '@/components/risk-disclaimer';
 import { CryptoIcon } from '@/components/crypto-icon';
@@ -127,17 +127,20 @@ export default function SendReceivePage() {
     }
     
     try {
-        await runTransaction(firestore, async (transaction) => {
-            const usersRef = collection(firestore, 'users');
-            const recipientQuery = query(usersRef, where("walletAddressLowercase", "==", data.recipientAddress.toLowerCase()), limit(1));
-            const recipientSnapshot = await getDocs(recipientQuery);
-            
-            if (recipientSnapshot.empty) {
-                throw new Error("Recipient address not found. Please check the address and try again.");
-            }
-            const recipientId = recipientSnapshot.docs[0].id;
-            const amount = parseFloat(data.amount);
+        // Recipient lookup must happen OUTSIDE the transaction — getDocs is not
+        // an atomic transaction read and Firestore does not allow collection queries
+        // inside runTransaction.
+        const usersRef = collection(firestore, 'users');
+        const recipientQuery = query(usersRef, where("walletAddressLowercase", "==", data.recipientAddress.toLowerCase()), limit(1));
+        const recipientSnapshot = await getDocs(recipientQuery);
 
+        if (recipientSnapshot.empty) {
+            throw new Error("Recipient address not found. Please check the address and try again.");
+        }
+        const recipientId = recipientSnapshot.docs[0].id;
+        const amount = parseFloat(data.amount);
+
+        await runTransaction(firestore, async (transaction) => {
             const senderWalletRef = doc(firestore, 'users', user.uid, 'wallets', data.asset);
             const recipientWalletRef = doc(firestore, 'users', recipientId, 'wallets', data.asset);
 
@@ -160,6 +163,7 @@ export default function SendReceivePage() {
             transaction.set(senderTxRef, {
                 userId: user.uid,
                 type: 'Internal Transfer',
+                currency: data.asset,
                 amount: amount,
                 price: 0,
                 timestamp: serverTimestamp(),
@@ -310,6 +314,7 @@ export default function SendReceivePage() {
                         <DialogContent className="max-w-xs rounded-2xl">
                             <DialogHeader>
                                 <DialogTitle className="text-center text-lg font-bold">Receive Crypto</DialogTitle>
+                                <DialogDescription className="sr-only">Scan the QR code to send crypto to this wallet.</DialogDescription>
                             </DialogHeader>
                             <div className="flex flex-col items-center gap-4 py-4">
                                 <div className="p-4 bg-white rounded-2xl shadow-lg">

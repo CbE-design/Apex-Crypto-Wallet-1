@@ -1,13 +1,11 @@
 'use strict';
 
-const AssertError = require('./assertError');
-const Stringify = require('./stringify');
-
+const AssertError = require('./error');
 
 const internals = {};
 
 
-const assert = module.exports = function (condition, ...args) {
+module.exports = function (condition, ...args) {
 
     if (condition) {
         return;
@@ -19,12 +17,5 @@ const assert = module.exports = function (condition, ...args) {
         throw args[0];
     }
 
-    const msgs = args
-        .filter((arg) => arg !== '')
-        .map((arg) => {
-
-            return typeof arg === 'string' ? arg : arg instanceof Error ? arg.message : Stringify(arg);
-        });
-
-    throw new AssertError(msgs.join(' '), assert);
+    throw new AssertError(args);
 };

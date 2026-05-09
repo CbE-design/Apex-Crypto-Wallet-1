@@ -168,6 +168,7 @@ export default function SwapPage() {
             transaction.set(sellTxLogRef, {
                 userId: user.uid,
                 type: 'Sell',
+                currency: fromAsset,
                 amount: amountNum,
                 price: fromAssetPrice,
                 timestamp: serverTimestamp(),
@@ -179,6 +180,7 @@ export default function SwapPage() {
             transaction.set(buyTxLogRef, {
                 userId: user.uid,
                 type: 'Buy',
+                currency: toAsset,
                 amount: toAmountNum,
                 price: toAssetPrice,
                 timestamp: serverTimestamp(),

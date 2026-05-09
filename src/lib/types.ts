@@ -52,6 +52,16 @@ export interface PriceAlert {
   triggered: boolean;
 }
 
+export interface Wallet {
+  id: string;
+  userId: string;
+  name: string;
+  symbol: string;
+  balance: number;
+  address: string;
+  createdAt: any;
+}
+
 export const GetExchangeRateInputSchema = z.object({
   fromAsset: z.string().describe('The symbol of the cryptocurrency to convert from.'),
   toAsset: z.string().describe('The symbol of the cryptocurrency to convert to.'),
@@ -127,7 +137,7 @@ export interface Currency {
 export type KYCStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
 
 // Withdrawal Request Types
-export type WithdrawalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type WithdrawalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 export type WithdrawalMethod = 'EFT' | 'SWIFT';
 
 export interface WithdrawalRequest {

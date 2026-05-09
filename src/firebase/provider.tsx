@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useMemo, type DependencyList } from 'react';
 import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, Firestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
 
 const FirebaseContext = createContext<FirebaseApp | undefined>(undefined);
@@ -11,14 +11,22 @@ const AuthContext = createContext<Auth | undefined>(undefined);
 const FirestoreContext = createContext<Firestore | undefined>(undefined);
 
 let app: FirebaseApp;
+let firestore: Firestore;
+
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
+  firestore = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    }),
+    experimentalForceLongPolling: true,
+  });
 } else {
   app = getApp();
+  firestore = getFirestore(app);
 }
 
 const auth = getAuth(app);
-const firestore = getFirestore(app);
 
 export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
