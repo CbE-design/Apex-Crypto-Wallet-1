@@ -302,6 +302,7 @@ export default function WithdrawalApprovalsPage() {
       PROCESSING: { className: 'bg-blue-500/20 text-blue-500 border-blue-500/30', icon: RefreshCw },
       COMPLETED: { className: 'bg-accent/20 text-accent border-accent/30', icon: CheckCircle2 },
       FAILED: { className: 'bg-destructive/20 text-destructive border-destructive/30', icon: XCircle },
+      CANCELLED: { className: 'bg-muted/20 text-muted-foreground border-muted/30', icon: XCircle },
     };
     const config = configs[status];
     const Icon = config.icon;

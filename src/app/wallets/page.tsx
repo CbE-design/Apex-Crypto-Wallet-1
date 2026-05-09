@@ -257,7 +257,7 @@ export default function MyWalletsPage() {
   const handleCopy = (address: string) => {
     if (!address) return;
     navigator.clipboard.writeText(address);
-    toast({ title: "Address Copies", description: "Wallet address copied to clipboard." });
+    toast({ title: "Address Copied", description: "Wallet address copied to clipboard." });
   };
 
   const SYNC_STEPS: Record<string, string[]> = {
