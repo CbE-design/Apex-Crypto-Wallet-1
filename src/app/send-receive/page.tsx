@@ -127,17 +127,20 @@ export default function SendReceivePage() {
     }
     
     try {
-        await runTransaction(firestore, async (transaction) => {
-            const usersRef = collection(firestore, 'users');
-            const recipientQuery = query(usersRef, where("walletAddressLowercase", "==", data.recipientAddress.toLowerCase()), limit(1));
-            const recipientSnapshot = await getDocs(recipientQuery);
-            
-            if (recipientSnapshot.empty) {
-                throw new Error("Recipient address not found. Please check the address and try again.");
-            }
-            const recipientId = recipientSnapshot.docs[0].id;
-            const amount = parseFloat(data.amount);
+        // Recipient lookup must happen OUTSIDE the transaction — getDocs is not
+        // an atomic transaction read and Firestore does not allow collection queries
+        // inside runTransaction.
+        const usersRef = collection(firestore, 'users');
+        const recipientQuery = query(usersRef, where("walletAddressLowercase", "==", data.recipientAddress.toLowerCase()), limit(1));
+        const recipientSnapshot = await getDocs(recipientQuery);
 
+        if (recipientSnapshot.empty) {
+            throw new Error("Recipient address not found. Please check the address and try again.");
+        }
+        const recipientId = recipientSnapshot.docs[0].id;
+        const amount = parseFloat(data.amount);
+
+        await runTransaction(firestore, async (transaction) => {
             const senderWalletRef = doc(firestore, 'users', user.uid, 'wallets', data.asset);
             const recipientWalletRef = doc(firestore, 'users', recipientId, 'wallets', data.asset);
 
@@ -160,6 +163,7 @@ export default function SendReceivePage() {
             transaction.set(senderTxRef, {
                 userId: user.uid,
                 type: 'Internal Transfer',
+                currency: data.asset,
                 amount: amount,
                 price: 0,
                 timestamp: serverTimestamp(),

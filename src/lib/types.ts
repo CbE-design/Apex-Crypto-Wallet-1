@@ -137,7 +137,7 @@ export interface Currency {
 export type KYCStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
 
 // Withdrawal Request Types
-export type WithdrawalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type WithdrawalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 export type WithdrawalMethod = 'EFT' | 'SWIFT';
 
 export interface WithdrawalRequest {

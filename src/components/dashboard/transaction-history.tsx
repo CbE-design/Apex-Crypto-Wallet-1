@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
-import { collection, query, orderBy, limit } from 'firebase/firestore'
+import { collectionGroup, query, where, limit } from 'firebase/firestore'
 import { useCurrency } from "@/context/currency-context";
 import { CryptoIcon } from "../crypto-icon";
 import { Loader2, Activity, ArrowUpRight, ArrowDownLeft, Inbox, AlertTriangle } from "lucide-react";
@@ -31,13 +31,14 @@ interface Transaction {
   type: 'Buy' | 'Sell' | 'Withdrawal' | 'Swap' | 'Internal Transfer';
   amount: number;
   price: number;
-  currency: string; // Now mandatory at the top level
+  currency: string;
   timestamp: any;
   status: 'Completed' | 'Pending' | 'Failed' | 'Reconciling';
   notes?: string;
   sender?: string;
   recipient?: string;
   txHash?: string;
+  userId?: string;
 }
 
 function generateTxHash(id: string): string {
@@ -49,23 +50,37 @@ function generateTxHash(id: string): string {
   return '0x' + hash;
 }
 
-const INCOMING_TYPES = new Set(['Buy', 'Swap', 'Internal Transfer']);
+const INCOMING_TYPES = new Set(['Buy', 'Internal Transfer']);
 
 export function TransactionHistory() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { currency, formatCurrency } = useCurrency();
 
+  // Use collectionGroup to query all wallet subcollection transactions for this user.
+  // Filtered by userId field; sorted client-side to avoid needing a composite index.
   const transactionsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return query(
-      collection(firestore, 'users', user.uid, 'transactions'), // Query the new centralized collection
-      orderBy('timestamp', 'desc'),
-      limit(25)
+      collectionGroup(firestore, 'transactions'),
+      where('userId', '==', user.uid),
+      limit(50),
     );
   }, [user, firestore]);
 
-  const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
+  const { data: rawTransactions, isLoading } = useCollection<Transaction>(transactionsQuery);
+
+  // Sort client-side by timestamp descending, take the latest 25
+  const transactions = React.useMemo(() => {
+    if (!rawTransactions) return null;
+    return [...rawTransactions]
+      .sort((a, b) => {
+        const aMs = a.timestamp?.toMillis?.() ?? (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : 0);
+        const bMs = b.timestamp?.toMillis?.() ?? (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : 0);
+        return bMs - aMs;
+      })
+      .slice(0, 25);
+  }, [rawTransactions]);
 
   const transactionSymbols = React.useMemo(() => {
     if (!transactions) return [];
@@ -117,7 +132,7 @@ export function TransactionHistory() {
                   const priceUSD = tx.price > 0 ? tx.price : (livePrices[sym] || 0);
                   const valueInCurrency = tx.amount * priceUSD * currency.rate;
                   const txHash = tx.txHash || generateTxHash(tx.id);
-                  const isIncoming = INCOMING_TYPES.has(tx.type) && tx.type !== 'Withdrawal';
+                  const isIncoming = INCOMING_TYPES.has(tx.type);
 
                   return (
                     <TableRow key={tx.id} className="border-border/30 group hover:bg-muted/20 transition-colors">
