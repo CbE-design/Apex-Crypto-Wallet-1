@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, {
@@ -7,11 +6,10 @@ import React, {
 } from 'react';
 import { ethers } from 'ethers';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { signOut, signInWithCustomToken, User as FirebaseUser } from 'firebase/auth';
 import {
   doc, serverTimestamp, writeBatch,
-  collection, query, where, getDocs, limit, updateDoc, setDoc, addDoc,
+  collection, getDocs, updateDoc, setDoc,
 } from 'firebase/firestore';
 import { marketCoins } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
@@ -47,21 +45,18 @@ interface WalletContextType {
   loading: boolean;
   isAdmin: boolean;
 
-  // vault / auth state
   vaultLocked: boolean;
   pendingVaultSetup: boolean;
   hasPasskey: boolean;
   passkeySupported: boolean;
   addressHint: string;
 
-  // actions
   createWallet: () => Promise<string>;
   importWallet: (mnemonic: string) => Promise<void>;
   confirmAndCreateWallet: (mnemonic: string) => Promise<void>;
   disconnectWallet: () => void;
   syncWalletBalance: (currency: string) => Promise<void>;
 
-  // vault / PIN / passkey actions
   setupVault: (pin: string) => Promise<void>;
   unlockWithPin: (pin: string) => Promise<void>;
   setupPasskey: () => Promise<void>;
@@ -82,6 +77,22 @@ const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
   if (symbol === 'BTC') return '1' + ethAddress.substring(2, 35);
   return 'Identity_' + symbol + '_' + ethAddress.substring(2, 12);
 };
+
+// ── get a Firebase custom token from the server for a given wallet address ──
+// This is the key function that ensures the same address always maps to the
+// same Firebase UID, preserving all existing data across imports.
+async function getCustomTokenForWallet(walletAddress: string): Promise<{ token: string; isReturningUser: boolean }> {
+  const res = await fetch('/api/auth/wallet-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ walletAddress }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Could not establish secure session.');
+  }
+  return res.json();
+}
 
 // ── provider ─────────────────────────────────────────────────────────────
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
@@ -119,21 +130,50 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   const loading = isUserLoading || isInitializing || (!!user && isProfileLoading && !isAdmin);
 
+  // ── clear all local storage for a given UID ───────────────────────────
+  const clearLocalSession = useCallback((uid: string) => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(`${VAULT_PREFIX}${uid}`);
+    localStorage.removeItem(`${PASSKEY_PREFIX}${uid}`);
+    localStorage.removeItem(`apex-wallet-${uid}`);
+    sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`);
+  }, []);
+
+  // ── sign in with a custom token, clearing any prior session first ─────
+  const signInWithToken = useCallback(async (token: string): Promise<FirebaseUser> => {
+    if (!auth) throw new Error('Auth unavailable');
+    const previousUid = auth.currentUser?.uid;
+    if (auth.currentUser) {
+      await signOut(auth);
+    }
+    if (previousUid) clearLocalSession(previousUid);
+    const cred = await signInWithCustomToken(auth, token);
+    return cred.user;
+  }, [auth, clearLocalSession]);
+
+  // ── create/update Firestore documents for a user+wallet ──────────────
+  // Uses merge:true throughout so it is safe to call on returning users;
+  // existing fields (kycStatus, balances, etc.) are never overwritten.
   const setupUserAndWalletDocuments = useCallback(
-    async (firebaseUser: FirebaseUser, walletInstance: ethers.Wallet): Promise<Wallet> => {
+    async (firebaseUser: FirebaseUser, walletInstance: ethers.Wallet, isNew: boolean): Promise<Wallet> => {
       if (!firestore) throw new Error('Firestore unavailable');
 
       const batch = writeBatch(firestore);
       const userRef = doc(firestore, 'users', firebaseUser.uid);
 
-      batch.set(userRef, {
+      // Always merge so returning users keep their existing profile fields.
+      const profileUpdate: Record<string, any> = {
         id: firebaseUser.uid,
-        email: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.io`,
-        createdAt: serverTimestamp(),
         walletAddress: walletInstance.address,
         walletAddressLowercase: walletInstance.address.toLowerCase(),
-      }, { merge: true });
+      };
+      if (isNew) {
+        profileUpdate.email = `${walletInstance.address.substring(0, 8)}@apex.io`;
+        profileUpdate.createdAt = serverTimestamp();
+      }
+      batch.set(userRef, profileUpdate, { merge: true });
 
+      // Create wallet sub-documents with merge:true so existing balances survive.
       marketCoins.forEach(coin => {
         const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
         batch.set(walletRef, {
@@ -148,24 +188,29 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
       await batch.commit();
 
-      try {
-        await addDoc(collection(firestore, 'admin_notifications'), {
-          type: 'NEW_USER',
-          title: 'New User Registered',
-          message: `A new wallet has been created: ${firebaseUser.email || walletInstance.address.substring(0, 12) + '...'}`,
-          userId: firebaseUser.uid,
-          userEmail: firebaseUser.email || `${walletInstance.address.substring(0, 8)}@apex.io`,
-          read: false,
-          createdAt: serverTimestamp(),
-          metadata: { walletAddress: walletInstance.address },
-        });
-      } catch (_) {}
+      // Only fire the admin notification for genuinely new accounts.
+      if (isNew) {
+        try {
+          const { addDoc } = await import('firebase/firestore');
+          await addDoc(collection(firestore, 'admin_notifications'), {
+            type: 'NEW_USER',
+            title: 'New User Registered',
+            message: `New wallet registered: ${walletInstance.address.substring(0, 12)}...`,
+            userId: firebaseUser.uid,
+            userEmail: `${walletInstance.address.substring(0, 8)}@apex.io`,
+            read: false,
+            createdAt: serverTimestamp(),
+            metadata: { walletAddress: walletInstance.address },
+          });
+        } catch (_) {}
+      }
 
       return { address: walletInstance.address, privateKey: walletInstance.privateKey };
     },
     [firestore],
   );
 
+  // ── restore vault state from localStorage on mount ───────────────────
   useEffect(() => {
     if (typeof window === 'undefined') { setIsInitializing(false); return; }
 
@@ -173,6 +218,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       if (user && !wallet) {
         const uid = user.uid;
 
+        // 1. Check session storage (unlocked this tab)
         const sessionJson = sessionStorage.getItem(`${SESSION_PREFIX}${uid}`);
         if (sessionJson) {
           try {
@@ -186,19 +232,20 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           } catch { sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`); }
         }
 
+        // 2. Check local vault (locked)
         const vaultJson = localStorage.getItem(`${VAULT_PREFIX}${uid}`);
         if (vaultJson) {
           try {
             const vault = JSON.parse(vaultJson) as Vault;
             setAddressHint(vault.addressHint ?? '');
-            const passkeyRaw = localStorage.getItem(`${PASSKEY_PREFIX}${uid}`);
-            setHasPasskey(!!passkeyRaw);
+            setHasPasskey(!!localStorage.getItem(`${PASSKEY_PREFIX}${uid}`));
           } catch { }
           setVaultLocked(true);
           setIsInitializing(false);
           return;
         }
 
+        // 3. Legacy key migration
         const legacyKey = `apex-wallet-${uid}`;
         const legacyJson = localStorage.getItem(legacyKey);
         if (legacyJson) {
@@ -219,6 +266,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     initializeWallet();
   }, [user, auth, wallet]);
 
+  // ── vault / PIN / passkey ─────────────────────────────────────────────
   const setupVault = useCallback(async (pin: string) => {
     if (!pendingWallet || !user) throw new Error('No pending wallet to vault');
     const vault = await encryptVault(pendingWallet, pin);
@@ -249,11 +297,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!user || !passkeySupported) throw new Error('Passkey not supported');
     const pin = pinnedPinRef.current;
     if (!pin) throw new Error('PIN session expired — please re-enter your PIN');
-
     const credId = await registerPasskey(user.uid, addressHint);
     const salt = crypto.getRandomValues(new Uint8Array(32));
     const wrapped = await encryptWithCredId(pin, credId, salt);
-
     const passkeyData = {
       credId,
       salt: Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join(''),
@@ -273,35 +319,39 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     await unlockWithPin(pin);
   }, [user, unlockWithPin]);
 
+  // ── create new wallet ─────────────────────────────────────────────────
   const createWallet = useCallback(async (): Promise<string> => {
     const w = ethers.Wallet.createRandom();
     return w.mnemonic?.phrase ?? '';
   }, []);
 
+  // ── confirm new wallet creation ───────────────────────────────────────
   const confirmAndCreateWallet = useCallback(async (mnemonic: string) => {
     if (!auth) throw new Error('Auth missing');
     setIsInitializing(true);
     try {
       const newWallet = ethers.Wallet.fromPhrase(mnemonic);
-      const userCredential = await initiateAnonymousSignIn(auth);
-      if (userCredential?.user) {
-        const walletData = await setupUserAndWalletDocuments(userCredential.user, newWallet as any);
-        setPendingWallet(walletData);
-      }
+
+      // Use the same custom-token flow as import so this new wallet gets a
+      // deterministic UID — future imports of this seed will find the same account.
+      const { token, isReturningUser } = await getCustomTokenForWallet(newWallet.address);
+      const firebaseUser = await signInWithToken(token);
+      const walletData = await setupUserAndWalletDocuments(firebaseUser, newWallet as any, !isReturningUser);
+      setPendingWallet(walletData);
     } catch (e) {
       toast({ title: 'Setup Failed', description: 'Could not create secure identity.', variant: 'destructive' });
       throw e;
     } finally {
       setIsInitializing(false);
     }
-  }, [auth, setupUserAndWalletDocuments, toast]);
+  }, [auth, signInWithToken, setupUserAndWalletDocuments, toast]);
 
+  // ── import existing wallet ────────────────────────────────────────────
   const importWallet = useCallback(async (mnemonic: string) => {
     if (!auth || !firestore) throw new Error('Services missing');
     setIsInitializing(true);
     try {
-      // Strip any zero-width chars, quotes, line breaks, and unicode whitespace
-      // that often sneak in when copy-pasting from PDFs / messaging apps.
+      // Sanitise the mnemonic
       const cleanMnemonic = mnemonic
         .replace(/[\u200B-\u200D\uFEFF]/g, '')
         .replace(/["'`]/g, '')
@@ -311,82 +361,31 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
       const wordCount = cleanMnemonic.split(' ').filter(Boolean).length;
       if (![12, 15, 18, 21, 24].includes(wordCount)) {
-        throw new Error(
-          `Seed phrases must be 12, 15, 18, 21, or 24 words. You entered ${wordCount}.`,
-        );
+        throw new Error(`Seed phrases must be 12, 15, 18, 21, or 24 words. You entered ${wordCount}.`);
       }
 
       let importedWallet: ethers.HDNodeWallet;
       try {
         importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
-      } catch (phraseErr) {
-        // Re-throw with a stable shape the catch block below can recognise.
+      } catch {
         throw new Error('Invalid mnemonic phrase.');
       }
 
-      // Clear any leftover vault from a prior, abandoned import on this device
-      // BEFORE we start a new anonymous session, so a fresh PIN setup can run.
-      if (typeof window !== 'undefined') {
-        const previousUid = auth.currentUser?.uid;
-        if (previousUid) {
-          localStorage.removeItem(`${VAULT_PREFIX}${previousUid}`);
-          localStorage.removeItem(`${PASSKEY_PREFIX}${previousUid}`);
-          localStorage.removeItem(`apex-wallet-${previousUid}`);
-          sessionStorage.removeItem(`${SESSION_PREFIX}${previousUid}`);
-        }
-      }
-      pinnedPinRef.current = null;
-      setVaultLocked(false);
-      setHasPasskey(false);
-      setAddressHint('');
-      setWallet(null);
+      // Ask the server for a custom auth token.
+      // The server looks up the wallet address in Firestore and returns the
+      // existing user's UID if one exists, so all their data is preserved.
+      const { token, isReturningUser } = await getCustomTokenForWallet(importedWallet.address);
 
-      const userCredential = await initiateAnonymousSignIn(auth);
-      const firebaseUser = userCredential?.user;
-      if (!firebaseUser) throw new Error('Could not establish secure session.');
+      // Sign in as the correct UID (same one they've always had).
+      const firebaseUser = await signInWithToken(token);
 
-      // Look for an existing account that owns this wallet address so we can
-      // carry over balances, KYC status, and transaction history.
-      const addressLower = importedWallet.address.toLowerCase();
-      let priorUid: string | null = null;
-      let priorProfile: Partial<UserProfile> | null = null;
-      try {
-        const usersQ = query(
-          collection(firestore, 'users'),
-          where('walletAddressLowercase', '==', addressLower),
-          limit(5),
-        );
-        const snap = await getDocs(usersQ);
-        const match = snap.docs.find(d => d.id !== firebaseUser.uid);
-        if (match) {
-          priorUid = match.id;
-          priorProfile = match.data() as Partial<UserProfile>;
-        }
-      } catch (_) { /* offline or rules — fall through to fresh init */ }
-
-      const walletData = await setupUserAndWalletDocuments(firebaseUser, importedWallet as any);
-
-      if (priorUid && priorProfile) {
-        const restoreBatch = writeBatch(firestore);
-        const userRef = doc(firestore, 'users', firebaseUser.uid);
-        const carriedFields: Record<string, unknown> = {};
-        if (priorProfile.kycStatus)        carriedFields.kycStatus        = priorProfile.kycStatus;
-        if ((priorProfile as any).kycSubmissionId) carriedFields.kycSubmissionId = (priorProfile as any).kycSubmissionId;
-        if (Object.keys(carriedFields).length) {
-          restoreBatch.set(userRef, carriedFields, { merge: true });
-        }
-        try {
-          const priorWalletsSnap = await getDocs(collection(firestore, 'users', priorUid, 'wallets'));
-          priorWalletsSnap.forEach(walletSnap => {
-            const data = walletSnap.data() as { currency?: string; balance?: number };
-            if (typeof data.balance === 'number' && data.balance > 0 && data.currency) {
-              const targetRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', data.currency);
-              restoreBatch.set(targetRef, { balance: data.balance }, { merge: true });
-            }
-          });
-          await restoreBatch.commit();
-        } catch (_) { /* best-effort restore — keep import working even if this fails */ }
-      }
+      // Set up / update Firestore documents.
+      // merge:true means existing balances, KYC status, etc. are never wiped.
+      const walletData = await setupUserAndWalletDocuments(
+        firebaseUser,
+        importedWallet as any,
+        !isReturningUser,
+      );
 
       setPendingWallet(walletData);
     } catch (err: any) {
@@ -402,36 +401,28 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         lower.includes('wordlist')
       ) {
         msg = 'That seed phrase is not valid. Check the spelling, order, and word count.';
-      } else if (lower.includes('auth') || lower.includes('network')) {
+      } else if (lower.includes('firebase admin sdk')) {
+        msg = 'The wallet service is temporarily unavailable. Please try again in a moment.';
+      } else if (lower.includes('auth') || lower.includes('network') || lower.includes('fetch')) {
         msg = 'Could not reach the secure session service. Check your connection and try again.';
       } else if (lower.includes('permission')) {
-        msg = 'The wallet service rejected this request. Please refresh and try again.';
+        msg = 'Access was denied. Please refresh the page and try again.';
       } else {
         msg = err?.message || 'Could not restore wallet. Please try again.';
       }
-      toast({
-        title: 'Restore Failed',
-        description: msg,
-        variant: 'destructive',
-      });
+      toast({ title: 'Restore Failed', description: msg, variant: 'destructive' });
       throw err;
     } finally {
       setIsInitializing(false);
     }
-  }, [auth, firestore, setupUserAndWalletDocuments, toast]);
+  }, [auth, firestore, signInWithToken, setupUserAndWalletDocuments, toast]);
 
+  // ── disconnect ────────────────────────────────────────────────────────
   const disconnectWallet = useCallback(() => {
     if (!auth) return;
     const uid = auth.currentUser?.uid;
     signOut(auth).then(() => {
-      if (uid && typeof window !== 'undefined') {
-        // Clear ALL local state tied to this session so the login page
-        // shows the import/create screen instead of the PIN lock screen
-        localStorage.removeItem(`${VAULT_PREFIX}${uid}`);
-        localStorage.removeItem(`${PASSKEY_PREFIX}${uid}`);
-        localStorage.removeItem(`apex-wallet-${uid}`);
-        sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`);
-      }
+      if (uid) clearLocalSession(uid);
       pinnedPinRef.current = null;
       setWallet(null);
       setPendingWallet(null);
@@ -440,7 +431,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       setAddressHint('');
       router.push('/login');
     });
-  }, [auth, router]);
+  }, [auth, clearLocalSession, router]);
 
   const syncWalletBalance = async (currency: string) => {
     if (!user || !firestore) return;
