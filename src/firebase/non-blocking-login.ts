@@ -1,22 +1,19 @@
 
 'use client';
 
-import { Auth, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
+import { Auth, signInAnonymously, signOut } from 'firebase/auth';
 import { UserCredential } from 'firebase/auth';
 
 /**
- * Initiates an anonymous sign-in process with Firebase Authentication.
- * This is a non-blocking operation that returns a promise, allowing the UI
- * to remain responsive while authentication happens in the background.
- *
- * @param auth - The Firebase Auth instance.
- * @param uid - Optional user ID to associate with the anonymous session.
- * @returns A promise that resolves with the UserCredential on successful sign-in.
+ * Initiates an anonymous sign-in.
+ * If a user is already signed in, signs them out first to get a fresh
+ * anonymous session — necessary when re-importing after a disconnect.
  */
-export async function initiateAnonymousSignIn(auth: Auth, uid?: string): Promise<UserCredential> {
-  // In a real application, you would generate a custom token on your server
-  // that includes the UID as a claim. For this simulation, we will sign in
-  // anonymously and trust the client to manage the correct user context.
-  // This is NOT a secure practice for a production application.
+export async function initiateAnonymousSignIn(auth: Auth): Promise<UserCredential> {
+  // If there is already a signed-in user, sign out first so we get a
+  // clean anonymous session tied to no previous identity.
+  if (auth.currentUser) {
+    await signOut(auth);
+  }
   return signInAnonymously(auth);
 }

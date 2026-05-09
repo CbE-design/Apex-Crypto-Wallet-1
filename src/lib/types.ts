@@ -52,6 +52,16 @@ export interface PriceAlert {
   triggered: boolean;
 }
 
+export interface Wallet {
+  id: string;
+  userId: string;
+  name: string;
+  symbol: string;
+  balance: number;
+  address: string;
+  createdAt: any;
+}
+
 export const GetExchangeRateInputSchema = z.object({
   fromAsset: z.string().describe('The symbol of the cryptocurrency to convert from.'),
   toAsset: z.string().describe('The symbol of the cryptocurrency to convert to.'),
@@ -121,4 +131,92 @@ export interface Currency {
     name: string;
     flag?: string;
     flagUrl: string;
+}
+
+// KYC Status Types
+export type KYCStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+
+// Withdrawal Request Types
+export type WithdrawalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type WithdrawalMethod = 'EFT' | 'SWIFT';
+
+export interface WithdrawalRequest {
+  id: string;
+  userId: string;
+  userEmail: string;
+  walletAddress: string;
+  
+  // Asset details
+  cryptoSymbol: string;
+  cryptoAmount: number;
+  fiatCurrency: string;
+  fiatAmount: number;
+  exchangeRate: number;
+  networkFee: number;
+  
+  // Bank details
+  withdrawalMethod: WithdrawalMethod;
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  routingNumber?: string;
+  swiftCode?: string;
+  
+  // Status tracking
+  status: WithdrawalStatus;
+  createdAt: any;
+  updatedAt: any;
+  processedAt?: any;
+  processedBy?: string;
+  rejectionReason?: string;
+  transactionReference?: string;
+}
+
+// Admin Notification Types
+export type AdminNotificationType = 'KYC_VERIFICATION' | 'WITHDRAWAL_REQUEST' | 'SUPPORT_TICKET' | 'SYSTEM_ALERT' | 'NEW_USER';
+
+export interface AdminNotification {
+  id: string;
+  type: AdminNotificationType;
+  title: string;
+  message: string;
+  userId?: string;
+  userEmail?: string;
+  referenceId?: string;
+  read: boolean;
+  createdAt: any;
+  metadata?: Record<string, any>;
+}
+
+// KYC Document Types
+export interface KYCSubmission {
+  id: string;
+  userId: string;
+  userEmail: string;
+  walletAddress: string;
+  status: KYCStatus;
+  
+  // Personal info
+  fullName: string;
+  dateOfBirth: string;
+  nationality: string;
+  address: string;
+  
+  // Document info
+  documentType: 'passport' | 'drivers_license' | 'national_id';
+  documentNumber: string;
+  documentExpiry: string;
+  
+  // Timestamps
+  submittedAt: any;
+  reviewedAt?: any;
+  reviewedBy?: string;
+  rejectionReason?: string;
+
+  // Linked withdrawal intent (populated when KYC was triggered by a cash-out attempt)
+  withdrawalIntent?: {
+    amount: string;
+    currency: string;
+    method: 'EFT' | 'SWIFT';
+  } | null;
 }

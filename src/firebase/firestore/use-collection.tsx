@@ -20,15 +20,6 @@ export interface UseCollectionResult<T> {
   error: FirestoreError | Error | null;
 }
 
-export interface InternalQuery extends Query<DocumentData> {
-  _query: {
-    path: {
-      canonicalString(): string;
-      toString(): string;
-    }
-  }
-}
-
 /**
  * React hook to subscribe to a Firestore collection or query in real-time.
  *
@@ -74,10 +65,19 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        const path: string =
-          memoizedTargetRefOrQuery.type === 'collection'
-            ? (memoizedTargetRefOrQuery as CollectionReference).path
-            : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString();
+        // Always stop the spinner first — even if path resolution fails below.
+        setData(null);
+        setIsLoading(false);
+
+        let path = 'unknown';
+        try {
+          if (memoizedTargetRefOrQuery.type === 'collection') {
+            path = (memoizedTargetRefOrQuery as CollectionReference).path;
+          }
+        } catch {
+          // This is a best-effort attempt to get the path. If it fails for any
+          // reason, we can safely ignore it and the path will remain 'unknown'.
+        }
 
         const contextualError = new FirestorePermissionError({
           operation: 'list',
@@ -85,10 +85,15 @@ export function useCollection<T = any>(
         });
 
         setError(contextualError);
-        setData(null);
-        setIsLoading(false);
 
-        errorEmitter.emit('permission-error', contextualError);
+        // Only surface as a permission error for real access denials.
+        // Other codes (failed-precondition = missing index, unavailable = offline, etc.)
+        // should not trigger the "Firestore rules" warning toast.
+        if (err.code === 'permission-denied') {
+          errorEmitter.emit('permission-error', contextualError);
+        } else {
+          console.warn('[Firestore] Query error:', err.code, path, err.message);
+        }
       }
     );
 

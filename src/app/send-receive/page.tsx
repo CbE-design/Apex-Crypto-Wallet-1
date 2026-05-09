@@ -14,8 +14,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowRight, Copy, Loader2, ShieldCheck, Send, ArrowDownToLine, QrCode } from 'lucide-react';
+import { RiskDisclaimer } from '@/components/risk-disclaimer';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
@@ -128,7 +129,7 @@ export default function SendReceivePage() {
     try {
         await runTransaction(firestore, async (transaction) => {
             const usersRef = collection(firestore, 'users');
-            const recipientQuery = query(usersRef, where("walletAddress", "==", data.recipientAddress), limit(1));
+            const recipientQuery = query(usersRef, where("walletAddressLowercase", "==", data.recipientAddress.toLowerCase()), limit(1));
             const recipientSnapshot = await getDocs(recipientQuery);
             
             if (recipientSnapshot.empty) {
@@ -185,7 +186,9 @@ export default function SendReceivePage() {
   return (
     <PrivateRoute>
       <div className="flex justify-center items-start pt-2">
-        <Card className="w-full max-w-lg bg-card/60 backdrop-blur-sm border-border/60">
+        <div className="w-full max-w-lg space-y-4">
+        <RiskDisclaimer variant="transfer" collapsible />
+        <Card className="bg-card/60 backdrop-blur-sm border-border/60">
           <CardHeader className="border-b border-border/40 pb-5">
             <div className="flex items-center gap-3">
                  <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20">
@@ -237,7 +240,7 @@ export default function SendReceivePage() {
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-primary">{selectedAsset}</div>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Available: <span className="text-foreground font-medium">{selectedAssetBalance.toFixed(6)} {selectedAsset}</span>
+                            Available: <span className="text-foreground font-medium">{(selectedAssetBalance ?? 0).toFixed(6)} {selectedAsset}</span>
                         </p>
                         {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
                     </div>
@@ -307,6 +310,7 @@ export default function SendReceivePage() {
                         <DialogContent className="max-w-xs rounded-2xl">
                             <DialogHeader>
                                 <DialogTitle className="text-center text-lg font-bold">Receive Crypto</DialogTitle>
+                                <DialogDescription className="sr-only">Scan the QR code to send crypto to this wallet.</DialogDescription>
                             </DialogHeader>
                             <div className="flex flex-col items-center gap-4 py-4">
                                 <div className="p-4 bg-white rounded-2xl shadow-lg">
@@ -328,6 +332,13 @@ export default function SendReceivePage() {
             </Tabs>
           </CardContent>
         </Card>
+        <p className="text-[10px] text-center text-muted-foreground/40 px-2">
+          Transfers above <strong className="text-muted-foreground/60">R3,000</strong> are subject to FATF Travel Rule reporting.
+          All transactions are final and irreversible. By transacting you accept our{' '}
+          <a href="/legal/terms" className="underline hover:text-muted-foreground transition-colors">Terms</a> and{' '}
+          <a href="/legal/aml-policy" className="underline hover:text-muted-foreground transition-colors">AML Policy</a>.
+        </p>
+        </div>
       </div>
     </PrivateRoute>
   );

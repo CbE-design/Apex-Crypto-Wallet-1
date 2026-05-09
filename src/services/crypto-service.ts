@@ -4,12 +4,12 @@
 import { marketCoins } from '@/lib/data';
 
 /**
- * @fileOverview Crypto price service backed by the CoinGecko free public API.
+ * Crypto price service backed by the CoinGecko free public API.
  * Next.js fetch() caching handles deduplication and revalidation server-side.
  *
- * - getLivePrices     — current prices converted to any fiat currency
- * - getLive24hChanges — 24-hour percentage change for each symbol
- * - getFiatRate       — USD → target fiat conversion rate (Frankfurter API)
+ * - getLivePrices     - current prices converted to any fiat currency
+ * - getLive24hChanges - 24-hour percentage change for each symbol
+ * - getFiatRate       - USD -> target fiat conversion rate (Frankfurter API)
  */
 
 const COINGECKO_IDS: Record<string, string> = {
@@ -81,7 +81,7 @@ async function fetchCoinGecko(
   try {
     const res = await fetch(url, {
       headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(8000),
       next: { revalidate: 60 },
     });
 
@@ -95,7 +95,7 @@ async function fetchCoinGecko(
       }
     }
   } catch {
-    // CoinGecko unavailable — fall through to static data
+    // CoinGecko unavailable
   }
 
   for (const sym of cryptoSymbols) {
@@ -123,7 +123,7 @@ export async function getFiatRate(targetCurrency: string): Promise<number> {
       if (rate && rate > 0) return rate;
     }
   } catch {
-    // Fall through to hardcoded rates
+    // Fall through
   }
   return FALLBACK_FIAT_RATES[upper] ?? 1;
 }

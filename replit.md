@@ -52,9 +52,79 @@ Set these in Replit Secrets:
 | `EXCHANGE_API_SECRET` | Crypto exchange API secret |
 | `EXCHANGE_SANDBOX_MODE` | Set to `true` for sandbox/testing mode |
 
+## Legal & Compliance Features
+
+South Africa-specific regulatory compliance throughout the app:
+
+- **4 Legal Pages** at `/legal/terms`, `/legal/privacy`, `/legal/risk-disclosure`, `/legal/aml-policy`
+  - Terms of Service (FICA, FSCA, SARB, POCA compliant)
+  - Privacy Policy (POPIA No. 4 of 2013 compliant)
+  - Risk Disclosure Statement (FSCA guidelines)
+  - AML, FICA & Compliance Policy (FATF Travel Rule, CARF, sanctions screening)
+- **LegalFooter** (`src/components/legal-footer.tsx`) — injected into all non-admin pages
+- **RiskDisclaimer** (`src/components/risk-disclaimer.tsx`) — collapsible dismissable banner; variants: trading/withdrawal/transfer/general; used on Swap, Send/Receive, and Cash-Out pages
+- **Privacy Mode** (`src/hooks/use-privacy-mode.ts`) — functional localStorage toggle in Settings
+- **Legal links** in Settings page under "Legal & Compliance" section
+- **Legal links** in sidebar footer (compact grid)
+- **T&C acceptance text** on login page with regulatory badge bar (FICA, FSCA, POPIA, FATF)
+- **Legal layout** (`src/app/legal/layout.tsx`) — standalone layout, excluded from sidebar routing via `app-content.tsx`
+
+Key SA thresholds enforced in UI copy:
+- R3,000 — FATF Travel Rule trigger for crypto transfers
+- R25,000 — Enhanced FICA due diligence threshold
+- EFT: 1.5% + R15 fee | SWIFT: 3.5% + R250 fee
+
+## Admin Panel
+
+Full admin control centre at `/admin`:
+- **Dashboard** — KPIs, Protocol Gate toggle, broadcast tabs (push + email)
+- **Withdrawals** `/admin/withdrawals` — Approve/reject with Firestore transaction
+- **KYC** `/admin/kyc` — Approve/reject with notification creation
+- **User Registry** `/admin/users` — Search, filter by KYC status, portfolio drilldown
+- **Notifications** `/admin/notifications` — Mark as read, mark all as read, sorted client-side
+- **Fund Wallet** `/admin/direct-send` — Force credit any asset to any user wallet
+- **Settings** `/admin/settings` — Platform controls, compliance, fees, security, deploy Firestore rules
+
+### Firebase Admin SDK
+`src/lib/firebase-admin.ts` auto-discovers credentials in this priority order:
+1. `FIREBASE_ADMIN_SDK_CONFIG` env var (JSON string)
+2. `firebase-service-account.json` file in project root (gitignored)
+
+### Automated Rules Deployment
+- `npm run deploy:rules` → `node scripts/deploy-rules.js` → deploys `firestore.rules` live
+- **In-panel**: Settings page has "Deploy Security Rules to Firebase" button → `POST /api/admin/deploy-rules`
+- Service account: `firebase-service-account.json` (gitignored, never commit)
+
+### Query Strategy
+All Firestore queries that combine `where` + `orderBy` sort client-side to avoid composite index requirements:
+- `admin_notifications` — fetched as flat collection, sorted by `createdAt` desc in JS
+- `users` — fetched as flat collection, sorted by `createdAt` desc in JS
+- `withdrawal_requests` per user — fetched with `where('userId')` only, sorted by `createdAt` desc in JS
+
 ## Replit Configuration
 
 - Port: **5000** (required for Replit webview)
 - Dev server binds to `0.0.0.0` for proxy compatibility
 - Replit domains whitelisted in `next.config.ts` for server actions
 - Dependencies installed with `--legacy-peer-deps` due to genkit peer conflict
+
+## Onboarding Flow Notes
+
+### Wallet Import (`importWallet` in `src/context/wallet-context.tsx`)
+- Sanitises the seed phrase: strips zero-width chars, quotes, normalises spaces, lowercases.
+- Validates word count is 12 / 15 / 18 / 21 / 24 before calling `ethers.Wallet.fromPhrase`.
+- Wipes any leftover vault from a prior, abandoned import on the same device before starting a fresh anonymous session.
+- Logs failures via `console.error('[importWallet] failed:', err)` for diagnostics.
+
+### PIN Setup Dialog (`src/components/pin-setup-dialog.tsx`)
+- Steps: `create` → `confirm` → `passkey` → `done`.
+- Always reaches a step the user must explicitly dismiss — the dialog never auto-closes after PIN confirmation.
+- When the device does not support passkeys, the `passkey` step still renders and shows a "Continue to Wallet" CTA so the screen never flashes.
+- `confirmInFlight` ref guards against double-execution from React's auto-advance effect.
+- Escape key and outside clicks are blocked to prevent accidental dismissal.
+
+### KYC Verification Modal (`src/components/kyc-verification-modal.tsx`)
+- `documentRequiresExpiry` derived value drives both the form and the review step.
+- Expiry input only renders for `passport` and `drivers_license` (not for SA `national_id`).
+- When SA National ID is selected, an explanatory note replaces the expiry field and the document number placeholder switches to "13-digit RSA ID number".
+- On submission, `documentExpiry` is stored as `'N/A'` for SA National ID so admin views still display a value.

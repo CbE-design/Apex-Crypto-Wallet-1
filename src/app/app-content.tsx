@@ -7,32 +7,44 @@ import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
 import { useWallet } from '@/context/wallet-context';
-import { ShieldAlert, Loader2, Power } from 'lucide-react';
+import { ShieldAlert, Loader2, Power, Code } from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import { EyeWatermark } from '@/components/eye-watermark';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { type ProtocolStatus } from '@/lib/types';
+import { useState, useEffect } from 'react';
 
 export default function AppContent({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [isMounted, setIsMounted] = useState(false);
   const pathname = usePathname();
   const { isAdmin, loading, user } = useWallet();
   const firestore = useFirestore();
 
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const protocolSettingsRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return doc(firestore, 'protocol_settings', 'status');
-  }, [firestore, user]);
+  }, [firestore]);
 
   const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
   const isProtocolHalted = protocolStatus && protocolStatus.isActive === false;
 
-  const isPublicPage = pathname === '/login';
+  const isPublicPage = !pathname || 
+                       pathname === '/login' || 
+                       pathname.startsWith('/login/') || 
+                       pathname.startsWith('/legal') || 
+                       pathname === '/coming-soon';
 
-  // Handle identity authentication phase
+  // Auth/Initial loading state
   if (loading && !isPublicPage) {
     return (
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
@@ -44,14 +56,10 @@ export default function AppContent({
     );
   }
 
-  if (isPublicPage) {
-    return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
-  }
-
-  const isAdminPage = pathname.startsWith('/admin');
-
-  // Halted State UI: High-integrity maintenance overlay for verified governance
-  if (isProtocolHalted && !isAdmin) {
+  // If protocol is halted and user is NOT an admin, show maintenance screen.
+  // IMPORTANT: isMounted check ensures we only show this on the client to avoid 
+  // hydration mismatch between server (halted: unknown) and client (halted: true).
+  if (isMounted && isProtocolHalted && !isAdmin && !isPublicPage) {
     return (
       <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-background text-center p-6">
           <div className="relative mb-8">
@@ -60,17 +68,37 @@ export default function AppContent({
                   <ShieldAlert className="h-20 w-20 text-destructive" />
               </div>
           </div>
-          <h1 className="text-3xl font-black uppercase italic tracking-tighter mb-3">System Reconciling</h1>
-          <p className="text-sm text-muted-foreground mb-8 max-w-sm font-bold uppercase tracking-tight">
-              Ledger synchronization and asset settlement have been temporarily suspended for verified system orchestration.
+          <h1 className="text-3xl font-bold tracking-tight mb-3">Scheduled Maintenance</h1>
+          <p className="text-base text-muted-foreground mb-2 max-w-md">
+              Apex Wallet is temporarily offline while we perform scheduled maintenance.
           </p>
-          <div className="flex items-center gap-2 px-4 py-2 bg-destructive/5 border border-destructive/20 rounded-xl">
+          <p className="text-sm text-muted-foreground mb-8 max-w-md">
+              Your funds and account are safe. Please check back shortly — we apologise for the inconvenience.
+          </p>
+          <div className="flex items-center gap-2 px-4 py-2 mb-8 bg-destructive/5 border border-destructive/20 rounded-xl">
               <Power className="h-4 w-4 text-destructive animate-pulse" />
-              <span className="text-sm font-black text-destructive uppercase tracking-widest">Protocol State: HALTED</span>
+              <span className="text-xs font-semibold text-destructive uppercase tracking-widest">System Status: Maintenance Mode</span>
           </div>
+          <Button asChild variant="outline" size="lg" className="gap-2">
+              <Link href="/login?admin=true">
+                  <Code className="h-4 w-4" />
+                  Developer Login
+              </Link>
+          </Button>
+          <p className="text-xs text-muted-foreground mt-4 max-w-xs">
+              Authorised developers can sign in to continue maintenance work.
+          </p>
       </div>
     );
   }
+
+  // During hydration/initial render, render the structure without sidebar logic
+  // if not public, or just the children if public.
+  if (isPublicPage) {
+    return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
+  }
+
+  const isAdminPage = pathname.startsWith('/admin');
 
   return (
     <SidebarProvider defaultOpen={true}>

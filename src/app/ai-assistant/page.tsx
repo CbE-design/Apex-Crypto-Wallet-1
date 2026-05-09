@@ -9,7 +9,7 @@ import {
   Bot, Send, Loader2, User, ChevronRight,
   ShieldCheck, Clock, MessageSquare,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatAppTimeShort } from '@/lib/utils';
 import { PrivateRoute } from '@/components/private-route';
 
 interface Message {
@@ -77,9 +77,6 @@ export default function AIAssistantPage() {
       sendMessage(input);
     }
   };
-
-  const formatTime = (d: Date) =>
-    d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const isEmpty = messages.length === 0;
 
@@ -179,7 +176,7 @@ export default function AIAssistantPage() {
                       {msg.content}
                     </div>
                     <span className="text-[10px] text-muted-foreground px-1">
-                      {formatTime(msg.timestamp)}
+                      {formatAppTimeShort(msg.timestamp)}
                     </span>
                   </div>
 

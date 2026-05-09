@@ -1,54 +1,57 @@
-/**
- * @fileOverview Centralized Firebase Admin SDK initialization.
- * Ensures the Admin SDK is initialized correctly across all server-side environments.
- */
+import 'server-only';
+import * as admin from 'firebase-admin';
 
-import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getMessaging } from 'firebase-admin/messaging';
-
-export function initializeFirebaseAdmin(): App | null {
-  if (getApps().length > 0) {
-    return getApps()[0];
+function initializeFirebaseAdmin() {
+  if (admin.apps.length > 0) {
+    return;
   }
 
-  // Next.js might need a reload for env vars to reflect if changed manually.
-  let config = process.env.FIREBASE_ADMIN_SDK_CONFIG;
-
-  if (!config) {
-    console.warn("FIREBASE_ADMIN_SDK_CONFIG is not set. Admin services operating in Disconnected Mode.");
-    return null;
-  }
-
-  try {
-    // Sanitize the config string (remove potential wrapping quotes from env loaders)
-    const sanitizedConfig = config.trim().replace(/^['"]|['"]$/g, '');
-    
-    // Check if it's a valid JSON string
-    const serviceAccount = JSON.parse(sanitizedConfig);
-    
-    // Fix private key format if it contains literal '\n' instead of actual newlines
-    if (serviceAccount.private_key) {
-      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+  const configJson = process.env.FIREBASE_ADMIN_SDK_CONFIG;
+  if (configJson) {
+    try {
+      const serviceAccount = JSON.parse(configJson);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+      return;
+    } catch (e) {
+      console.error('[firebase-admin] Failed to parse FIREBASE_ADMIN_SDK_CONFIG:', e);
     }
+  }
 
-    return initializeApp({
-      credential: cert(serviceAccount),
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+  if (projectId && clientEmail && privateKey) {
+    admin.initializeApp({
+      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+      databaseURL: `https://${projectId}.firebaseio.com`,
     });
-  } catch (error) {
-    console.error("Critical Failure: Could not parse FIREBASE_ADMIN_SDK_CONFIG JSON.", error);
+    return;
+  }
+
+  console.warn('[firebase-admin] No Firebase Admin credentials found. Admin features will be disabled.');
+}
+
+initializeFirebaseAdmin();
+
+export const firebaseAdmin = admin;
+
+export function getAdminFirestore(): admin.firestore.Firestore | null {
+  if (!admin.apps.length) return null;
+  try {
+    return admin.firestore();
+  } catch {
     return null;
   }
 }
 
-export function getAdminFirestore() {
-  const app = initializeFirebaseAdmin();
-  if (!app) return null;
-  return getFirestore(app);
-}
-
-export function getAdminMessaging() {
-  const app = initializeFirebaseAdmin();
-  if (!app) return null;
-  return getMessaging(app);
+export function getAdminMessaging(): admin.messaging.Messaging | null {
+  if (!admin.apps.length) return null;
+  try {
+    return admin.messaging();
+  } catch {
+    return null;
+  }
 }
