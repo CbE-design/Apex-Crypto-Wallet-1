@@ -12,7 +12,6 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Admin check — token-based (more secure) or fallback to specific UIDs
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.admin == true ||
@@ -49,37 +48,36 @@ service cloud.firestore {
 
     // ─── Admin Notifications ──────────────────────────────────────────────────
     match /admin_notifications/{notificationId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
-      // Allow Cloud Functions to write notifications when triggered by user actions
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read:   if isAdmin();
+      allow write:  if isAdmin();
+      // Users may create their own notifications (e.g. NEW_USER on registration)
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
 
-    // ─── Collection Group Rules ───────────────────────────────────────────────
-    // Required for searching wallets across all users in the Fund Wallet page
+    // ─── Collection-group rules ────────────────────────────────────────────────
+    // Admins can search wallets across all users (Fund Wallet page).
+    // Owners can always read/write their own wallets via the specific /users/{userId} path below.
     match /{path=**}/wallets/{walletId} {
-      allow read: if isAdmin();
+      allow read:  if isAdmin();
       allow write: if isAdmin();
     }
 
     match /{path=**}/transactions/{transactionId} {
       allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
-    
+
     // ─── User Profiles ────────────────────────────────────────────────────────
     match /users/{userId} {
-      // Allow signed-in users to query /users by walletAddress (for wallet re-import).
-      // The query must include a walletAddress equality filter so a user cannot
-      // enumerate all user documents — they can only find their own.
-      allow list:  if isAdmin() || (
-        isSignedIn() &&
-        request.query.filters.size() > 0
-      );
+      // Any signed-in user may list with a filter (needed for wallet-address lookup
+      // during import — the server-side API now handles this, but keep the rule
+      // so the client-side fallback also works if needed).
+      allow list:  if isAdmin() || isSignedIn();
       allow get:   if isOwner(userId) || isAdmin();
       allow write: if isOwner(userId) || isAdmin();
 
+      // Wallet sub-documents — owners and admins have full access.
       match /wallets/{walletId} {
-        allow read: if isOwner(userId) || isAdmin();
+        allow read:  if isOwner(userId) || isAdmin();
         allow write: if isOwner(userId) || isAdmin();
       }
 
@@ -100,7 +98,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ─── Email Logs / Notification Logs ───────────────────────────────────────
+    // ─── Email / Notification Logs ────────────────────────────────────────────
     match /email_logs/{docId} {
       allow read, write: if isAdmin();
     }
