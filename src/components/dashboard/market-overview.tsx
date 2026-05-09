@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { marketCoins as staticMarketCoins } from "@/lib/data";
 import { CryptoIcon } from "../crypto-icon";
-import { cn } from "@/lib/utils";
+import { cn, formatAppTimeShort } from "@/lib/utils";
 import { ArrowDown, ArrowUp, TrendingUp, AlertTriangle } from "lucide-react";
 import { useCurrency } from "@/context/currency-context";
 import type { MarketCoin } from '@/lib/types';
@@ -85,7 +85,7 @@ export function MarketOverview() {
             {error
               ? 'Price update failed'
               : lastUpdated
-              ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+              ? `Updated ${formatAppTimeShort(lastUpdated)}`
               : 'Live prices from global markets'}
           </CardDescription>
         </div>

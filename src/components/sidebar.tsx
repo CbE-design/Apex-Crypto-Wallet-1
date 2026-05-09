@@ -51,12 +51,12 @@ export function AppSidebar() {
   const [legalOpen, setLegalOpen] = React.useState(false);
 
   const truncatedAddress = wallet?.address
-    ? `${wallet.address.slice(0, 6)}···${wallet.address.slice(-4)}`
+    ? `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`
     : null;
 
   return (
     <>
-      {/* ── Brand ── */}
+      {/* Brand */}
       <SidebarHeader className="p-0">
         <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border/60">
           <div className="relative flex-shrink-0">
@@ -74,7 +74,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      {/* ── Main nav ── */}
+      {/* Main nav */}
       <SidebarContent className="px-2 py-3">
         <SidebarMenu className="gap-0.5">
           {mainNav.map((item) => {
@@ -133,7 +133,7 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarContent>
 
-      {/* ── Footer ── */}
+      {/* Footer */}
       <SidebarFooter className="p-2 border-t border-sidebar-border/60 relative overflow-hidden">
         <EyeWatermark
           className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-28 h-28 text-primary pointer-events-none group-data-[collapsible=icon]:opacity-0 transition-opacity"
@@ -196,7 +196,7 @@ export function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
 
-        {/* Legal panel — expands inline */}
+        {/* Legal panel expands inline */}
         {legalOpen && (
           <div className="group-data-[collapsible=icon]:hidden mt-1 rounded-xl border border-border/40 bg-sidebar-accent/20 overflow-hidden">
             {/* Compliance badge row */}

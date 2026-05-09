@@ -20,15 +20,6 @@ export interface UseCollectionResult<T> {
   error: FirestoreError | Error | null;
 }
 
-export interface InternalQuery extends Query<DocumentData> {
-  _query: {
-    path: {
-      canonicalString(): string;
-      toString(): string;
-    }
-  }
-}
-
 /**
  * React hook to subscribe to a Firestore collection or query in real-time.
  *
@@ -80,12 +71,12 @@ export function useCollection<T = any>(
 
         let path = 'unknown';
         try {
-          path =
-            memoizedTargetRefOrQuery.type === 'collection'
-              ? (memoizedTargetRefOrQuery as CollectionReference).path
-              : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString();
+          if (memoizedTargetRefOrQuery.type === 'collection') {
+            path = (memoizedTargetRefOrQuery as CollectionReference).path;
+          }
         } catch {
-          // Private Firebase internals changed — safe to ignore; path stays 'unknown'.
+          // This is a best-effort attempt to get the path. If it fails for any
+          // reason, we can safely ignore it and the path will remain 'unknown'.
         }
 
         const contextualError = new FirestorePermissionError({

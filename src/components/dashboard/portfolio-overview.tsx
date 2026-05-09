@@ -156,50 +156,50 @@ export function PortfolioOverview() {
       </CardHeader>
       <CardContent className="flex flex-col md:flex-row items-center gap-8 relative z-10">
         <div className="relative w-full md:w-1/2 h-72 min-w-0">
-          <ChartContainer
-            config={chartConfig}
-            className="min-h-[200px] w-full h-full aspect-auto"
-          >
-            {totalBalance > 0 ? (
-                 <PieChart>
-                    <ChartTooltip
-                        cursor={false}
-                        content={<ChartTooltipContent 
-                            hideLabel 
-                            formatter={(value, name) => {
-                                const asset = portfolioAssets.find(a => a.symbol === name);
-                                if (!asset) return null;
-                                return (
-                                  <div className="w-full">
-                                      <div className="flex items-center justify-between gap-4">
-                                        <span className="font-semibold">{asset.name}</span>
-                                        <span className={cn("font-bold", priceError ? "text-destructive" : "text-accent")}>{formatCurrency(asset.valueUSD * currency.rate)}</span>
-                                      </div>
-                                  </div>
-                                )
-                            }}
-                        />}
-                    />
-                    <Pie
-                        data={chartData}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius="75%"
-                        outerRadius="90%"
-                        strokeWidth={0}
-                        paddingAngle={5}
-                    >
-                        {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} className="hover:opacity-80 transition-opacity" />
-                        ))}
-                    </Pie>
-                </PieChart>
-            ) : (
-                <div className="flex justify-center items-center h-full text-muted-foreground text-sm">
-                   Awaiting initial deposit...
-                </div>
-            )}
-          </ChartContainer>
+          {totalBalance > 0 ? (
+            <ChartContainer
+              config={chartConfig}
+              className="min-h-[200px] w-full h-full aspect-auto"
+            >
+              <PieChart>
+                  <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent 
+                          hideLabel 
+                          formatter={(value, name) => {
+                              const asset = portfolioAssets.find(a => a.symbol === name);
+                              if (!asset) return null;
+                              return (
+                                <div className="w-full">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="font-semibold">{asset.name}</span>
+                                      <span className={cn("font-bold", priceError ? "text-destructive" : "text-accent")}>{formatCurrency(asset.valueUSD * currency.rate)}</span>
+                                    </div>
+                                </div>
+                              )
+                          }}
+                      />}
+                  />
+                  <Pie
+                      data={chartData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius="75%"
+                      outerRadius="90%"
+                      strokeWidth={0}
+                      paddingAngle={5}
+                  >
+                      {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} className="hover:opacity-80 transition-opacity" />
+                      ))}
+                  </Pie>
+              </PieChart>
+            </ChartContainer>
+          ) : (
+            <div className="flex justify-center items-center h-full text-muted-foreground text-sm">
+               Awaiting initial deposit...
+            </div>
+          )}
           {totalBalance > 0 && (
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none space-y-0">
               <p className="text-xs font-semibold text-primary mb-1">Total Assets</p>

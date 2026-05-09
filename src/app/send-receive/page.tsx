@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowRight, Copy, Loader2, ShieldCheck, Send, ArrowDownToLine, QrCode } from 'lucide-react';
 import { RiskDisclaimer } from '@/components/risk-disclaimer';
 import { CryptoIcon } from '@/components/crypto-icon';
@@ -310,6 +310,7 @@ export default function SendReceivePage() {
                         <DialogContent className="max-w-xs rounded-2xl">
                             <DialogHeader>
                                 <DialogTitle className="text-center text-lg font-bold">Receive Crypto</DialogTitle>
+                                <DialogDescription className="sr-only">Scan the QR code to send crypto to this wallet.</DialogDescription>
                             </DialogHeader>
                             <div className="flex flex-col items-center gap-4 py-4">
                                 <div className="p-4 bg-white rounded-2xl shadow-lg">

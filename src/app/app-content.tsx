@@ -7,7 +7,7 @@ import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
 import { useWallet } from '@/context/wallet-context';
-import { ShieldAlert, Loader2, Power, Lock } from 'lucide-react';
+import { ShieldAlert, Loader2, Power, Code } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { EyeWatermark } from '@/components/eye-watermark';
@@ -31,9 +31,9 @@ export default function AppContent({
   }, []);
 
   const protocolSettingsRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return doc(firestore, 'protocol_settings', 'status');
-  }, [firestore, user]);
+  }, [firestore]);
 
   const { data: protocolStatus } = useDoc<ProtocolStatus>(protocolSettingsRef);
   const isProtocolHalted = protocolStatus && protocolStatus.isActive === false;
@@ -44,10 +44,7 @@ export default function AppContent({
                        pathname.startsWith('/legal') || 
                        pathname === '/coming-soon';
 
-  if (!isMounted) {
-    return null; // or a basic skeleton loader
-  }
-
+  // Auth/Initial loading state
   if (loading && !isPublicPage) {
     return (
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
@@ -59,13 +56,10 @@ export default function AppContent({
     );
   }
 
-  if (isPublicPage) {
-    return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
-  }
-
-  const isAdminPage = pathname.startsWith('/admin');
-
-  if (isProtocolHalted && !isAdmin) {
+  // If protocol is halted and user is NOT an admin, show maintenance screen.
+  // IMPORTANT: isMounted check ensures we only show this on the client to avoid 
+  // hydration mismatch between server (halted: unknown) and client (halted: true).
+  if (isMounted && isProtocolHalted && !isAdmin && !isPublicPage) {
     return (
       <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-background text-center p-6">
           <div className="relative mb-8">
@@ -87,16 +81,24 @@ export default function AppContent({
           </div>
           <Button asChild variant="outline" size="lg" className="gap-2">
               <Link href="/login?admin=true">
-                  <Lock className="h-4 w-4" />
-                  Admin Login
+                  <Code className="h-4 w-4" />
+                  Developer Login
               </Link>
           </Button>
           <p className="text-xs text-muted-foreground mt-4 max-w-xs">
-              Authorised administrators can sign in to continue maintenance work.
+              Authorised developers can sign in to continue maintenance work.
           </p>
       </div>
     );
   }
+
+  // During hydration/initial render, render the structure without sidebar logic
+  // if not public, or just the children if public.
+  if (isPublicPage) {
+    return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
+  }
+
+  const isAdminPage = pathname.startsWith('/admin');
 
   return (
     <SidebarProvider defaultOpen={true}>

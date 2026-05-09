@@ -1,6 +1,10 @@
-const fs = require('fs');
-const path = require('path');
-const { google } = require('googleapis');
+import { promises as fs } from 'fs';
+import path from 'path';
+import { google } from 'googleapis';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const SERVICE_ACCOUNT_PATH = path.join(__dirname, '..', 'firebase-service-account.json');
 const RULES_PATH = path.join(__dirname, '..', 'firestore.rules');
@@ -8,7 +12,12 @@ const PROJECT_ID = 'studio-8025635453-a4860';
 
 async function deployRules() {
   console.log('Loading service account...');
-  const serviceAccount = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_PATH, 'utf8'));
+  const serviceAccountContent = await fs.readFile(SERVICE_ACCOUNT_PATH, 'utf8');
+  const serviceAccount = JSON.parse(serviceAccountContent);
+
+  if (serviceAccount.private_key) {
+    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+  }
 
   console.log('Authenticating...');
   const auth = new google.auth.GoogleAuth({
@@ -22,7 +31,7 @@ async function deployRules() {
   const firebaserules = google.firebaserules({ version: 'v1', auth });
 
   console.log('Reading firestore.rules...');
-  const rulesContent = fs.readFileSync(RULES_PATH, 'utf8');
+  const rulesContent = await fs.readFile(RULES_PATH, 'utf8');
 
   console.log('Creating ruleset...');
   const rulesetRes = await firebaserules.projects.rulesets.create({
