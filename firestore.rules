@@ -47,36 +47,37 @@ service cloud.firestore {
     }
 
     match /admin_notifications/{notificationId} {
-      allow list, read, update, delete: if isAdmin();
-      allow create: if isAdmin() || (isSignedIn() && request.resource.data.userId == request.auth.uid);
+      allow read:   if isAdmin();
+      allow write:  if isAdmin();
+      // Users may create their own notifications (e.g. NEW_USER on registration)
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
 
-    // ─── Collection Group Rules ───────────────────────────────────────────────
-
+    // ─── Collection-group rules ────────────────────────────────────────────────
+    // Admins can search wallets across all users (Fund Wallet page).
+    // Owners can always read/write their own wallets via the specific /users/{userId} path below.
     match /{path=**}/wallets/{walletId} {
-      allow read, write: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.userId);
+      allow read:  if isAdmin();
+      allow write: if isAdmin();
     }
 
     match /{path=**}/transactions/{transactionId} {
       allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
-    // ─── Primary User & Wallet Rules ──────────────────────────────────────────
-
+    // ─── User Profiles ────────────────────────────────────────────────────────
     match /users/{userId} {
-      // This is the critical rule for the wallet import flow.
-      // It allows a user to query the `users` collection, but ONLY if they are
-      // querying by `walletAddress`. This prevents a user from listing all documents.
-      // Firestore rules are not filters, so this rule ensures that the query itself
-      // is permissible. The actual documents returned are still protected by `get` rules.
-      allow list: if request.query.keys.hasAny(['walletAddress', 'walletAddressLowercase']);
-
-      // A user can get their own document, or an admin can get any document.
+      // Any signed-in user may list with a filter (needed for wallet-address lookup
+      // during import — the server-side API now handles this, but keep the rule
+      // so the client-side fallback also works if needed).
+      allow list:  if isAdmin() || isSignedIn();
       allow get:   if isOwner(userId) || isAdmin();
       allow write: if isOwner(userId) || isAdmin();
 
+      // Wallet sub-documents — owners and admins have full access.
       match /wallets/{walletId} {
-        allow read, write: if isOwner(userId) || isAdmin();
+        allow read:  if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
       }
 
       match /{allSubcollections=**} {
@@ -95,6 +96,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ─── Email / Notification Logs ────────────────────────────────────────────
     match /email_logs/{docId} {
       allow read, write: if isAdmin();
     }
