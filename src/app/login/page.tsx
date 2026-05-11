@@ -98,7 +98,8 @@ export default function ConnectWalletPage() {
       await importWallet(mnemonic);
       // PIN setup dialog opens automatically via pendingVaultSetup
     } catch (error: any) {
-      toast({ title: 'Import failed', description: error.message || 'Invalid seed phrase.', variant: 'destructive' });
+      // This toast is for development convenience. The context provider shows a more user-friendly one.
+      toast({ title: 'Import failed', description: 'See console for details.', variant: 'destructive' });
     }
   };
 
@@ -143,10 +144,45 @@ export default function ConnectWalletPage() {
     }
   };
 
-  const copyMnemonic = () => {
-    navigator.clipboard.writeText(newMnemonic);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyMnemonic = async () => {
+    try {
+      // Modern browsers with clipboard access
+      await navigator.clipboard.writeText(newMnemonic);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Fallback for older browsers or restricted environments (like Replit's iframe)
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = newMnemonic;
+        
+        // Make the textarea invisible
+        textArea.style.position = 'fixed';
+        textArea.style.top = '-9999px';
+        textArea.style.left = '-9999px';
+        
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+
+        if (successful) {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } else {
+          throw new Error('Copy command failed');
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback copy failed:', fallbackErr);
+        toast({
+          title: 'Copy Failed',
+          description: 'Could not copy to clipboard. Please copy the text manually.',
+          variant: 'destructive',
+        });
+      }
+    }
   };
 
   const words = newMnemonic.split(' ').filter(Boolean);
