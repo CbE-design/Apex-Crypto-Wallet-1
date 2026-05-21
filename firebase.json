@@ -11,7 +11,19 @@
     }
   },
   "firestore": {
-    "rules": "firestore.rules"
+    "rules": "firestore.rules",
+    "indexes": [
+      {
+        "collectionGroup": "transactions",
+        "queryScope": "COLLECTION_GROUP",
+        "fields": [
+          {
+            "fieldPath": "userId",
+            "order": "ASCENDING"
+          }
+        ]
+      }
+    ]
   },
   "functions": {
     "source": "functions"
