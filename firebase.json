@@ -22,6 +22,16 @@
             "order": "ASCENDING"
           }
         ]
+      },
+      {
+        "collectionGroup": "users",
+        "queryScope": "COLLECTION_GROUP",
+        "fields": [
+          {
+            "fieldPath": "walletAddressLowercase",
+            "order": "ASCENDING"
+          }
+        ]
       }
     ]
   },
