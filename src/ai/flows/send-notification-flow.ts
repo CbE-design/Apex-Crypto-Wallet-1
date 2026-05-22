@@ -1,16 +1,12 @@
-
 'use server';
-/**
- * @fileOverview A flow for sending push notifications to all users.
- */
 
 import { ai } from '@/ai/genkit';
 import { getAdminFirestore, getAdminMessaging } from '@/lib/firebase-admin';
-import { 
-  SendNotificationInputSchema, 
-  SendNotificationOutputSchema, 
-  type SendNotificationInput, 
-  type SendNotificationOutput 
+import {
+  SendNotificationInputSchema,
+  SendNotificationOutputSchema,
+  type SendNotificationInput,
+  type SendNotificationOutput,
 } from '@/lib/types';
 
 export async function sendNotification(input: SendNotificationInput): Promise<SendNotificationOutput> {
@@ -28,18 +24,16 @@ const sendNotificationFlow = ai.defineFlow(
     const messaging = getAdminMessaging();
 
     if (!db || !messaging) {
-      throw new Error("Firebase Admin SDK is not initialized. Cannot send notifications.");
+      throw new Error('Firebase Admin SDK is not initialized. Cannot send notifications.');
     }
-    
-    // 1. Fetch all users
+
     const usersSnapshot = await db.collection('users').get();
-    
-    // 2. Filter for users with an fcmToken
+
     const tokens: string[] = [];
-    usersSnapshot.forEach(doc => {
-      const userData = doc.data();
+    usersSnapshot.forEach(docSnap => {
+      const userData = docSnap.data();
       if (userData.fcmToken) {
-        tokens.push(userData.fcmToken);
+        tokens.push(userData.fcmToken as string);
       }
     });
 
@@ -47,17 +41,14 @@ const sendNotificationFlow = ai.defineFlow(
       return { successCount: 0, failureCount: 0 };
     }
 
-    // 3. Send multicast message
     const message = {
-      notification: {
-        title,
-        body,
-      },
-      tokens: tokens,
+      notification: { title, body },
+      tokens,
     };
 
     try {
-      const response = await messaging.sendEachForMulticast(message);
+      // firebase-admin v10 uses sendMulticast; v11+ uses sendEachForMulticast
+      const response = await messaging.sendMulticast(message);
       return {
         successCount: response.successCount,
         failureCount: response.failureCount,
@@ -66,5 +57,5 @@ const sendNotificationFlow = ai.defineFlow(
       console.error('Error sending notifications:', error);
       return { successCount: 0, failureCount: tokens.length };
     }
-  }
+  },
 );

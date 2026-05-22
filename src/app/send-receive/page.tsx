@@ -41,7 +41,7 @@ type SendFormValues = z.infer<typeof sendSchema>;
 export default function SendReceivePage() {
   const { toast } = useToast();
   const { wallet, user } = useWallet();
-  const { currency, formatCurrency } = useCurrency();
+  const { currency, formatCurrency, rates } = useCurrency();
   const firestore = useFirestore();
   const searchParams = useSearchParams();
 
@@ -100,10 +100,10 @@ export default function SendReceivePage() {
   useEffect(() => {
     const amountVal = parseFloat(formValues.amount) || 0;
     const assetPriceUSD = liveAssetPriceUSD[selectedAsset] || (selectedAsset === 'ETH' ? 2000 : selectedAsset === 'BTC' ? 82000 : 1);
-    const zarRate = 18.62;
+    const zarRate = rates.ZAR || 18.62;
     const valueInZAR = amountVal * assetPriceUSD * zarRate;
     setIsComplianceRequired(valueInZAR > 3000);
-  }, [formValues.amount, selectedAsset, liveAssetPriceUSD]);
+  }, [formValues.amount, selectedAsset, liveAssetPriceUSD, rates]);
 
   useEffect(() => {
     if (wallet?.address) {

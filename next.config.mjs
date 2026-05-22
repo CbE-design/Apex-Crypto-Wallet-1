@@ -88,6 +88,14 @@ const nextConfig = {
       );
     }
 
+    // Suppress missing optional OpenTelemetry peer dependency warnings
+    // that come from the genkit SDK in both server and client bundles.
+    config.plugins.push(
+      new webpack.IgnorePlugin({
+        resourceRegExp: /^@opentelemetry\/exporter-jaeger$/,
+      })
+    );
+
     return config;
   },
 };
