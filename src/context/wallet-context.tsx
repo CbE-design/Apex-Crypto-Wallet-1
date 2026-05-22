@@ -109,6 +109,15 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [hasPasskey, setHasPasskey] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [passkeySupported, setPasskeySupported] = useState(false);
+  const [deviceId] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const key = 'apex-device-id';
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+    const created = crypto.randomUUID();
+    localStorage.setItem(key, created);
+    return created;
+  });
 
   const pinnedPinRef = useRef<string | null>(null);
 
@@ -143,6 +152,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(`apex-wallet-${uid}`); // Legacy
     localStorage.removeItem(`${SESSION_PREFIX}${uid}`);
   }, []);
+
+  const sessionKey = useCallback((uid: string) => `${SESSION_PREFIX}${uid}:${deviceId}`, [deviceId]);
 
   // ── sign in with a custom token, clearing any prior session first ─────
   const signInWithToken = useCallback(async (token: string): Promise<FirebaseUser> => {
@@ -237,7 +248,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        const sessionJson = localStorage.getItem(`${SESSION_PREFIX}${uid}`);
+        const sessionJson = localStorage.getItem(sessionKey(uid));
         if (sessionJson) {
           try {
             const cached = JSON.parse(sessionJson) as Wallet;
@@ -250,7 +261,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
               setIsInitializing(false);
               return;
             }
-          } catch { localStorage.removeItem(`${SESSION_PREFIX}${uid}`); }
+          } catch { localStorage.removeItem(sessionKey(uid)); }
         }
 
         // 2. Legacy key migration
@@ -272,19 +283,19 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
 
     initializeWallet();
-  }, [user, auth, wallet]);
+  }, [user, auth, wallet, sessionKey]);
 
   // ── vault / PIN / passkey ─────────────────────────────────────────────
   const setupVault = useCallback(async (pin: string) => {
     if (!pendingWallet || !user) throw new Error('No pending wallet to vault');
     const vault = await encryptVault(pendingWallet, pin);
     localStorage.setItem(`${VAULT_PREFIX}${user.uid}`, JSON.stringify(vault));
-    localStorage.setItem(`${SESSION_PREFIX}${user.uid}`, JSON.stringify(pendingWallet));
+    localStorage.setItem(sessionKey(user.uid), JSON.stringify(pendingWallet));
     pinnedPinRef.current = pin;
     setAddressHint(vault.addressHint);
     setWallet(pendingWallet);
     setPendingWallet(null);
-  }, [pendingWallet, user]);
+  }, [pendingWallet, user, sessionKey]);
 
   const unlockWithPin = useCallback(async (pin: string) => {
     if (!user) throw new Error('Not authenticated');
@@ -295,11 +306,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!data.privateKey) throw new Error('Invalid vault');
     const inst = new ethers.Wallet(data.privateKey);
     const w: Wallet = { address: inst.address, privateKey: inst.privateKey };
-    localStorage.setItem(`${SESSION_PREFIX}${user.uid}`, JSON.stringify(w));
+    localStorage.setItem(sessionKey(user.uid), JSON.stringify(w));
     pinnedPinRef.current = pin;
     setWallet(w);
     setVaultLocked(false);
-  }, [user]);
+  }, [user, sessionKey]);
 
   const setupPasskey = useCallback(async () => {
     if (!user || !passkeySupported) throw new Error('Passkey not supported');
