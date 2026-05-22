@@ -372,14 +372,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // 3. Validate the mnemonic and derive the wallet instance
-      let importedWallet: ethers.Wallet;
-      try {
-        importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
-      } catch (e) {
-        // Re-throw a generic error that the outer catch block will handle
-        // by showing a user-friendly toast message.
-        throw new Error('Invalid mnemonic phrase.');
-      }
+      const importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
 
       // 4. Ask the server for a custom auth token.
       // The server looks up the wallet address in Firestore and returns the
