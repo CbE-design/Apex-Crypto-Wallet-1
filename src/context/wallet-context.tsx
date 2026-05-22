@@ -141,7 +141,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(`${VAULT_PREFIX}${uid}`);
     localStorage.removeItem(`${PASSKEY_PREFIX}${uid}`);
     localStorage.removeItem(`apex-wallet-${uid}`); // Legacy
-    sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`);
+    localStorage.removeItem(`${SESSION_PREFIX}${uid}`);
   }, []);
 
   // ── sign in with a custom token, clearing any prior session first ─────
@@ -224,21 +224,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       if (user && !wallet) {
         const uid = user.uid;
 
-        // 1. Check session storage (unlocked this tab)
-        const sessionJson = sessionStorage.getItem(`${SESSION_PREFIX}${uid}`);
-        if (sessionJson) {
-          try {
-            const cached = JSON.parse(sessionJson) as Wallet;
-            if (cached.privateKey) {
-              const inst = new ethers.Wallet(cached.privateKey);
-              setWallet({ address: inst.address, privateKey: inst.privateKey });
-              setIsInitializing(false);
-              return;
-            }
-          } catch { sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`); }
-        }
-
-        // 2. Check local vault (locked)
+        // 1. Check local vault (locked) or legacy unlocked session data.
         const vaultJson = localStorage.getItem(`${VAULT_PREFIX}${uid}`);
         if (vaultJson) {
           try {
@@ -251,7 +237,23 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        // 3. Legacy key migration
+        const sessionJson = localStorage.getItem(`${SESSION_PREFIX}${uid}`);
+        if (sessionJson) {
+          try {
+            const cached = JSON.parse(sessionJson) as Wallet;
+            if (cached.privateKey) {
+              const inst = new ethers.Wallet(cached.privateKey);
+              const w: Wallet = { address: inst.address, privateKey: inst.privateKey };
+              setAddressHint(`${w.address.slice(0, 6)}...${w.address.slice(-4)}`);
+              setWallet(w);
+              setVaultLocked(true);
+              setIsInitializing(false);
+              return;
+            }
+          } catch { localStorage.removeItem(`${SESSION_PREFIX}${uid}`); }
+        }
+
+        // 2. Legacy key migration
         const legacyKey = `apex-wallet-${uid}`;
         const legacyJson = localStorage.getItem(legacyKey);
         if (legacyJson) {
@@ -277,7 +279,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!pendingWallet || !user) throw new Error('No pending wallet to vault');
     const vault = await encryptVault(pendingWallet, pin);
     localStorage.setItem(`${VAULT_PREFIX}${user.uid}`, JSON.stringify(vault));
-    sessionStorage.setItem(`${SESSION_PREFIX}${user.uid}`, JSON.stringify(pendingWallet));
+    localStorage.setItem(`${SESSION_PREFIX}${user.uid}`, JSON.stringify(pendingWallet));
     pinnedPinRef.current = pin;
     setAddressHint(vault.addressHint);
     setWallet(pendingWallet);
@@ -293,7 +295,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!data.privateKey) throw new Error('Invalid vault');
     const inst = new ethers.Wallet(data.privateKey);
     const w: Wallet = { address: inst.address, privateKey: inst.privateKey };
-    sessionStorage.setItem(`${SESSION_PREFIX}${user.uid}`, JSON.stringify(w));
+    localStorage.setItem(`${SESSION_PREFIX}${user.uid}`, JSON.stringify(w));
     pinnedPinRef.current = pin;
     setWallet(w);
     setVaultLocked(false);
