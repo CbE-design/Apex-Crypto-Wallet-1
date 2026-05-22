@@ -105,6 +105,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [pendingWallet, setPendingWallet] = useState<Wallet | null>(null);
   const [vaultLocked, setVaultLocked] = useState(false);
+  const [restoredWallet, setRestoredWallet] = useState<Wallet | null>(null);
   const [addressHint, setAddressHint] = useState('');
   const [hasPasskey, setHasPasskey] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -231,6 +232,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
             const vault = JSON.parse(vaultJson) as Vault;
             setAddressHint(vault.addressHint ?? '');
             setHasPasskey(!!localStorage.getItem(`${PASSKEY_PREFIX}${uid}`));
+            const sessionJson = localStorage.getItem(`${SESSION_PREFIX}${uid}`);
+            if (sessionJson) {
+              const cached = JSON.parse(sessionJson) as Wallet;
+              if (cached.privateKey) setRestoredWallet(cached);
+            }
           } catch { }
           setVaultLocked(true);
           setIsInitializing(false);
@@ -246,6 +252,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
               const w: Wallet = { address: inst.address, privateKey: inst.privateKey };
               setAddressHint(`${w.address.slice(0, 6)}...${w.address.slice(-4)}`);
               setWallet(w);
+              setRestoredWallet(w);
               setVaultLocked(true);
               setIsInitializing(false);
               return;
@@ -433,6 +440,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       if (uid) clearLocalSession(uid);
       pinnedPinRef.current = null;
       setWallet(null);
+      setRestoredWallet(null);
       setPendingWallet(null);
       setVaultLocked(false);
       setHasPasskey(false);
@@ -450,7 +458,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <WalletContext.Provider value={{
-      wallet, user, userProfile: userProfile as UserProfile | null,
+      wallet: wallet ?? restoredWallet, user, userProfile: userProfile as UserProfile | null,
       loading, isAdmin,
       vaultLocked, pendingVaultSetup, hasPasskey, passkeySupported, addressHint,
       createWallet, importWallet, confirmAndCreateWallet, disconnectWallet, syncWalletBalance,
