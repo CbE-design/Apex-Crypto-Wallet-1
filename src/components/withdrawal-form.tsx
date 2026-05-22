@@ -26,7 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useWallet } from '@/context/wallet-context';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp, query } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, doc, updateDoc, runTransaction } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { marketCoins } from '@/lib/data';
 import { CryptoIcon } from '@/components/crypto-icon';
@@ -60,6 +60,7 @@ const swiftSchema = z.object({
 
 type EftValues = z.infer<typeof eftSchema>;
 type SwiftValues = z.infer<typeof swiftSchema>;
+type WithdrawalFormValues = EftValues | SwiftValues;
 
 interface WalletDoc {
   id: string;
@@ -122,9 +123,12 @@ export function WithdrawalForm() {
     defaultValues: { asset: '', zarAmount: '', bankName: '', accountNumber: '', accountHolder: '', swiftCode: '', routingNumber: '' },
   });
 
-  const activeForm = method === 'EFT' ? eftForm : swiftForm;
-  const watchedAsset = activeForm.watch('asset');
-  const watchedZar = parseFloat((activeForm.watch('zarAmount') as string) || '0') || 0;
+  const eftAsset = eftForm.watch('asset');
+  const eftZar = parseFloat(eftForm.watch('zarAmount') || '0') || 0;
+  const swiftAsset = swiftForm.watch('asset');
+  const swiftZar = parseFloat(swiftForm.watch('zarAmount') || '0') || 0;
+  const watchedAsset = method === 'EFT' ? eftAsset : swiftAsset;
+  const watchedZar = method === 'EFT' ? eftZar : swiftZar;
 
   const walletWithBalance = (wallets ?? []).filter(w => w.balance > 0);
   const selectedWallet = wallets?.find(w => w.currency === watchedAsset);
@@ -145,7 +149,7 @@ export function WithdrawalForm() {
       .finally(() => setLoadingPrices(false));
   }, [watchedAsset]);
 
-  const buildPayload = (values: EftValues | SwiftValues, withdrawalMethod: 'EFT' | 'SWIFT') => {
+  const buildPayload = (values: WithdrawalFormValues, withdrawalMethod: 'EFT' | 'SWIFT') => {
     const feePct = withdrawalMethod === 'EFT' ? EFT_FEE_PCT : SWIFT_FEE_PCT;
     const feeFlat = withdrawalMethod === 'EFT' ? EFT_FEE_FLAT : SWIFT_FEE_FLAT;
     const zarGross = parseFloat(values.zarAmount);
@@ -178,6 +182,23 @@ export function WithdrawalForm() {
     };
   };
 
+  const reserveWithdrawalBalance = async (asset: string, amount: number) => {
+    if (!firestore || !user) throw new Error('Missing services');
+    const walletRef = doc(firestore, 'users', user.uid, 'wallets', asset);
+    await runTransaction(firestore, async (transaction: any) => {
+      const walletSnap = await transaction.get(walletRef);
+      const currentBalance = walletSnap.exists() ? (walletSnap.data().balance || 0) : 0;
+      if (currentBalance < amount) {
+        throw new Error(`Insufficient ${asset} balance`);
+      }
+      transaction.set(walletRef, {
+        balance: currentBalance - amount,
+        reservedForWithdrawal: amount,
+        lastSynced: serverTimestamp(),
+      }, { merge: true });
+    });
+  };
+
   const onSubmitEft = async (values: EftValues) => {
     if (!user || !firestore) return;
     if (!hasSufficientBalance) {
@@ -187,6 +208,7 @@ export function WithdrawalForm() {
     setIsSubmitting(true);
     try {
       const payload = buildPayload(values, 'EFT');
+      await reserveWithdrawalBalance(values.asset, cryptoEquivalent);
       await addDoc(collection(firestore, 'withdrawal_requests'), payload);
       await addDoc(collection(firestore, 'admin_notifications'), {
         type: 'WITHDRAWAL_REQUEST',
@@ -217,6 +239,7 @@ export function WithdrawalForm() {
     setIsSubmitting(true);
     try {
       const payload = buildPayload(values, 'SWIFT');
+      await reserveWithdrawalBalance(values.asset, cryptoEquivalent);
       await addDoc(collection(firestore, 'withdrawal_requests'), payload);
       await addDoc(collection(firestore, 'admin_notifications'), {
         type: 'WITHDRAWAL_REQUEST',

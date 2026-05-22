@@ -139,6 +139,7 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
 
       await updateDoc(doc(firestore, 'users', user.uid), {
         kycStatus: 'PENDING',
+        kycSubmittedAt: serverTimestamp(),
       });
 
       await addDoc(collection(firestore, 'admin_notifications'), {
