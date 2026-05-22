@@ -16,11 +16,14 @@ function toBase64url(buf: ArrayBuffer | Uint8Array): string {
     .replace(/=/g, '');
 }
 
-export function fromBase64url(str: string): Uint8Array {
+export function fromBase64url(str: string): Uint8Array<ArrayBuffer> {
   const padded = str.replace(/-/g, '+').replace(/_/g, '/');
   const padLen = (4 - (padded.length % 4)) % 4;
   const binary = atob(padded + '='.repeat(padLen));
-  return Uint8Array.from(binary, c => c.charCodeAt(0));
+  const buffer = new ArrayBuffer(binary.length);
+  const out = new Uint8Array(buffer);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
 }
 
 /**

@@ -183,9 +183,20 @@ export default function AdminSettingsPage() {
     if (!user?.email) return;
     setIsDeployingRules(true);
     try {
+      let idToken: string | undefined;
+      try {
+        const { getAuth } = await import('firebase/auth');
+        const currentUser = getAuth().currentUser;
+        if (currentUser) idToken = await currentUser.getIdToken();
+      } catch {
+        // Could not get token – fall back to email in body
+      }
       const res = await fetch('/api/admin/deploy-rules', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
         body: JSON.stringify({ email: user.email }),
       });
       const data = await res.json();

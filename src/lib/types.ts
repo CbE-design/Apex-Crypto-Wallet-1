@@ -133,6 +133,19 @@ export interface Currency {
     flagUrl: string;
 }
 
+// User Profile (shared across contexts and hooks)
+export interface UserProfile {
+  id: string;
+  email: string;
+  createdAt: any;
+  walletAddress: string;
+  walletAddressLowercase?: string;
+  fcmToken?: string;
+  kycStatus?: KYCStatus;
+  kycSubmittedAt?: any;
+  kycApprovedAt?: any;
+}
+
 // KYC Status Types
 export type KYCStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
 

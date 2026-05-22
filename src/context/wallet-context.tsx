@@ -21,21 +21,12 @@ import {
   type Vault,
 } from '@/lib/vault';
 import { registerPasskey, authenticatePasskey, isPasskeySupported } from '@/lib/passkey';
-import { KYCStatus } from '@/lib/types';
+import { KYCStatus, UserProfile } from '@/lib/types';
 
 // ── types ────────────────────────────────────────────────────────────────
 interface Wallet {
   address: string;
   privateKey: string;
-}
-
-interface UserProfile {
-  id: string;
-  email: string;
-  createdAt: any;
-  walletAddress: string;
-  fcmToken?: string;
-  kycStatus?: KYCStatus;
 }
 
 interface WalletContextType {
