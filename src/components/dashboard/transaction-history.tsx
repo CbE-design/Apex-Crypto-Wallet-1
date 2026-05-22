@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase'
-import { collectionGroup, query, where, limit } from 'firebase/firestore'
+import { collection, query, limit, orderBy } from 'firebase/firestore'
 import { useCurrency } from "@/context/currency-context";
 import { CryptoIcon } from "../crypto-icon";
 import { Loader2, Activity, ArrowUpRight, ArrowDownLeft, Inbox, AlertTriangle } from "lucide-react";

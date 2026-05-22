@@ -1,5 +1,13 @@
-import 'server-only';
-import { getFunctions } from 'firebase/functions';
-import { app } from './config';
+'use client';
 
-export const functions = getFunctions(app);
+import { getFunctions } from 'firebase/functions';
+import { getApp } from 'firebase/app';
+
+/**
+ * Returns the Firebase Functions client instance.
+ * Must be called from a client component after Firebase has been initialised
+ * by FirebaseProvider.
+ */
+export function getClientFunctions() {
+  return getFunctions(getApp());
+}

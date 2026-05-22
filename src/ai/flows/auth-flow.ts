@@ -1,60 +1,52 @@
-
 'use server';
 
-import { getAuth } from 'firebase-admin/auth';
-import { z, defineFlow, run } from 'genkit';
-import { getFirestore } from 'firebase-admin/firestore';
+import { z } from 'zod';
+import { ai } from '@/ai/genkit';
+import { getAdminFirestore, firebaseAdmin } from '@/lib/firebase-admin';
 
-// Initialize Firebase Admin SDK if not already done
-import { firebaseAdmin } from '@/lib/firebase-admin';
-
-export const getAuthToken = defineFlow(
+/**
+ * Genkit flow that issues a Firebase custom auth token for a wallet address.
+ * Looks up an existing user by walletAddressLowercase, creates one if not found,
+ * and returns { token, isReturningUser }.
+ *
+ * NOTE: The primary implementation is the Next.js API route at
+ * /api/auth/wallet-token which is called directly by wallet-context.tsx.
+ * This flow exists for server-action / Genkit pipeline usage.
+ */
+export const getAuthToken = ai.defineFlow(
   {
     name: 'getAuthToken',
     inputSchema: z.object({ address: z.string() }),
-    // The output is an object containing the token and a flag indicating
-    // if the user is new or returning, which is crucial for the client.
     outputSchema: z.object({
       token: z.string(),
       isReturningUser: z.boolean(),
     }),
   },
   async ({ address }) => {
-    const auth = getAuth(firebaseAdmin);
-    const db = getFirestore(firebaseAdmin);
-    const usersRef = db.collection('users');
-
-    // Query for an existing user with the same wallet address.
-    const q = usersRef.where('walletAddressLowercase', '==', address.toLowerCase()).limit(1);
-    const snapshot = await run('find-user', () => q.get());
-
-    let userId: string;
-    let isReturningUser: boolean;
-
-    if (snapshot.empty) {
-      // CASE 1: New User
-      // The user does not exist, so we create a new Firebase Auth user.
-      // This provides a new, unique, and secure UID for them.
-      isReturningUser = false;
-      const newUser = await run('create-auth-user', () => auth.createUser({
-        // We don't have email/password, just create a user to get a UID
-      }));
-      userId = newUser.uid;
-    } else {
-      // CASE 2: Returning User
-      // The user already exists. We'll use their original UID to ensure
-      // they get access to all their existing data.
-      isReturningUser = true;
-      userId = snapshot.docs[0].id;
+    const db = getAdminFirestore();
+    if (!db) {
+      throw new Error('Firebase Admin SDK is not initialised.');
     }
 
-    // Now, create the custom token with the determined UID.
-    // Including the walletAddress as a claim is a good security practice.
-    const token = await run('create-token', () =>
-      auth.createCustomToken(userId, { walletAddress: address })
-    );
+    const addressLower = address.toLowerCase();
+    const snap = await db
+      .collection('users')
+      .where('walletAddressLowercase', '==', addressLower)
+      .limit(1)
+      .get();
 
-    // Return the token and the flag to the client.
+    let uid: string;
+    let isReturningUser: boolean;
+
+    if (snap.empty) {
+      isReturningUser = false;
+      uid = `w_${addressLower.replace('0x', '').slice(0, 40)}`;
+    } else {
+      isReturningUser = true;
+      uid = snap.docs[0].id;
+    }
+
+    const token = await firebaseAdmin.auth().createCustomToken(uid, { walletAddress: address });
     return { token, isReturningUser };
-  }
+  },
 );

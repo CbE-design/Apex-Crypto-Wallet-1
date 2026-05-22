@@ -21,21 +21,12 @@ import {
   type Vault,
 } from '@/lib/vault';
 import { registerPasskey, authenticatePasskey, isPasskeySupported } from '@/lib/passkey';
-import { KYCStatus } from '@/lib/types';
+import { KYCStatus, UserProfile } from '@/lib/types';
 
 // ── types ────────────────────────────────────────────────────────────────
 interface Wallet {
   address: string;
   privateKey: string;
-}
-
-interface UserProfile {
-  id: string;
-  email: string;
-  createdAt: any;
-  walletAddress: string;
-  fcmToken?: string;
-  kycStatus?: KYCStatus;
 }
 
 interface WalletContextType {
@@ -105,6 +96,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [pendingWallet, setPendingWallet] = useState<Wallet | null>(null);
   const [vaultLocked, setVaultLocked] = useState(false);
+  const [restoredWallet, setRestoredWallet] = useState<Wallet | null>(null);
   const [addressHint, setAddressHint] = useState('');
   const [hasPasskey, setHasPasskey] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -141,7 +133,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(`${VAULT_PREFIX}${uid}`);
     localStorage.removeItem(`${PASSKEY_PREFIX}${uid}`);
     localStorage.removeItem(`apex-wallet-${uid}`); // Legacy
-    sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`);
+    localStorage.removeItem(`${SESSION_PREFIX}${uid}`);
   }, []);
 
   // ── sign in with a custom token, clearing any prior session first ─────
@@ -224,34 +216,42 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       if (user && !wallet) {
         const uid = user.uid;
 
-        // 1. Check session storage (unlocked this tab)
-        const sessionJson = sessionStorage.getItem(`${SESSION_PREFIX}${uid}`);
-        if (sessionJson) {
-          try {
-            const cached = JSON.parse(sessionJson) as Wallet;
-            if (cached.privateKey) {
-              const inst = new ethers.Wallet(cached.privateKey);
-              setWallet({ address: inst.address, privateKey: inst.privateKey });
-              setIsInitializing(false);
-              return;
-            }
-          } catch { sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`); }
-        }
-
-        // 2. Check local vault (locked)
+        // 1. Check local vault (locked) or legacy unlocked session data.
         const vaultJson = localStorage.getItem(`${VAULT_PREFIX}${uid}`);
         if (vaultJson) {
           try {
             const vault = JSON.parse(vaultJson) as Vault;
             setAddressHint(vault.addressHint ?? '');
             setHasPasskey(!!localStorage.getItem(`${PASSKEY_PREFIX}${uid}`));
+            const sessionJson = localStorage.getItem(`${SESSION_PREFIX}${uid}`);
+            if (sessionJson) {
+              const cached = JSON.parse(sessionJson) as Wallet;
+              if (cached.privateKey) setRestoredWallet(cached);
+            }
           } catch { }
           setVaultLocked(true);
           setIsInitializing(false);
           return;
         }
 
-        // 3. Legacy key migration
+        const sessionJson = localStorage.getItem(`${SESSION_PREFIX}${uid}`);
+        if (sessionJson) {
+          try {
+            const cached = JSON.parse(sessionJson) as Wallet;
+            if (cached.privateKey) {
+              const inst = new ethers.Wallet(cached.privateKey);
+              const w: Wallet = { address: inst.address, privateKey: inst.privateKey };
+              setAddressHint(`${w.address.slice(0, 6)}...${w.address.slice(-4)}`);
+              setWallet(w);
+              setRestoredWallet(w);
+              setVaultLocked(true);
+              setIsInitializing(false);
+              return;
+            }
+          } catch { localStorage.removeItem(`${SESSION_PREFIX}${uid}`); }
+        }
+
+        // 2. Legacy key migration
         const legacyKey = `apex-wallet-${uid}`;
         const legacyJson = localStorage.getItem(legacyKey);
         if (legacyJson) {
@@ -277,7 +277,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!pendingWallet || !user) throw new Error('No pending wallet to vault');
     const vault = await encryptVault(pendingWallet, pin);
     localStorage.setItem(`${VAULT_PREFIX}${user.uid}`, JSON.stringify(vault));
-    sessionStorage.setItem(`${SESSION_PREFIX}${user.uid}`, JSON.stringify(pendingWallet));
+    localStorage.setItem(`${SESSION_PREFIX}${user.uid}`, JSON.stringify(pendingWallet));
     pinnedPinRef.current = pin;
     setAddressHint(vault.addressHint);
     setWallet(pendingWallet);
@@ -293,7 +293,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!data.privateKey) throw new Error('Invalid vault');
     const inst = new ethers.Wallet(data.privateKey);
     const w: Wallet = { address: inst.address, privateKey: inst.privateKey };
-    sessionStorage.setItem(`${SESSION_PREFIX}${user.uid}`, JSON.stringify(w));
+    localStorage.setItem(`${SESSION_PREFIX}${user.uid}`, JSON.stringify(w));
     pinnedPinRef.current = pin;
     setWallet(w);
     setVaultLocked(false);
@@ -372,14 +372,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // 3. Validate the mnemonic and derive the wallet instance
-      let importedWallet: ethers.Wallet;
-      try {
-        importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
-      } catch (e) {
-        // Re-throw a generic error that the outer catch block will handle
-        // by showing a user-friendly toast message.
-        throw new Error('Invalid mnemonic phrase.');
-      }
+      const importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
 
       // 4. Ask the server for a custom auth token.
       // The server looks up the wallet address in Firestore and returns the
@@ -438,6 +431,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       if (uid) clearLocalSession(uid);
       pinnedPinRef.current = null;
       setWallet(null);
+      setRestoredWallet(null);
       setPendingWallet(null);
       setVaultLocked(false);
       setHasPasskey(false);
@@ -455,7 +449,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <WalletContext.Provider value={{
-      wallet, user, userProfile: userProfile as UserProfile | null,
+      wallet: wallet ?? restoredWallet, user, userProfile: userProfile as UserProfile | null,
       loading, isAdmin,
       vaultLocked, pendingVaultSetup, hasPasskey, passkeySupported, addressHint,
       createWallet, importWallet, confirmAndCreateWallet, disconnectWallet, syncWalletBalance,
