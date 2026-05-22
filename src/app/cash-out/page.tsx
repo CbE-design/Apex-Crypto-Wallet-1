@@ -2,6 +2,7 @@
 
 import KycVerificationModal from '@/components/kyc-verification-modal';
 import { WithdrawalContent } from '@/app/cash-out/withdrawal-content';
+import { useKycVerification } from '@/hooks/use-kyc-verification';
 
 /**
  * The parent component for the Cash Out page, responsible for rendering either the 
@@ -10,10 +11,12 @@ import { WithdrawalContent } from '@/app/cash-out/withdrawal-content';
  * accessing withdrawal functionality.
  */
 export default function CashOutPage() {
+  const { isKycRequired } = useKycVerification();
+
   return (
     <>
       <KycVerificationModal />
-      <WithdrawalContent />
+      {isKycRequired ? null : <WithdrawalContent />}
     </>
   );
 }

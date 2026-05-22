@@ -9,7 +9,15 @@ import { KycStatusAlert } from '@/components/kyc-status-alert';
 export function WithdrawalContent() {
   const { isKycRequired, kycStatus } = useKycVerification();
 
-  // If KYC is not required (i.e., user is fully verified), show the withdrawal form and history
+  // Only allow withdrawals after KYC approval.
+  if (kycStatus !== 'APPROVED') {
+    return (
+      <div className="container max-w-2xl py-8">
+        <KycStatusAlert kycStatus={kycStatus} />
+      </div>
+    );
+  }
+
   if (!isKycRequired) {
     return (
       <div className="container max-w-6xl py-8 space-y-8">
