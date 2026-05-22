@@ -22,7 +22,6 @@ import {
 } from '@/lib/vault';
 import { registerPasskey, authenticatePasskey, isPasskeySupported } from '@/lib/passkey';
 import { KYCStatus } from '@/lib/types';
-import { getAuthToken } from '@/ai/flows/auth-flow';
 
 // ── types ────────────────────────────────────────────────────────────────
 interface Wallet {
@@ -141,7 +140,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(`${VAULT_PREFIX}${uid}`);
     localStorage.removeItem(`${PASSKEY_PREFIX}${uid}`);
-    localStorage.removeItem(`apex-wallet-${uid}`);
+    localStorage.removeItem(`apex-wallet-${uid}`); // Legacy
     sessionStorage.removeItem(`${SESSION_PREFIX}${uid}`);
   }, []);
 
@@ -176,6 +175,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       if (isNew) {
         profileUpdate.email = `${walletInstance.address.substring(0, 8)}@apex.io`;
         profileUpdate.createdAt = serverTimestamp();
+        profileUpdate.kycStatus = "NOT_SUBMITTED";
       }
       batch.set(userRef, profileUpdate, { merge: true });
 
@@ -357,34 +357,32 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!auth || !firestore) throw new Error('Services missing');
     setIsInitializing(true);
     try {
-      // Sanitise the mnemonic
+      // 1. Sanitise the mnemonic, as per replit.md notes
       const cleanMnemonic = mnemonic
-        .replace(/[\u200B-\u200D\uFEFF]/g, '')
-        .replace(/["'`]/g, '')
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // remove zero-width spaces
+        .replace(/[\"'`]/g, '')                 // remove quotes
         .trim()
         .toLowerCase()
-        .replace(/\s+/g, ' ');
+        .replace(/\s+/g, ' ');                   // normalise whitespace
 
+      // 2. Validate word count
       const wordCount = cleanMnemonic.split(' ').filter(Boolean).length;
       if (![12, 15, 18, 21, 24].includes(wordCount)) {
         throw new Error(`Seed phrases must be 12, 15, 18, 21, or 24 words. You entered ${wordCount}.`);
       }
 
-      try {
-        importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
-      } catch {
-        throw new Error('Invalid mnemonic phrase.');
-      }
+      // 3. Validate the mnemonic and derive the wallet instance
+      const importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
 
-      // Ask the server for a custom auth token.
+      // 4. Ask the server for a custom auth token.
       // The server looks up the wallet address in Firestore and returns the
       // existing user's UID if one exists, so all their data is preserved.
       const { token, isReturningUser } = await getCustomTokenForWallet(importedWallet.address);
 
-      // Sign in as the correct UID (same one they've always had).
+      // 5. Sign in as the correct UID (same one they've always had).
       const firebaseUser = await signInWithToken(token);
 
-      // Set up / update Firestore documents.
+      // 6. Set up / update Firestore documents.
       // merge:true means existing balances, KYC status, etc. are never wiped.
       const walletData = await setupUserAndWalletDocuments(
         firebaseUser,
@@ -392,7 +390,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         !isReturningUser,
       );
 
+      // 7. Set the wallet in a pending state to trigger the PIN setup flow.
       setPendingWallet(walletData);
+
     } catch (err: any) {
       console.error('[importWallet] failed:', err);
       const lower = (err?.message || '').toLowerCase();
@@ -416,11 +416,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         msg = err?.message || 'Could not restore wallet. Please try again.';
       }
       toast({ title: 'Restore Failed', description: msg, variant: 'destructive' });
-      throw err;
+      throw err; // Re-throw to allow the calling component to know about the failure
     } finally {
       setIsInitializing(false);
     }
   }, [auth, firestore, signInWithToken, setupUserAndWalletDocuments, toast]);
+
 
   // ── disconnect ────────────────────────────────────────────────────────
   const disconnectWallet = useCallback(() => {

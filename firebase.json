@@ -11,7 +11,29 @@
     }
   },
   "firestore": {
-    "rules": "firestore.rules"
+    "rules": "firestore.rules",
+    "indexes": [
+      {
+        "collectionGroup": "transactions",
+        "queryScope": "COLLECTION_GROUP",
+        "fields": [
+          {
+            "fieldPath": "userId",
+            "order": "ASCENDING"
+          }
+        ]
+      },
+      {
+        "collectionGroup": "users",
+        "queryScope": "COLLECTION_GROUP",
+        "fields": [
+          {
+            "fieldPath": "walletAddressLowercase",
+            "order": "ASCENDING"
+          }
+        ]
+      }
+    ]
   },
   "functions": {
     "source": "functions"

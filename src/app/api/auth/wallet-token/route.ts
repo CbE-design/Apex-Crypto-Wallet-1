@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     if (!snap.empty) {
       uid = snap.docs[0].id;
       isReturningUser = true;
+      console.log("Found existing user! ID:", uid);
     } else {
       // New wallet — create a deterministic UID from the address so future imports
       // of the same wallet always get the same UID, even before a doc exists.
