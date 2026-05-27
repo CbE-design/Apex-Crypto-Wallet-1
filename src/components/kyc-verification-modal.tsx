@@ -115,14 +115,22 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
     if (!user) return;
     const path = `kyc/${user.uid}/documents/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
     const url = await docUploader.upload(file, path);
-    if (url) setForm(prev => ({ ...prev, documentImageUrl: url }));
+    if (url) {
+      setForm(prev => ({ ...prev, documentImageUrl: url }));
+    } else {
+      console.error('[KYC] Doc upload failed');
+    }
   }, [user, docUploader]);
 
   const handleSelfieFile = useCallback(async (file: File) => {
     if (!user) return;
     const path = `kyc/${user.uid}/selfies/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
     const url = await selfieUploader.upload(file, path);
-    if (url) setForm(prev => ({ ...prev, selfieImageUrl: url }));
+    if (url) {
+      setForm(prev => ({ ...prev, selfieImageUrl: url }));
+    } else {
+      console.error('[KYC] Selfie upload failed');
+    }
   }, [user, selfieUploader]);
 
   const validatePersonal = (): boolean => {
@@ -343,7 +351,7 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
         sublabel="Take a clear photo of the entire document page"
         previewUrl={form.documentImageUrl}
         uploading={docUploader.uploading}
-        error={errors.upload}
+        error={docUploader.error || (form.documentImageUrl ? null : errors.upload)}
         onFileSelect={handleDocFile}
         onClear={() => setForm(prev => ({ ...prev, documentImageUrl: '' }))}
       />
@@ -353,16 +361,17 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
         sublabel="Hold the camera at eye level, neutral expression, good lighting"
         previewUrl={form.selfieImageUrl}
         uploading={selfieUploader.uploading}
-        error={errors.upload}
+        error={selfieUploader.error || (form.selfieImageUrl ? null : errors.upload)}
         onFileSelect={handleSelfieFile}
         onClear={() => setForm(prev => ({ ...prev, selfieImageUrl: '' }))}
       />
 
-      {errors.upload && <p className="text-xs text-destructive">{errors.upload}</p>}
+      {errors.upload && !form.documentImageUrl && !form.selfieImageUrl && <p className="text-xs text-destructive">{errors.upload}</p>}
 
       <div className="flex gap-2 mt-2">
-        <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setStep('document')}>Back</Button>
-        <Button className="flex-1 h-11 rounded-xl btn-premium text-white font-semibold" onClick={() => { if (validateUploads()) setStep('review'); }}>
+        <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setStep('document')} disabled={docUploader.uploading || selfieUploader.uploading}>Back</Button>
+        <Button className="flex-1 h-11 rounded-xl btn-premium text-white font-semibold" onClick={() => { if (validateUploads()) setStep('review'); }} disabled={docUploader.uploading || selfieUploader.uploading}>
+          {docUploader.uploading || selfieUploader.uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
           Review <ChevronRight className="h-4 w-4 ml-1" />
         </Button>
       </div>
