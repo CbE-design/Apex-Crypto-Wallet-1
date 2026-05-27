@@ -215,16 +215,43 @@ export interface KYCSubmission {
   nationality: string;
   address: string;
   
+  // Country & jurisdiction
+  countryCode: string;
+
   // Document info
   documentType: 'passport' | 'drivers_license' | 'national_id';
   documentNumber: string;
   documentExpiry: string;
-  
+
+  // Uploaded images (Firebase Storage URLs)
+  documentImageUrl: string;
+  selfieImageUrl: string;
+
   // Timestamps
   submittedAt: any;
   reviewedAt?: any;
   reviewedBy?: string;
   rejectionReason?: string;
+
+  // Auto-verification results (computed by admin API)
+  autoVerification?: {
+    runAt: any;
+    ocrConfidence: number;
+    extractedFields: {
+      fullName: string;
+      documentNumber: string;
+      dateOfBirth: string;
+    };
+    fieldMatches: {
+      nameMatch: boolean;
+      idMatch: boolean;
+      dobMatch: boolean;
+    };
+    faceMatchScore: number;
+    overallConfidence: number;
+    recommendation: 'AUTO_APPROVE' | 'MANUAL_REVIEW' | 'REJECT';
+    rawOcrText: string;
+  };
 
   // Linked withdrawal intent (populated when KYC was triggered by a cash-out attempt)
   withdrawalIntent?: {
