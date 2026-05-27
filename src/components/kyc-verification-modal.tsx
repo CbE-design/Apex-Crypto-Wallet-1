@@ -1,19 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   ShieldCheck, ArrowRight, CheckCircle2, Clock, XCircle,
-  Loader2, User, FileText, ChevronRight, AlertTriangle,
+  Loader2, User, FileText, ChevronRight, AlertTriangle, Globe, Camera, Upload,
 } from 'lucide-react';
 import { useKycVerification } from '@/hooks/use-kyc-verification';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { useStorageUpload } from '@/hooks/use-storage-upload';
+import { DocumentUploadField } from '@/components/document-upload-field';
+import { COUNTRIES } from '@/lib/countries';
 import { cn } from '@/lib/utils';
 import type { KYCStatus } from '@/lib/types';
 
@@ -24,39 +27,53 @@ interface KYCVerificationModalProps {
   onSubmissionComplete?: () => void;
 }
 
-type Step = 'status' | 'personal' | 'document' | 'review' | 'done';
+type Step = 'status' | 'personal' | 'document' | 'uploads' | 'review' | 'done';
 
 interface FormData {
   fullName: string;
   dateOfBirth: string;
-  nationality: string;
+  countryCode: string;
   address: string;
   documentType: 'passport' | 'drivers_license' | 'national_id';
   documentNumber: string;
   documentExpiry: string;
+  documentImageUrl: string;
+  selfieImageUrl: string;
 }
 
 const INITIAL_FORM: FormData = {
   fullName: '',
   dateOfBirth: '',
-  nationality: '',
+  countryCode: 'ZA',
   address: '',
   documentType: 'national_id',
   documentNumber: '',
   documentExpiry: '',
+  documentImageUrl: '',
+  selfieImageUrl: '',
 };
 
 const DOC_LABELS: Record<FormData['documentType'], string> = {
   passport: 'Passport',
   drivers_license: "Driver's Licence",
-  national_id: 'SA National ID',
+  national_id: 'National ID',
 };
+
+const DOC_LABELS_COUNTRY: Record<string, Record<FormData['documentType'], string>> = {
+  ZA: { passport: 'Passport', drivers_license: "Driver's Licence", national_id: 'SA National ID' },
+};
+
+function getDocLabel(countryCode: string, docType: FormData['documentType']): string {
+  return DOC_LABELS_COUNTRY[countryCode]?.[docType] ?? DOC_LABELS[docType];
+}
 
 export default function KycVerificationModal(props: KYCVerificationModalProps) {
   const hook = useKycVerification();
   const { user, userProfile } = useWallet();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const docUploader = useStorageUpload();
+  const selfieUploader = useStorageUpload();
 
   const isControlled = props.open !== undefined;
   const open = isControlled ? (props.open ?? false) : hook.isKycModalOpen;
@@ -70,7 +87,7 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
     return 'personal';
   });
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof FormData | 'upload', string>>>({});
   const [submitting, setSubmitting] = useState(false);
 
   React.useEffect(() => {
@@ -85,32 +102,56 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
     }
   }, [open, kycStatus]);
 
-  const documentRequiresExpiry = form.documentType !== 'national_id';
+  const countryName = COUNTRIES.find(c => c.code === form.countryCode)?.name || form.countryCode;
+  const documentRequiresExpiry = form.documentType !== 'national_id' || form.countryCode !== 'ZA';
+  const isLocal = form.countryCode === 'ZA';
 
   const set = (field: keyof FormData, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
     setErrors(prev => ({ ...prev, [field]: undefined }));
   };
 
+  const handleDocFile = useCallback(async (file: File) => {
+    if (!user) return;
+    const path = `kyc/${user.uid}/documents/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
+    const url = await docUploader.upload(file, path);
+    if (url) setForm(prev => ({ ...prev, documentImageUrl: url }));
+  }, [user, docUploader]);
+
+  const handleSelfieFile = useCallback(async (file: File) => {
+    if (!user) return;
+    const path = `kyc/${user.uid}/selfies/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
+    const url = await selfieUploader.upload(file, path);
+    if (url) setForm(prev => ({ ...prev, selfieImageUrl: url }));
+  }, [user, selfieUploader]);
+
   const validatePersonal = (): boolean => {
-    const errs: Partial<Record<keyof FormData, string>> = {};
+    const errs: Partial<Record<keyof FormData | 'upload', string>> = {};
     if (!form.fullName.trim()) errs.fullName = 'Full name is required';
     if (!form.dateOfBirth) errs.dateOfBirth = 'Date of birth is required';
-    if (!form.nationality.trim()) errs.nationality = 'Nationality is required';
+    if (!form.countryCode) errs.countryCode = 'Country is required';
     if (!form.address.trim()) errs.address = 'Residential address is required';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const validateDocument = (): boolean => {
-    const errs: Partial<Record<keyof FormData, string>> = {};
+    const errs: Partial<Record<keyof FormData | 'upload', string>> = {};
     if (!form.documentNumber.trim()) errs.documentNumber = 'Document number is required';
-    if (form.documentType === 'national_id' && !/^\d{13}$/.test(form.documentNumber.trim())) {
+    if (form.documentType === 'national_id' && isLocal && !/^\d{13}$/.test(form.documentNumber.trim())) {
       errs.documentNumber = 'SA National ID must be exactly 13 digits';
     }
     if (documentRequiresExpiry && !form.documentExpiry) {
       errs.documentExpiry = 'Expiry date is required';
     }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const validateUploads = (): boolean => {
+    const errs: Partial<Record<keyof FormData | 'upload', string>> = {};
+    if (!form.documentImageUrl) errs.upload = 'Please upload a photo of your identity document';
+    else if (!form.selfieImageUrl) errs.upload = 'Please upload a selfie for face verification';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -129,11 +170,14 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
         status: 'PENDING',
         fullName: form.fullName.trim(),
         dateOfBirth: form.dateOfBirth,
-        nationality: form.nationality.trim(),
+        nationality: countryName,
+        countryCode: form.countryCode,
         address: form.address.trim(),
         documentType: form.documentType,
         documentNumber: form.documentNumber.trim(),
         documentExpiry: documentRequiresExpiry ? form.documentExpiry : 'N/A',
+        documentImageUrl: form.documentImageUrl,
+        selfieImageUrl: form.selfieImageUrl,
         submittedAt: serverTimestamp(),
       });
 
@@ -145,7 +189,7 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
       await addDoc(collection(firestore, 'admin_notifications'), {
         type: 'KYC_VERIFICATION',
         title: 'New KYC Submission',
-        message: `${form.fullName} has submitted KYC documents for review.`,
+        message: `${form.fullName} (${countryName}) has submitted KYC documents for review.`,
         userId: user.uid,
         userEmail,
         read: false,
@@ -177,13 +221,10 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
             <h3 className="text-lg font-semibold">Identity Verified</h3>
             <p className="text-sm text-muted-foreground mt-1">Your account is fully verified and all features are available.</p>
           </div>
-          <Button className="w-full h-11 rounded-xl btn-premium text-white font-semibold" onClick={() => setOpen(false)}>
-            Continue
-          </Button>
+          <Button className="w-full h-11 rounded-xl btn-premium text-white font-semibold" onClick={() => setOpen(false)}>Continue</Button>
         </div>
       );
     }
-
     if (kycStatus === 'PENDING') {
       return (
         <div className="flex flex-col items-center gap-4 py-6 text-center">
@@ -192,64 +233,46 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
           </div>
           <div>
             <h3 className="text-lg font-semibold">Under Review</h3>
-            <p className="text-sm text-muted-foreground mt-1">Your documents have been submitted and are being reviewed. This typically takes 1–2 business days.</p>
+            <p className="text-sm text-muted-foreground mt-1">Your documents have been submitted and are being reviewed. This typically takes 1-2 business days.</p>
           </div>
-          <Button variant="outline" className="w-full h-11 rounded-xl" onClick={() => setOpen(false)}>
-            Close
-          </Button>
+          <Button variant="outline" className="w-full h-11 rounded-xl" onClick={() => setOpen(false)}>Close</Button>
         </div>
       );
     }
-
     return null;
   };
 
   const renderPersonal = () => (
     <div className="space-y-4">
       <div className="space-y-1.5">
+        <Label className="text-xs font-medium text-muted-foreground">Country / Jurisdiction</Label>
+        <select
+          className={cn('h-11 w-full rounded-xl bg-muted/30 border border-input px-3 text-sm', errors.countryCode && 'border-destructive')}
+          value={form.countryCode}
+          onChange={e => set('countryCode', e.target.value)}
+        >
+          {COUNTRIES.map(c => (
+            <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+          ))}
+        </select>
+        {errors.countryCode && <p className="text-xs text-destructive">{errors.countryCode}</p>}
+      </div>
+      <div className="space-y-1.5">
         <Label className="text-xs font-medium text-muted-foreground">Full Legal Name</Label>
-        <Input
-          className={cn('h-11 rounded-xl bg-muted/30', errors.fullName && 'border-destructive')}
-          placeholder="e.g. Thabo Nkosi"
-          value={form.fullName}
-          onChange={e => set('fullName', e.target.value)}
-        />
+        <Input className={cn('h-11 rounded-xl bg-muted/30', errors.fullName && 'border-destructive')} placeholder="e.g. Thabo Nkosi" value={form.fullName} onChange={e => set('fullName', e.target.value)} />
         {errors.fullName && <p className="text-xs text-destructive">{errors.fullName}</p>}
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs font-medium text-muted-foreground">Date of Birth</Label>
-        <Input
-          type="date"
-          className={cn('h-11 rounded-xl bg-muted/30', errors.dateOfBirth && 'border-destructive')}
-          value={form.dateOfBirth}
-          onChange={e => set('dateOfBirth', e.target.value)}
-        />
+        <Input type="date" className={cn('h-11 rounded-xl bg-muted/30', errors.dateOfBirth && 'border-destructive')} value={form.dateOfBirth} onChange={e => set('dateOfBirth', e.target.value)} />
         {errors.dateOfBirth && <p className="text-xs text-destructive">{errors.dateOfBirth}</p>}
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-muted-foreground">Nationality</Label>
-        <Input
-          className={cn('h-11 rounded-xl bg-muted/30', errors.nationality && 'border-destructive')}
-          placeholder="e.g. South African"
-          value={form.nationality}
-          onChange={e => set('nationality', e.target.value)}
-        />
-        {errors.nationality && <p className="text-xs text-destructive">{errors.nationality}</p>}
-      </div>
-      <div className="space-y-1.5">
         <Label className="text-xs font-medium text-muted-foreground">Residential Address</Label>
-        <Input
-          className={cn('h-11 rounded-xl bg-muted/30', errors.address && 'border-destructive')}
-          placeholder="Street, City, Province, Postal Code"
-          value={form.address}
-          onChange={e => set('address', e.target.value)}
-        />
+        <Input className={cn('h-11 rounded-xl bg-muted/30', errors.address && 'border-destructive')} placeholder="Street, City, Province, Postal Code" value={form.address} onChange={e => set('address', e.target.value)} />
         {errors.address && <p className="text-xs text-destructive">{errors.address}</p>}
       </div>
-      <Button
-        className="w-full h-11 rounded-xl btn-premium text-white font-semibold mt-2"
-        onClick={() => { if (validatePersonal()) setStep('document'); }}
-      >
+      <Button className="w-full h-11 rounded-xl btn-premium text-white font-semibold mt-2" onClick={() => { if (validatePersonal()) setStep('document'); }}>
         Continue <ChevronRight className="h-4 w-4 ml-1" />
       </Button>
     </div>
@@ -266,12 +289,10 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
               onClick={() => { set('documentType', dt); set('documentNumber', ''); set('documentExpiry', ''); }}
               className={cn(
                 'px-2 py-2.5 rounded-xl text-[11px] font-semibold border transition-all text-center',
-                form.documentType === dt
-                  ? 'bg-primary/15 border-primary/30 text-primary'
-                  : 'bg-muted/20 border-border/40 text-muted-foreground hover:border-primary/20',
+                form.documentType === dt ? 'bg-primary/15 border-primary/30 text-primary' : 'bg-muted/20 border-border/40 text-muted-foreground hover:border-primary/20',
               )}
             >
-              {DOC_LABELS[dt]}
+              {getDocLabel(form.countryCode, dt)}
             </button>
           ))}
         </div>
@@ -280,7 +301,7 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
         <Label className="text-xs font-medium text-muted-foreground">Document Number</Label>
         <Input
           className={cn('h-11 rounded-xl bg-muted/30 font-mono', errors.documentNumber && 'border-destructive')}
-          placeholder={form.documentType === 'national_id' ? '13-digit RSA ID number' : 'Document number'}
+          placeholder={form.documentType === 'national_id' && isLocal ? '13-digit RSA ID number' : 'Document number'}
           value={form.documentNumber}
           onChange={e => set('documentNumber', e.target.value)}
         />
@@ -289,29 +310,59 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
       {documentRequiresExpiry ? (
         <div className="space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Expiry Date</Label>
-          <Input
-            type="date"
-            className={cn('h-11 rounded-xl bg-muted/30', errors.documentExpiry && 'border-destructive')}
-            value={form.documentExpiry}
-            onChange={e => set('documentExpiry', e.target.value)}
-          />
+          <Input type="date" className={cn('h-11 rounded-xl bg-muted/30', errors.documentExpiry && 'border-destructive')} value={form.documentExpiry} onChange={e => set('documentExpiry', e.target.value)} />
           {errors.documentExpiry && <p className="text-xs text-destructive">{errors.documentExpiry}</p>}
         </div>
       ) : (
         <div className="p-3 rounded-xl bg-primary/5 border border-primary/15">
           <p className="text-xs text-muted-foreground">
-            South African National IDs do not have an expiry date. Your 13-digit ID number is sufficient for verification.
+            {isLocal ? 'South African National IDs do not have an expiry date.' : 'National IDs from your country typically do not have an expiry date.'}
           </p>
         </div>
       )}
       <div className="flex gap-2 mt-2">
-        <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setStep('personal')}>
-          Back
+        <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setStep('personal')}>Back</Button>
+        <Button className="flex-1 h-11 rounded-xl btn-premium text-white font-semibold" onClick={() => { if (validateDocument()) setStep('uploads'); }}>
+          Continue <ChevronRight className="h-4 w-4 ml-1" />
         </Button>
-        <Button
-          className="flex-1 h-11 rounded-xl btn-premium text-white font-semibold"
-          onClick={() => { if (validateDocument()) setStep('review'); }}
-        >
+      </div>
+    </div>
+  );
+
+  const renderUploads = () => (
+    <div className="space-y-4">
+      <div className="p-3 rounded-xl bg-primary/5 border border-primary/15">
+        <p className="text-xs text-muted-foreground flex items-start gap-2">
+          <Camera className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          Please upload clear photos. We will compare your selfie to the photo on your ID using AI-powered face matching to verify your identity.
+        </p>
+      </div>
+
+      <DocumentUploadField
+        label="Identity Document Photo"
+        sublabel="Take a clear photo of the entire document page"
+        previewUrl={form.documentImageUrl}
+        uploading={docUploader.uploading}
+        error={errors.upload}
+        onFileSelect={handleDocFile}
+        onClear={() => setForm(prev => ({ ...prev, documentImageUrl: '' }))}
+      />
+
+      <DocumentUploadField
+        label="Selfie"
+        sublabel="Hold the camera at eye level, neutral expression, good lighting"
+        previewUrl={form.selfieImageUrl}
+        uploading={selfieUploader.uploading}
+        error={errors.upload}
+        onFileSelect={handleSelfieFile}
+        onClear={() => setForm(prev => ({ ...prev, selfieImageUrl: '' }))}
+      />
+
+      {errors.upload && <p className="text-xs text-destructive">{errors.upload}</p>}
+
+      <div className="flex gap-2 mt-2">
+        <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setStep('document')}>Back</Button>
+        <Button className="flex-1 h-11 rounded-xl btn-premium text-white font-semibold" onClick={() => { if (validateUploads()) setStep('review'); }}>
           Review <ChevronRight className="h-4 w-4 ml-1" />
         </Button>
       </div>
@@ -326,34 +377,32 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
           <div className="space-y-1.5 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Name</span><span className="font-medium">{form.fullName}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Date of Birth</span><span className="font-medium">{form.dateOfBirth}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Nationality</span><span className="font-medium">{form.nationality}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Country</span><span className="font-medium">{countryName}</span></div>
             <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Address</span><span className="font-medium text-right text-xs">{form.address}</span></div>
           </div>
         </div>
         <div className="px-4 py-2.5">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Identity Document</p>
           <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="font-medium">{DOC_LABELS[form.documentType]}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="font-medium">{getDocLabel(form.countryCode, form.documentType)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Number</span><span className="font-mono font-medium">{form.documentNumber}</span></div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Expiry</span>
-              <span className="font-medium">{documentRequiresExpiry ? form.documentExpiry : 'N/A'}</span>
-            </div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Expiry</span><span className="font-medium">{documentRequiresExpiry ? form.documentExpiry : 'N/A'}</span></div>
+          </div>
+        </div>
+        <div className="px-4 py-2.5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Uploaded Photos</p>
+          <div className="grid grid-cols-2 gap-2">
+            {form.documentImageUrl && <img src={form.documentImageUrl} alt="Document" className="rounded-lg h-24 w-full object-cover border border-border/30" />}
+            {form.selfieImageUrl && <img src={form.selfieImageUrl} alt="Selfie" className="rounded-lg h-24 w-full object-cover border border-border/30" />}
           </div>
         </div>
       </div>
       <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
-        By submitting you confirm the information is accurate. False declarations may result in account suspension under FICA regulations.
+        By submitting you confirm the information is accurate. False declarations may result in account suspension under FICA / AML regulations.
       </p>
       <div className="flex gap-2">
-        <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setStep('document')} disabled={submitting}>
-          Back
-        </Button>
-        <Button
-          className="flex-1 h-11 rounded-xl btn-premium text-white font-semibold"
-          onClick={handleSubmit}
-          disabled={submitting}
-        >
+        <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setStep('uploads')} disabled={submitting}>Back</Button>
+        <Button className="flex-1 h-11 rounded-xl btn-premium text-white font-semibold" onClick={handleSubmit} disabled={submitting}>
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Submit <ShieldCheck className="h-4 w-4 ml-1" /></>}
         </Button>
       </div>
@@ -367,19 +416,18 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
       </div>
       <div>
         <h3 className="text-lg font-semibold">Documents Submitted</h3>
-        <p className="text-sm text-muted-foreground mt-1">Your KYC documents are under review. We'll notify you once verified — usually within 1–2 business days.</p>
+        <p className="text-sm text-muted-foreground mt-1">Your KYC documents are under review. We&apos;ll notify you once verified — usually within 1-2 business days.</p>
       </div>
-      <Button className="w-full h-11 rounded-xl btn-premium text-white font-semibold" onClick={() => setOpen(false)}>
-        Done
-      </Button>
+      <Button className="w-full h-11 rounded-xl btn-premium text-white font-semibold" onClick={() => setOpen(false)}>Done</Button>
     </div>
   );
 
   const STEP_LABELS: Record<Step, string> = {
     status: '',
-    personal: 'Step 1 of 3 — Personal Details',
-    document: 'Step 2 of 3 — Identity Document',
-    review: 'Step 3 of 3 — Review & Submit',
+    personal: `Step 1 of 4 — Personal Details`,
+    document: `Step 2 of 4 — Identity Document`,
+    uploads: `Step 3 of 4 — Photo Uploads`,
+    review: `Step 4 of 4 — Review & Submit`,
     done: '',
   };
 
@@ -389,43 +437,38 @@ export default function KycVerificationModal(props: KYCVerificationModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={isStatusOnlyStep ? setOpen : () => {}}>
-      <DialogContent
-        className="sm:max-w-md rounded-2xl border-border/60 bg-card"
+      <DialogContent className="sm:max-w-md rounded-2xl border-border/60 bg-card max-h-[90vh] overflow-y-auto"
         onInteractOutside={e => { if (!isStatusOnlyStep) e.preventDefault(); }}
-        onEscapeKeyDown={e => { if (!isStatusOnlyStep) e.preventDefault(); }}
-      >
+        onEscapeKeyDown={e => { if (!isStatusOnlyStep) e.preventDefault(); }}>
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
             <ShieldCheck className="h-4 w-4 text-primary" />
-            <span className="text-[11px] uppercase tracking-widest font-semibold text-primary">
-              Identity Verification
-            </span>
+            <span className="text-[11px] uppercase tracking-widest font-semibold text-primary">Identity Verification</span>
           </div>
           <DialogTitle className="text-[17px] font-semibold">
             {step === 'status' && kycStatus === 'APPROVED' && 'Account Verified'}
             {step === 'status' && kycStatus === 'PENDING' && 'Verification Pending'}
             {step === 'personal' && 'Personal Details'}
             {step === 'document' && 'Identity Document'}
+            {step === 'uploads' && 'Document Photos'}
             {step === 'review' && 'Review & Submit'}
             {step === 'done' && 'Submitted Successfully'}
           </DialogTitle>
           {!isStatusOnlyStep && (
-            <DialogDescription className="text-xs text-muted-foreground">
-              {STEP_LABELS[step]}
-            </DialogDescription>
+            <DialogDescription className="text-xs text-muted-foreground">{STEP_LABELS[step]}</DialogDescription>
           )}
           {!isStatusOnlyStep && kycStatus === 'REJECTED' && (
             <div className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20 mt-2">
               <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-              <p className="text-xs text-destructive">Your previous submission was rejected. Please re-submit with correct details.</p>
+              <p className="text-xs text-destructive">Your previous submission was rejected. Please re-submit with correct details and clear photos.</p>
             </div>
           )}
         </DialogHeader>
-
         <div className="mt-2">
           {step === 'status' && renderStatus()}
           {step === 'personal' && renderPersonal()}
           {step === 'document' && renderDocument()}
+          {step === 'uploads' && renderUploads()}
           {step === 'review' && renderReview()}
           {step === 'done' && renderDone()}
         </div>
