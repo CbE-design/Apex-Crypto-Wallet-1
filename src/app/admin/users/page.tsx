@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -21,12 +20,12 @@ import {
   query,
   where,
   getDocs,
+  limit,
 } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import {
   Users,
   Search,
-  UserCheck,
   Clock,
   XCircle,
   CheckCircle2,
@@ -37,7 +36,6 @@ import {
   Loader2,
   ShieldCheck,
   Shield,
-  Calendar,
   ChevronRight,
   User,
   Filter,
@@ -132,7 +130,7 @@ function formatCurrency(amount: number, currency: string) {
 export default function UsersPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { isAdmin } = useWallet();
+  const { user: adminUser } = useWallet();
 
   const [search, setSearch] = useState('');
   const [kycFilter, setKycFilter] = useState<'all' | KYCStatus>('all');
@@ -142,11 +140,11 @@ export default function UsersPage() {
   const [withdrawalHistory, setWithdrawalHistory] = useState<WithdrawalSummary[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-  // We are an admin, so we can fetch all users
+  // Simple query to fetch all users (limited to 500 for safety)
   const usersQuery = useMemoFirebase(() => {
-    if (!firestore || !isAdmin) return null;
-    return collection(firestore, 'users');
-  }, [firestore, isAdmin]);
+    if (!firestore || !adminUser) return null;
+    return query(collection(firestore, 'users'), limit(500));
+  }, [firestore, adminUser]);
 
   const { data: rawUsers, isLoading, error: usersError } = useCollection<UserDoc>(usersQuery);
 
@@ -181,11 +179,10 @@ export default function UsersPage() {
     const counts = { all: rawUsers?.length || 0, APPROVED: 0, PENDING: 0, REJECTED: 0, NOT_SUBMITTED: 0 };
     rawUsers?.forEach(u => {
       const status = u.kycStatus || 'NOT_SUBMITTED';
-      if (counts.hasOwnProperty(status)) {
-        counts[status as keyof typeof counts]++;
-      } else {
-        counts.NOT_SUBMITTED++;
-      }
+      if (status === 'APPROVED') counts.APPROVED++;
+      else if (status === 'PENDING') counts.PENDING++;
+      else if (status === 'REJECTED') counts.REJECTED++;
+      else counts.NOT_SUBMITTED++;
     });
     return counts;
   }, [rawUsers]);
@@ -222,6 +219,17 @@ export default function UsersPage() {
     setIsDetailOpen(true);
     loadUserDetails(user);
   };
+
+  if (usersError) {
+    return (
+      <div className="p-8 text-center">
+        <AlertTriangle className="h-10 w-10 text-destructive mx-auto mb-4" />
+        <h2 className="text-xl font-bold">Error Loading Registry</h2>
+        <p className="text-muted-foreground mt-2">{usersError.message}</p>
+        <Button onClick={() => window.location.reload()} className="mt-4">Try Again</Button>
+      </div>
+    );
+  }
 
   return (
     <AdminRoute>
@@ -372,7 +380,7 @@ export default function UsersPage() {
             {selectedUser && (
               <div className="flex flex-col h-full max-h-[85vh]">
                 <div className="p-8 border-b border-white/5 bg-gradient-to-br from-white/5 to-transparent">
-                  <DialogHeader className="flex flex-row items-start justify-between space-y-0">
+                  <div className="flex flex-row items-start justify-between space-y-0">
                     <div className="flex items-center gap-5">
                       <div className="h-16 w-16 rounded-[22px] bg-primary/10 border border-primary/20 flex items-center justify-center shadow-inner">
                         <User className="h-8 w-8 text-primary" />
@@ -389,7 +397,7 @@ export default function UsersPage() {
                        {getKycBadge(selectedUser.kycStatus)}
                        <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-tighter">Registered {formatDate(selectedUser.createdAt)}</p>
                     </div>
-                  </DialogHeader>
+                  </div>
                 </div>
 
                 <div className="p-8 space-y-8 overflow-y-auto scroll-container flex-1">
@@ -405,7 +413,7 @@ export default function UsersPage() {
                     </Button>
                     <Button variant="outline" className="rounded-2xl h-12 bg-white/5 border-white/10 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest gap-2" asChild>
                       <Link href="/admin/kyc" onClick={() => setIsDetailOpen(false)}>
-                        <UserCheck className="h-3.5 w-3.5" /> Verify
+                        <Clock className="h-3.5 w-3.5" /> Verify
                       </Link>
                     </Button>
                     <Button variant="outline" className="rounded-2xl h-12 bg-white/5 border-white/10 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest gap-2" asChild>

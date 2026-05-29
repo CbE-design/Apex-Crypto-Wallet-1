@@ -16,18 +16,30 @@ let app: FirebaseApp;
 let firestore: Firestore;
 let storage: FirebaseStorage;
 
+// Ensure consistent initialization
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
+  // Using initializeFirestore ensures settings like forceLongPolling are applied
   firestore = initializeFirestore(app, {
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager()
     }),
-    experimentalForceLongPolling: true,
+    experimentalForceLongPolling: true, // Fixes WebChannel stream errors
   });
   storage = getStorage(app);
 } else {
   app = getApp();
-  firestore = getFirestore(app);
+  // Even if app exists, try to get the existing firestore or initialize if needed
+  try {
+    firestore = getFirestore(app);
+  } catch {
+    firestore = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      }),
+      experimentalForceLongPolling: true,
+    });
+  }
   storage = getStorage(app);
 }
 
