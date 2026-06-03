@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,14 +12,14 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/context/wallet-context';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import {
-  collection, query, where, doc, updateDoc, serverTimestamp, addDoc,
+  collection, getDocs, doc, updateDoc, serverTimestamp, addDoc,
 } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import {
   CheckCircle2, XCircle, Clock, Loader2, Search, User, FileText,
-  Shield, Calendar, Eye, UserCheck, Banknote, AlertTriangle,
+  Shield, Calendar, Eye, UserCheck, Banknote, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import type { KYCSubmission, KYCStatus } from '@/lib/types';
 import { COUNTRIES } from '@/lib/countries';
@@ -29,6 +29,10 @@ export default function KYCApprovalsPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
 
+  const [submissions, setSubmissions] = useState<KYCSubmission[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   const [selectedSubmission, setSelectedSubmission] = useState<KYCSubmission | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -36,41 +40,55 @@ export default function KYCApprovalsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
 
-  const kycRef = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'kyc_submissions');
+  const fetchSubmissions = useCallback(async () => {
+    if (!firestore) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      console.log('[KYC] Fetching submissions via getDocs...');
+      const querySnapshot = await getDocs(collection(firestore, 'kyc_submissions'));
+      const data = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as KYCSubmission[];
+      console.log(`[KYC] Fetched ${data.length} submissions.`);
+      setSubmissions(data);
+    } catch (err: any) {
+      console.error('[KYC] Fetch error:', err);
+      setError(err.message || 'Failed to connect to registry.');
+    } finally {
+      setIsLoading(false);
+    }
   }, [firestore]);
 
-  // Removing orderBy to eliminate index dependency for now
-  const pendingQuery = useMemoFirebase(() => {
-    if (!kycRef) return null;
-    return query(kycRef, where('status', '==', 'PENDING'));
-  }, [kycRef]);
+  useEffect(() => {
+    fetchSubmissions();
+  }, [fetchSubmissions]);
 
-  const approvedQuery = useMemoFirebase(() => {
-    if (!kycRef) return null;
-    return query(kycRef, where('status', '==', 'APPROVED'));
-  }, [kycRef]);
+  // Client-side filtering and sorting
+  const { pendingSubmissions, approvedSubmissions, rejectedSubmissions } = useMemo(() => {
+    const p: KYCSubmission[] = [];
+    const a: KYCSubmission[] = [];
+    const r: KYCSubmission[] = [];
 
-  const rejectedQuery = useMemoFirebase(() => {
-    if (!kycRef) return null;
-    return query(kycRef, where('status', '==', 'REJECTED'));
-  }, [kycRef]);
+    submissions.forEach(s => {
+      if (s.status === 'APPROVED') a.push(s);
+      else if (s.status === 'REJECTED') r.push(s);
+      else p.push(s);
+    });
 
-  const { data: rawPending, isLoading: loadingPending, error: errorPending } = useCollection<KYCSubmission>(pendingQuery);
-  const { data: rawApproved, isLoading: loadingApproved, error: errorApproved } = useCollection<KYCSubmission>(approvedQuery);
-  const { data: rawRejected, isLoading: loadingRejected, error: errorRejected } = useCollection<KYCSubmission>(rejectedQuery);
+    const sortFn = (x: KYCSubmission, y: KYCSubmission) => {
+      const t1 = x.submittedAt?.toMillis?.() ?? (x.submittedAt?.seconds ?? 0) * 1000 ?? 0;
+      const t2 = y.submittedAt?.toMillis?.() ?? (y.submittedAt?.seconds ?? 0) * 1000 ?? 0;
+      return t2 - t1;
+    };
 
-  const sortByDate = (items: KYCSubmission[] | null) =>
-    items ? [...items].sort((a: KYCSubmission, b: KYCSubmission) => {
-      const aTime = a.submittedAt?.toMillis?.() ?? (a.submittedAt?.seconds ?? 0) * 1000 ?? 0;
-      const bTime = b.submittedAt?.toMillis?.() ?? (b.submittedAt?.seconds ?? 0) * 1000 ?? 0;
-      return bTime - aTime;
-    }) : [];
-
-  const pendingSubmissions = useMemo(() => sortByDate(rawPending), [rawPending]);
-  const approvedSubmissions = useMemo(() => sortByDate(rawApproved), [rawApproved]);
-  const rejectedSubmissions = useMemo(() => sortByDate(rawRejected), [rawRejected]);
+    return {
+      pendingSubmissions: p.sort(sortFn),
+      approvedSubmissions: a.sort(sortFn),
+      rejectedSubmissions: r.sort(sortFn),
+    };
+  }, [submissions]);
 
   const handleApprove = useCallback(async (submission: KYCSubmission) => {
     if (!firestore || !user) return;
@@ -98,13 +116,14 @@ export default function KYCApprovalsPage() {
       toast({ title: 'KYC Approved', description: `Successfully approved KYC for ${submission.fullName}.` });
       setIsDetailOpen(false); 
       setSelectedSubmission(null);
+      fetchSubmissions(); // Refresh list
     } catch (error) {
       console.error('Error approving KYC:', error);
       toast({ title: 'Approval Failed', description: 'Failed to approve KYC submission.', variant: 'destructive' });
     } finally { 
       setIsProcessing(false); 
     }
-  }, [firestore, user, toast]);
+  }, [firestore, user, toast, fetchSubmissions]);
 
   const handleReject = useCallback(async (submission: KYCSubmission) => {
     if (!firestore || !user || !rejectionReason.trim()) {
@@ -134,13 +153,14 @@ export default function KYCApprovalsPage() {
       setIsDetailOpen(false); 
       setSelectedSubmission(null); 
       setRejectionReason('');
+      fetchSubmissions(); // Refresh list
     } catch (error) {
       console.error('Error rejecting KYC:', error);
       toast({ title: 'Rejection Failed', description: 'Failed to reject KYC submission.', variant: 'destructive' });
     } finally { 
       setIsProcessing(false); 
     }
-  }, [firestore, user, rejectionReason, toast]);
+  }, [firestore, user, rejectionReason, toast, fetchSubmissions]);
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
@@ -172,25 +192,21 @@ export default function KYCApprovalsPage() {
 
   const getCountryFlag = (code?: string) => COUNTRIES.find(c => c.code === code)?.flag || '';
 
-  const filterSubmissions = (submissions: KYCSubmission[] | null) => {
-    if (!submissions) return [];
-    if (!searchQuery.trim()) return submissions;
+  const filterList = (subs: KYCSubmission[]) => {
+    if (!searchQuery.trim()) return subs;
     const q = searchQuery.toLowerCase();
-    return submissions.filter(s =>
-      s.userEmail?.toLowerCase().includes(q) ||
-      s.fullName?.toLowerCase().includes(q) ||
-      s.documentNumber?.toLowerCase().includes(q)
+    return subs.filter(s =>
+      (s.userEmail || '').toLowerCase().includes(q) ||
+      (s.fullName || '').toLowerCase().includes(q) ||
+      (s.documentNumber || '').toLowerCase().includes(q)
     );
   };
 
   const currentList = useMemo(() => {
-    if (activeTab === 'pending') return filterSubmissions(pendingSubmissions);
-    if (activeTab === 'approved') return filterSubmissions(approvedSubmissions);
-    return filterSubmissions(rejectedSubmissions);
+    if (activeTab === 'pending') return filterList(pendingSubmissions);
+    if (activeTab === 'approved') return filterList(approvedSubmissions);
+    return filterList(rejectedSubmissions);
   }, [activeTab, pendingSubmissions, approvedSubmissions, rejectedSubmissions, searchQuery]);
-
-  const isLoading = activeTab === 'pending' ? loadingPending : activeTab === 'approved' ? loadingApproved : loadingRejected;
-  const currentError = activeTab === 'pending' ? errorPending : activeTab === 'approved' ? errorApproved : errorRejected;
 
   const SubmissionCard = ({ submission }: { submission: KYCSubmission }) => (
     <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer"
@@ -242,8 +258,12 @@ export default function KYCApprovalsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={fetchSubmissions} disabled={isLoading} className="gap-2 h-9 rounded-xl border-white/10 bg-white/5">
+            <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
+            Refresh
+          </Button>
           <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/30">
-            <Clock className="h-3 w-3 mr-1" /> {pendingSubmissions?.length || 0} Pending
+            <Clock className="h-3 w-3 mr-1" /> {pendingSubmissions.length} Pending
           </Badge>
         </div>
       </div>
@@ -259,30 +279,30 @@ export default function KYCApprovalsPage() {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
         <TabsList className="grid w-full grid-cols-3 bg-white/5 rounded-2xl p-1 h-12">
           <TabsTrigger value="pending" className="rounded-xl font-bold text-xs gap-2">
-            Pending ({pendingSubmissions?.length || 0})
+            Pending ({pendingSubmissions.length})
           </TabsTrigger>
           <TabsTrigger value="approved" className="rounded-xl font-bold text-xs gap-2">
-            Approved ({approvedSubmissions?.length || 0})
+            Approved ({approvedSubmissions.length})
           </TabsTrigger>
           <TabsTrigger value="rejected" className="rounded-xl font-bold text-xs gap-2">
-            Rejected ({rejectedSubmissions?.length || 0})
+            Rejected ({rejectedSubmissions.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-6">
-          {currentError ? (
+          {error ? (
             <Card className="border-destructive/20 bg-destructive/5">
               <CardContent className="py-10 text-center space-y-3">
                 <AlertTriangle className="h-10 w-10 text-destructive mx-auto" />
-                <h3 className="font-bold text-destructive">Query Error</h3>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">{currentError.message}</p>
-                <Button variant="outline" size="sm" onClick={() => window.location.reload()}>Retry</Button>
+                <h3 className="font-bold text-destructive">Connection Errored</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">{error}</p>
+                <Button variant="outline" size="sm" onClick={fetchSubmissions}>Retry Connection</Button>
               </CardContent>
             </Card>
           ) : isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-xs text-muted-foreground animate-pulse font-medium">Fetching Submissions...</p>
+              <p className="text-xs text-muted-foreground animate-pulse font-medium">Establishing Secure Connection...</p>
             </div>
           ) : currentList.length > 0 ? (
             <div className="grid gap-4">

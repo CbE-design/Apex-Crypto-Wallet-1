@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatAppDate, formatAppTimeShort } from "@/lib/utils";
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, where } from 'firebase/firestore';
+import { useUser, useFirestore } from '@/firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useCurrency } from "@/context/currency-context";
 import { 
   Loader2, 
@@ -32,6 +32,7 @@ import {
   Building2,
   Globe,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import type { WithdrawalRequest, WithdrawalStatus } from '@/lib/types';
 import {
@@ -58,19 +59,41 @@ export function WithdrawalHistory() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { formatCurrency } = useCurrency();
+  const [withdrawals, setWithdrawals] = React.useState<WithdrawalRequest[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [selectedWithdrawal, setSelectedWithdrawal] = React.useState<WithdrawalRequest | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
 
-  const withdrawalsQuery = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return query(
-      collection(firestore, 'withdrawal_requests'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
+  const fetchWithdrawals = React.useCallback(async () => {
+    if (!user || !firestore) return;
+    setLoading(true);
+    try {
+      // Use getDocs to avoid stream issues
+      const snap = await getDocs(query(
+        collection(firestore, 'withdrawal_requests'),
+        where('userId', '==', user.uid)
+      ));
+      
+      const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as WithdrawalRequest));
+      
+      // Sort client-side
+      const sorted = data.sort((a, b) => {
+        const t1 = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000 ?? 0;
+        const t2 = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000 ?? 0;
+        return t2 - t1;
+      });
+      
+      setWithdrawals(sorted);
+    } catch (err) {
+      console.error('Error fetching withdrawals:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [user, firestore]);
 
-  const { data: withdrawals, isLoading } = useCollection<WithdrawalRequest>(withdrawalsQuery);
+  React.useEffect(() => {
+    fetchWithdrawals();
+  }, [fetchWithdrawals]);
 
   const handleViewDetails = (withdrawal: WithdrawalRequest) => {
     setSelectedWithdrawal(withdrawal);
@@ -84,17 +107,15 @@ export function WithdrawalHistory() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
-                <History className="h-4 w-4 text-primary" /> Withdrawal History
+                <History className="h-4 w-4 text-primary" /> Payout Stream
               </CardTitle>
               <CardDescription className="text-xs mt-1">
-                Track all your withdrawal requests and their status
+                Active and historical withdrawal requests
               </CardDescription>
             </div>
-            {withdrawals && withdrawals.length > 0 && (
-              <Badge variant="outline" className="text-[10px]">
-                {withdrawals.length} request{withdrawals.length !== 1 ? 's' : ''}
-              </Badge>
-            )}
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchWithdrawals} disabled={loading}>
+              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -103,22 +124,20 @@ export function WithdrawalHistory() {
               <TableHeader className="sticky top-0 bg-background/80 backdrop-blur-md z-10">
                 <TableRow className="border-border/40 hover:bg-transparent">
                   <TableHead className="text-[10px] font-semibold text-muted-foreground pl-4">Date</TableHead>
-                  <TableHead className="text-[10px] font-semibold text-muted-foreground">Method</TableHead>
-                  <TableHead className="text-right text-[10px] font-semibold text-muted-foreground">Amount</TableHead>
+                  <TableHead className="text-[10px] font-semibold text-muted-foreground">Amount</TableHead>
                   <TableHead className="text-right text-[10px] font-semibold text-muted-foreground pr-4">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? (
+                {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-32 text-center">
+                    <TableCell colSpan={3} className="h-32 text-center">
                       <Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" />
                     </TableCell>
                   </TableRow>
-                ) : withdrawals && withdrawals.length > 0 ? (
+                ) : withdrawals.length > 0 ? (
                   withdrawals.map((withdrawal) => {
                     const statusConfig = STATUS_CONFIG[withdrawal.status] || STATUS_CONFIG.PENDING;
-                    const StatusIcon = statusConfig.icon;
                     
                     return (
                       <TableRow 
@@ -127,59 +146,28 @@ export function WithdrawalHistory() {
                         onClick={() => handleViewDetails(withdrawal)}
                       >
                         <TableCell className="pl-4 py-3">
-                          <div className="text-xs font-medium">
-                            {formatAppDate(withdrawal.createdAt, { day: '2-digit', month: 'short' })}
+                          <div className="text-[10px] font-bold">
+                            {formatAppDate(withdrawal.createdAt)}
                           </div>
-                          <div className="text-[10px] text-muted-foreground font-mono">
+                          <div className="text-[9px] text-muted-foreground font-mono">
                             {withdrawal.transactionReference?.slice(-8) || '—'}
                           </div>
                         </TableCell>
                         <TableCell className="py-3">
-                          <div className="flex items-center gap-2">
-                            <div className={cn(
-                              "h-7 w-7 rounded-lg flex items-center justify-center",
-                              withdrawal.withdrawalMethod === 'EFT' 
-                                ? "bg-primary/10 text-primary" 
-                                : "bg-blue-500/10 text-blue-500"
-                            )}>
-                              {withdrawal.withdrawalMethod === 'EFT' ? (
-                                <Building2 className="h-3.5 w-3.5" />
-                              ) : (
-                                <Globe className="h-3.5 w-3.5" />
-                              )}
-                            </div>
-                            <div>
-                              <div className="text-xs font-medium">{withdrawal.withdrawalMethod}</div>
-                              <div className="text-[10px] text-muted-foreground truncate max-w-[80px]">
-                                {withdrawal.bankName}
-                              </div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right py-3">
-                          <div className="text-xs font-bold">
-                            {new Intl.NumberFormat('en-ZA', {
+                          <div className="text-[11px] font-black">
+                             {new Intl.NumberFormat('en-ZA', {
                               style: 'currency',
                               currency: withdrawal.fiatCurrency || 'ZAR',
                             }).format(withdrawal.fiatAmount)}
                           </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {withdrawal.cryptoAmount?.toFixed(4)} {withdrawal.cryptoSymbol}
+                          <div className="text-[9px] text-muted-foreground uppercase font-bold">
+                            {withdrawal.withdrawalMethod}
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-4 py-3">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <div className={cn(
-                              "flex items-center gap-1 text-[10px] font-medium",
-                              statusConfig.color
-                            )}>
-                              <StatusIcon className={cn(
-                                "h-3 w-3",
-                                withdrawal.status === 'PROCESSING' && "animate-spin"
-                              )} />
-                              <span className="hidden sm:inline">{statusConfig.label}</span>
-                            </div>
-                            <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div className={cn("text-[9px] font-black uppercase flex items-center justify-end gap-1", statusConfig.color)}>
+                             {withdrawal.status}
+                             <ChevronRight className="h-3 w-3 opacity-30" />
                           </div>
                         </TableCell>
                       </TableRow>
@@ -187,10 +175,10 @@ export function WithdrawalHistory() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-32 text-center">
+                    <TableCell colSpan={3} className="h-32 text-center">
                       <div className="flex flex-col items-center justify-center space-y-2 text-muted-foreground">
-                        <Inbox className="h-8 w-8 opacity-30" />
-                        <p className="text-xs">No withdrawal requests yet</p>
+                        <Inbox className="h-8 w-8 opacity-20" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest">No Requests Detected</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -203,11 +191,11 @@ export function WithdrawalHistory() {
 
       {/* Withdrawal Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-[32px] glass-module border-white/10">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="h-4 w-4 text-primary" />
-              Withdrawal Details
+              Withdrawal Status
             </DialogTitle>
             <DialogDescription>
               Reference: {selectedWithdrawal?.transactionReference || '—'}
@@ -216,31 +204,24 @@ export function WithdrawalHistory() {
           
           {selectedWithdrawal && (
             <div className="space-y-4">
-              {/* Status Banner */}
               <div className={cn(
-                "p-3 rounded-xl border flex items-center gap-3",
+                "p-4 rounded-2xl border flex items-center gap-3",
                 selectedWithdrawal.status === 'PENDING' && "bg-amber-500/10 border-amber-500/20",
-                selectedWithdrawal.status === 'PROCESSING' && "bg-blue-500/10 border-blue-500/20",
-                (selectedWithdrawal.status === 'APPROVED' || selectedWithdrawal.status === 'COMPLETED') && "bg-accent/10 border-accent/20",
-                (selectedWithdrawal.status === 'REJECTED' || selectedWithdrawal.status === 'FAILED') && "bg-destructive/10 border-destructive/20",
-                selectedWithdrawal.status === 'CANCELLED' && "bg-muted/30 border-muted/40"
+                selectedWithdrawal.status === 'APPROVED' && "bg-accent/10 border-accent/20",
+                selectedWithdrawal.status === 'REJECTED' && "bg-destructive/10 border-destructive/20",
               )}>
                 {(() => {
                   const config = STATUS_CONFIG[selectedWithdrawal.status];
                   const Icon = config.icon;
                   return (
                     <>
-                      <Icon className={cn("h-5 w-5", config.color, selectedWithdrawal.status === 'PROCESSING' && "animate-spin")} />
+                      <Icon className={cn("h-6 w-6", config.color)} />
                       <div>
-                        <p className={cn("text-sm font-semibold", config.color)}>{config.label}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {selectedWithdrawal.status === 'PENDING' && 'Your request is awaiting admin review'}
-                          {selectedWithdrawal.status === 'PROCESSING' && 'Your withdrawal is being processed'}
-                          {selectedWithdrawal.status === 'APPROVED' && 'Your withdrawal has been approved'}
-                          {selectedWithdrawal.status === 'COMPLETED' && 'Funds have been transferred'}
-                          {selectedWithdrawal.status === 'REJECTED' && (selectedWithdrawal.rejectionReason || 'Your request was not approved')}
-                          {selectedWithdrawal.status === 'FAILED' && 'An error occurred during processing'}
-                          {selectedWithdrawal.status === 'CANCELLED' && 'This withdrawal request was cancelled'}
+                        <p className={cn("text-xs font-black uppercase", config.color)}>{config.label}</p>
+                        <p className="text-[10px] text-muted-foreground font-medium">
+                          {selectedWithdrawal.status === 'PENDING' && 'Awaiting internal compliance review'}
+                          {selectedWithdrawal.status === 'REJECTED' && (selectedWithdrawal.rejectionReason || 'Declined')}
+                          {selectedWithdrawal.status === 'APPROVED' && 'Funds released for payout'}
                         </p>
                       </div>
                     </>
@@ -248,97 +229,18 @@ export function WithdrawalHistory() {
                 })()}
               </div>
 
-              {/* Amount Details */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center py-2 border-b border-border/30">
-                  <span className="text-xs text-muted-foreground">Amount</span>
-                  <span className="text-sm font-bold">
-                    {new Intl.NumberFormat('en-ZA', {
-                      style: 'currency',
-                      currency: selectedWithdrawal.fiatCurrency || 'ZAR',
-                    }).format(selectedWithdrawal.fiatAmount)}
-                  </span>
+              <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/5">
+                <div className="flex justify-between items-center text-sm font-bold">
+                  <span className="text-muted-foreground">Payout Amount</span>
+                  <span>{new Intl.NumberFormat('en-ZA', { style: 'currency', currency: selectedWithdrawal.fiatCurrency || 'ZAR' }).format(selectedWithdrawal.fiatAmount)}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-border/30">
-                  <span className="text-xs text-muted-foreground">Crypto Sold</span>
-                  <span className="text-sm font-medium">
-                    {selectedWithdrawal.cryptoAmount?.toFixed(6)} {selectedWithdrawal.cryptoSymbol}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-border/30">
-                  <span className="text-xs text-muted-foreground">Network Fee</span>
-                  <span className="text-sm font-medium">
-                    {new Intl.NumberFormat('en-ZA', {
-                      style: 'currency',
-                      currency: selectedWithdrawal.fiatCurrency || 'ZAR',
-                    }).format(selectedWithdrawal.networkFee || 0)}
-                  </span>
+                <div className="flex justify-between items-center text-[10px] font-black uppercase text-muted-foreground/50">
+                  <span>Settlement Method</span>
+                  <span>{selectedWithdrawal.withdrawalMethod}</span>
                 </div>
               </div>
 
-              <Separator />
-
-              {/* Bank Details */}
-              <div className="space-y-2">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Bank Details</p>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-xs text-muted-foreground">Method</span>
-                  <span className="text-xs font-medium">{selectedWithdrawal.withdrawalMethod}</span>
-                </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-xs text-muted-foreground">Bank</span>
-                  <span className="text-xs font-medium">{selectedWithdrawal.bankName}</span>
-                </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-xs text-muted-foreground">Account</span>
-                  <span className="text-xs font-mono">****{selectedWithdrawal.accountNumber?.slice(-4)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-xs text-muted-foreground">Beneficiary</span>
-                  <span className="text-xs font-medium">{selectedWithdrawal.accountHolder}</span>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Timestamps */}
-              <div className="space-y-2">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Timeline</p>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-xs text-muted-foreground">Submitted</span>
-                  <span className="text-xs font-medium">
-                    {formatAppDate(selectedWithdrawal.createdAt, {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-                {selectedWithdrawal.processedAt && (
-                  <div className="flex justify-between items-center py-1">
-                    <span className="text-xs text-muted-foreground">Processed</span>
-                    <span className="text-xs font-medium">
-                        {formatAppDate(selectedWithdrawal.processedAt, {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <Button 
-                variant="outline" 
-                className="w-full mt-4"
-                onClick={() => setIsDetailOpen(false)}
-              >
-                Close
-              </Button>
+              <Button variant="outline" className="w-full rounded-xl h-12 text-[10px] font-black uppercase" onClick={() => setIsDetailOpen(false)}>Close Overview</Button>
             </div>
           )}
         </DialogContent>

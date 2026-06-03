@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,14 +13,13 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { useWallet } from '@/context/wallet-context';
 import {
   collection,
   query,
   where,
   getDocs,
-  limit,
 } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import {
@@ -41,6 +40,7 @@ import {
   Filter,
   RefreshCw,
   Activity,
+  AlertTriangle,
 } from 'lucide-react';
 import type { KYCStatus } from '@/lib/types';
 import Link from 'next/link';
@@ -132,6 +132,10 @@ export default function UsersPage() {
   const firestore = useFirestore();
   const { user: adminUser } = useWallet();
 
+  const [users, setUsers] = useState<UserDoc[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [search, setSearch] = useState('');
   const [kycFilter, setKycFilter] = useState<'all' | KYCStatus>('all');
   const [selectedUser, setSelectedUser] = useState<UserDoc | null>(null);
@@ -140,18 +144,30 @@ export default function UsersPage() {
   const [withdrawalHistory, setWithdrawalHistory] = useState<WithdrawalSummary[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-  // Simple query to fetch all users (limited to 500 for safety)
-  const usersQuery = useMemoFirebase(() => {
-    if (!firestore || !adminUser) return null;
-    return query(collection(firestore, 'users'), limit(500));
+  const fetchUsers = useCallback(async () => {
+    if (!firestore || !adminUser) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      console.log('[Users] Fetching user registry...');
+      const snap = await getDocs(collection(firestore, 'users'));
+      const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as UserDoc));
+      setUsers(data);
+      console.log(`[Users] Loaded ${data.length} accounts.`);
+    } catch (err: any) {
+      console.error('[Users] Fetch error:', err);
+      setError(err.message || 'Failed to pull registry.');
+    } finally {
+      setIsLoading(false);
+    }
   }, [firestore, adminUser]);
 
-  const { data: rawUsers, isLoading, error: usersError } = useCollection<UserDoc>(usersQuery);
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const processedUsers = useMemo(() => {
-    if (!rawUsers) return [];
-    
-    let filtered = [...rawUsers];
+    let filtered = [...users];
 
     if (kycFilter !== 'all') {
       filtered = filtered.filter(u => 
@@ -162,22 +178,22 @@ export default function UsersPage() {
     if (search.trim()) {
       const s = search.toLowerCase();
       filtered = filtered.filter(u => 
-        u.email?.toLowerCase().includes(s) || 
-        u.walletAddress?.toLowerCase().includes(s) || 
-        u.id?.toLowerCase().includes(s)
+        (u.email || '').toLowerCase().includes(s) || 
+        (u.walletAddress || '').toLowerCase().includes(s) || 
+        (u.id || '').toLowerCase().includes(s)
       );
     }
 
     return filtered.sort((a, b) => {
-      const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
-      const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
+      const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000 ?? 0;
+      const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000 ?? 0;
       return bTime - aTime;
     });
-  }, [rawUsers, kycFilter, search]);
+  }, [users, kycFilter, search]);
 
   const kycCounts = useMemo(() => {
-    const counts = { all: rawUsers?.length || 0, APPROVED: 0, PENDING: 0, REJECTED: 0, NOT_SUBMITTED: 0 };
-    rawUsers?.forEach(u => {
+    const counts = { all: users.length, APPROVED: 0, PENDING: 0, REJECTED: 0, NOT_SUBMITTED: 0 };
+    users.forEach(u => {
       const status = u.kycStatus || 'NOT_SUBMITTED';
       if (status === 'APPROVED') counts.APPROVED++;
       else if (status === 'PENDING') counts.PENDING++;
@@ -185,7 +201,7 @@ export default function UsersPage() {
       else counts.NOT_SUBMITTED++;
     });
     return counts;
-  }, [rawUsers]);
+  }, [users]);
 
   const loadUserDetails = useCallback(async (userDoc: UserDoc) => {
     if (!firestore) return;
@@ -202,8 +218,8 @@ export default function UsersPage() {
       const withdrawals = withdrawalsSnap.docs
         .map(d => ({ id: d.id, ...d.data() } as WithdrawalSummary))
         .sort((a, b) => {
-          const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000;
-          const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000;
+          const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000 ?? 0;
+          const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000 ?? 0;
           return bTime - aTime;
         });
       setWithdrawalHistory(withdrawals);
@@ -220,17 +236,6 @@ export default function UsersPage() {
     loadUserDetails(user);
   };
 
-  if (usersError) {
-    return (
-      <div className="p-8 text-center">
-        <AlertTriangle className="h-10 w-10 text-destructive mx-auto mb-4" />
-        <h2 className="text-xl font-bold">Error Loading Registry</h2>
-        <p className="text-muted-foreground mt-2">{usersError.message}</p>
-        <Button onClick={() => window.location.reload()} className="mt-4">Try Again</Button>
-      </div>
-    );
-  }
-
   return (
     <AdminRoute>
       <div className="space-y-6 pb-20">
@@ -245,9 +250,10 @@ export default function UsersPage() {
             variant="outline" 
             size="sm" 
             className="h-9 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 gap-2"
-            onClick={() => window.location.reload()}
+            onClick={fetchUsers}
+            disabled={isLoading}
           >
-            <RefreshCw className="h-3.5 w-3.5" />
+            <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
             Refresh Data
           </Button>
         </div>
@@ -261,7 +267,6 @@ export default function UsersPage() {
             { label: 'Anonymous', value: kycCounts.NOT_SUBMITTED, icon: Shield, color: 'text-muted-foreground' },
           ].map((stat, i) => (
             <Card key={i} className="glass-module border-white/5 overflow-hidden">
-               <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
                <CardContent className="p-5 relative">
                   <div className="flex items-center justify-between">
                     <div className={cn("p-2 rounded-xl bg-white/5", stat.color)}>
@@ -323,10 +328,17 @@ export default function UsersPage() {
           </div>
           
           <div className="divide-y divide-white/5">
-            {isLoading ? (
+            {error ? (
+               <div className="py-20 text-center space-y-4">
+                  <AlertTriangle className="h-10 w-10 text-destructive mx-auto" />
+                  <p className="text-sm font-bold text-destructive uppercase tracking-widest">Network Outage</p>
+                  <p className="text-xs text-muted-foreground">{error}</p>
+                  <Button variant="outline" size="sm" onClick={fetchUsers}>Reconnect</Button>
+               </div>
+            ) : isLoading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Synchronizing Registry...</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Establishing Identity Stream...</p>
               </div>
             ) : processedUsers.length > 0 ? (
               processedUsers.map((u) => (
@@ -401,7 +413,6 @@ export default function UsersPage() {
                 </div>
 
                 <div className="p-8 space-y-8 overflow-y-auto scroll-container flex-1">
-                  {/* Action Bar */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <Button variant="outline" className="rounded-2xl h-12 bg-white/5 border-white/10 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest gap-2" onClick={() => { navigator.clipboard.writeText(selectedUser.email); toast({title:'Email Copied'}); }}>
                       <Mail className="h-3.5 w-3.5" /> Email
