@@ -62,7 +62,7 @@ const ADMIN_EMAILS = ['admin@apexwallet.io', 'corrie@apex-crypto.co.uk'];
 // ── chain address derivation ───────────────────────────────────────────
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
   if (!ethAddress) return '';
-  if (['ETH', 'LINK', 'BNB', 'USDT'].includes(symbol)) return ethAddress;
+  if (['ETH', 'LINK', 'BNB', 'USDT', 'USDC', 'UNI'].includes(symbol)) return ethAddress;
   if (symbol === 'SOL') return ethAddress.replace('0x', 'Sol') + 'Identity'.substring(0, 16);
   if (symbol === 'ADA') return 'addr1' + ethAddress.substring(2, 42);
   if (symbol === 'BTC') return '1' + ethAddress.substring(2, 35);
@@ -265,6 +265,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     pinnedPinRef.current = pin;
     setAddressHint(vault.addressHint);
     setWallet(pendingWallet);
+    setVaultLocked(false);
     setPendingWallet(null);
   }, [pendingWallet, user]);
 
@@ -335,29 +336,42 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!auth || !firestore) throw new Error('Services missing');
     setIsInitializing(true);
     try {
-      // CLEAN MNEMONIC: Remove special chars, double spaces, and hidden characters
+      console.log('[importWallet] Starting import process...');
+      
+      // DEEP CLEAN: Handle non-breaking spaces and all forms of whitespace
       const cleanMnemonic = mnemonic
+        .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ') // remove zero-width & non-breaking spaces
         .toLowerCase()
-        .replace(/[\u200B-\u200D\uFEFF]/g, '') // remove invisible spaces
-        .replace(/[\"'`]/g, '')                // remove quotes
-        .replace(/[^a-z ]/g, ' ')              // keep only letters and single spaces
+        .replace(/[\"'`]/g, '')                     // remove quotes
         .trim()
-        .replace(/\s+/g, ' ');                  // normalize spaces
+        .replace(/\s+/g, ' ');                       // collapse all whitespace to single spaces
 
-      const wordCount = cleanMnemonic.split(' ').filter(Boolean).length;
+      const words = cleanMnemonic.split(' ').filter(Boolean);
+      const wordCount = words.length;
+      console.log(`[importWallet] Sanitized mnemonic has ${wordCount} words.`);
+
       if (![12, 15, 18, 21, 24].includes(wordCount)) {
-        throw new Error(`Mnemonic must be 12-24 words. You entered ${wordCount}.`);
+        throw new Error(`Invalid phrase length. Expected 12, 15, 18, 21, or 24 words, but got ${wordCount}.`);
       }
 
       // Ethers validation
       let importedWallet: ethers.Wallet;
       try {
         importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
-      } catch (e) {
-        throw new Error('Invalid seed phrase. Please check word spelling and order.');
+      } catch (e: any) {
+        console.error('[importWallet] Ethers error:', e.message);
+        // Distinguish between checksum and word list errors
+        if (e.message.includes('checksum')) {
+          throw new Error('Word order is incorrect or a word is missing.');
+        } else {
+          throw new Error('Invalid word detected. Please check your spelling.');
+        }
       }
 
+      console.log('[importWallet] Mnemonic valid. Requesting server token...');
       const { token, isReturningUser } = await getCustomTokenForWallet(importedWallet.address);
+      
+      console.log(`[importWallet] Server responded. Returning User: ${isReturningUser}`);
       const firebaseUser = await signInWithToken(token);
 
       const walletData = await setupUserAndWalletDocuments(
@@ -369,10 +383,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       setPendingWallet(walletData);
 
     } catch (err: any) {
-      console.error('[importWallet] failed:', err);
+      console.error('[importWallet] Critical failure:', err);
       toast({ 
         title: 'Restore Failed', 
-        description: err.message || 'Could not restore wallet.', 
+        description: err.message || 'Verification service unreachable.', 
         variant: 'destructive' 
       });
       throw err;
