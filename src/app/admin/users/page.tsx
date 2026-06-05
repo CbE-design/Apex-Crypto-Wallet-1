@@ -149,11 +149,9 @@ export default function UsersPage() {
     setIsLoading(true);
     setError(null);
     try {
-      console.log('[Users] Fetching user registry...');
       const snap = await getDocs(collection(firestore, 'users'));
       const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as UserDoc));
       setUsers(data);
-      console.log(`[Users] Loaded ${data.length} accounts.`);
     } catch (err: any) {
       console.error('[Users] Fetch error:', err);
       setError(err.message || 'Failed to pull registry.');
@@ -185,8 +183,8 @@ export default function UsersPage() {
     }
 
     return filtered.sort((a, b) => {
-      const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000 ?? 0;
-      const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000 ?? 0;
+      const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds * 1000) ?? 0;
+      const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds * 1000) ?? 0;
       return bTime - aTime;
     });
   }, [users, kycFilter, search]);
@@ -218,8 +216,8 @@ export default function UsersPage() {
       const withdrawals = withdrawalsSnap.docs
         .map(d => ({ id: d.id, ...d.data() } as WithdrawalSummary))
         .sort((a, b) => {
-          const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000 ?? 0;
-          const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000 ?? 0;
+          const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds * 1000) ?? 0;
+          const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds * 1000) ?? 0;
           return bTime - aTime;
         });
       setWithdrawalHistory(withdrawals);

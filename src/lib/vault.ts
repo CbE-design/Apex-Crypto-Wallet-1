@@ -12,7 +12,7 @@ function toHex(buf: ArrayBuffer | Uint8Array): string {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function fromHex(hex: string): Uint8Array<ArrayBuffer> {
+function fromHex(hex: string): Uint8Array {
   const buffer = new ArrayBuffer(hex.length / 2);
   const out = new Uint8Array(buffer);
   for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
@@ -20,7 +20,7 @@ function fromHex(hex: string): Uint8Array<ArrayBuffer> {
 }
 
 // ── key derivation ───────────────────────────────────────────────────────
-async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
+async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
   const raw = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(password),
