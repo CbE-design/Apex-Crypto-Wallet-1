@@ -4,7 +4,7 @@ import React, {
   createContext, useContext, useState, ReactNode,
   useCallback, useEffect, useMemo, useRef,
 } from 'react';
-import { ethers } from 'ethers';
+import { ethers, wordlists } from 'ethers';
 import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut, signInWithCustomToken, User as FirebaseUser } from 'firebase/auth';
 import {
@@ -333,67 +333,59 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, [auth, signInWithToken, setupUserAndWalletDocuments, toast]);
 
   const importWallet = useCallback(async (mnemonic: string) => {
-    if (!auth || !firestore) throw new Error('Services missing');
-    setIsInitializing(true);
-    try {
-      console.log('[importWallet] Starting import process...');
-      
-      // DEEP CLEAN: Handle non-breaking spaces and all forms of whitespace
-      const cleanMnemonic = mnemonic
-        .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ') // remove zero-width & non-breaking spaces
-        .toLowerCase()
-        .replace(/[\"'`]/g, '')                     // remove quotes
-        .trim()
-        .replace(/\s+/g, ' ');                       // collapse all whitespace to single spaces
+  if (!auth || !firestore) throw new Error('Services missing');
+  setIsInitializing(true);
+  try {
+    // 1. Sanitize the mnemonic phrase
+    const cleanMnemonic = mnemonic
+      .trim() // Remove leading/trailing whitespace
+      .toLowerCase() // Convert to lowercase
+      .replace(/[\s\u200B-\u200D\uFEFF]+/g, ' '); // Normalize all whitespace and zero-width spaces
 
-      const words = cleanMnemonic.split(' ').filter(Boolean);
-      const wordCount = words.length;
-      console.log(`[importWallet] Sanitized mnemonic has ${wordCount} words.`);
+    // 2. Validate the phrase with ethers
+    if (!ethers.Mnemonic.isValidMnemonic(cleanMnemonic, wordlists.en)) {
+       const words = cleanMnemonic.split(' ');
+       const wordCount = words.length;
 
-      if (![12, 15, 18, 21, 24].includes(wordCount)) {
-        throw new Error(`Invalid phrase length. Expected 12, 15, 18, 21, or 24 words, but got ${wordCount}.`);
-      }
+       // Check for common length issues
+       if (![12, 15, 18, 21, 24].includes(wordCount)) {
+         throw new Error(`Invalid phrase: Must be 12, 15, 18, 21, or 24 words, but found ${wordCount}.`);
+       }
 
-      // Ethers validation
-      let importedWallet: ethers.Wallet;
-      try {
-        importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
-      } catch (e: any) {
-        console.error('[importWallet] Ethers error:', e.message);
-        // Distinguish between checksum and word list errors
-        if (e.message.includes('checksum')) {
-          throw new Error('Word order is incorrect or a word is missing.');
-        } else {
-          throw new Error('Invalid word detected. Please check your spelling.');
-        }
-      }
+       // Check for words not in the standard list
+       const invalidWords = words.filter(word => !wordlists.en.getWord(words.indexOf(word)));
+       if (invalidWords.length > 0) {
+         throw new Error(`Invalid words detected: ${invalidWords.join(', ')}. Please check your spelling.`);
+       }
 
-      console.log('[importWallet] Mnemonic valid. Requesting server token...');
-      const { token, isReturningUser } = await getCustomTokenForWallet(importedWallet.address);
-      
-      console.log(`[importWallet] Server responded. Returning User: ${isReturningUser}`);
-      const firebaseUser = await signInWithToken(token);
-
-      const walletData = await setupUserAndWalletDocuments(
-        firebaseUser,
-        importedWallet as any,
-        !isReturningUser,
-      );
-
-      setPendingWallet(walletData);
-
-    } catch (err: any) {
-      console.error('[importWallet] Critical failure:', err);
-      toast({ 
-        title: 'Restore Failed', 
-        description: err.message || 'Verification service unreachable.', 
-        variant: 'destructive' 
-      });
-      throw err;
-    } finally {
-      setIsInitializing(false);
+       // If the words are valid but the checksum fails
+       throw new Error('Invalid phrase: The word order is incorrect, or a word may be missing.');
     }
-  }, [auth, firestore, signInWithToken, setupUserAndWalletDocuments, toast]);
+
+    const importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
+    const { token, isReturningUser } = await getCustomTokenForWallet(importedWallet.address);
+    const firebaseUser = await signInWithToken(token);
+
+    const walletData = await setupUserAndWalletDocuments(
+      firebaseUser,
+      importedWallet as any,
+      !isReturningUser,
+    );
+
+    setPendingWallet(walletData);
+
+  } catch (err: any) {
+    toast({ 
+      title: 'Restore Failed', 
+      description: err.message || 'Could not verify the recovery phrase.', 
+      variant: 'destructive' 
+    });
+    throw err;
+  } finally {
+    setIsInitializing(false);
+  }
+}, [auth, firestore, signInWithToken, setupUserAndWalletDocuments, toast]);
+
 
   const disconnectWallet = useCallback(() => {
     if (!auth) return;

@@ -45,13 +45,11 @@ export default function KYCApprovalsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      console.log('[KYC] Fetching submissions via getDocs...');
       const querySnapshot = await getDocs(collection(firestore, 'kyc_submissions'));
       const data = querySnapshot.docs.map(doc => ({
         ...doc.data(),
         id: doc.id
       })) as KYCSubmission[];
-      console.log(`[KYC] Fetched ${data.length} submissions.`);
       setSubmissions(data);
     } catch (err: any) {
       console.error('[KYC] Fetch error:', err);
@@ -78,8 +76,8 @@ export default function KYCApprovalsPage() {
     });
 
     const sortFn = (x: KYCSubmission, y: KYCSubmission) => {
-      const t1 = x.submittedAt?.toMillis?.() ?? (x.submittedAt?.seconds ?? 0) * 1000 ?? 0;
-      const t2 = y.submittedAt?.toMillis?.() ?? (y.submittedAt?.seconds ?? 0) * 1000 ?? 0;
+      const t1 = x.submittedAt?.toMillis?.() ?? (x.submittedAt?.seconds * 1000) ?? 0;
+      const t2 = y.submittedAt?.toMillis?.() ?? (y.submittedAt?.seconds * 1000) ?? 0;
       return t2 - t1;
     };
 
@@ -116,7 +114,7 @@ export default function KYCApprovalsPage() {
       toast({ title: 'KYC Approved', description: `Successfully approved KYC for ${submission.fullName}.` });
       setIsDetailOpen(false); 
       setSelectedSubmission(null);
-      fetchSubmissions(); // Refresh list
+      fetchSubmissions();
     } catch (error) {
       console.error('Error approving KYC:', error);
       toast({ title: 'Approval Failed', description: 'Failed to approve KYC submission.', variant: 'destructive' });
@@ -153,7 +151,7 @@ export default function KYCApprovalsPage() {
       setIsDetailOpen(false); 
       setSelectedSubmission(null); 
       setRejectionReason('');
-      fetchSubmissions(); // Refresh list
+      fetchSubmissions();
     } catch (error) {
       console.error('Error rejecting KYC:', error);
       toast({ title: 'Rejection Failed', description: 'Failed to reject KYC submission.', variant: 'destructive' });
@@ -259,7 +257,7 @@ export default function KYCApprovalsPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={fetchSubmissions} disabled={isLoading} className="gap-2 h-9 rounded-xl border-white/10 bg-white/5">
-            <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
+            <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin text-primary")} />
             Refresh
           </Button>
           <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/30">
