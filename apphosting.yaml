@@ -11,3 +11,6 @@ runConfig:
 env:
   - variable: FIREBASE_ADMIN_SDK_CONFIG
     secret: FIREBASE_ADMIN_SDK_CONFIG
+
+requiredSecrets:
+  - secret: FIREBASE_ADMIN_SDK_CONFIG

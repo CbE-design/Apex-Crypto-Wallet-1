@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "gcp-build": "next build"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.33.0-rc.1",
