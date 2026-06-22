@@ -183,16 +183,23 @@ export default function KycVerificationModal({
     try {
       const submissionId = `kyc_${user.uid}_${Date.now()}`;
       const timestamp = Date.now();
+      console.log('[KYC] Starting submission:', { submissionId, userId: user.uid, hasDocFile: !!documentFile, hasSelfieFile: !!selfieFile });
 
       // Upload document to Firebase Storage
-      const docPath = `kyc/${user.uid}/${timestamp}_document.${documentFile.name.split('.').pop()}`;
+      const docExt = documentFile.name.split('.').pop() || 'jpg';
+      const docPath = `kyc/${user.uid}/${timestamp}_document.${docExt}`;
+      console.log('[KYC] Uploading document to path:', docPath);
       const docUrl = await uploadToStorage(documentFile, docPath);
-      if (!docUrl) throw new Error('Document upload failed');
+      console.log('[KYC] Document upload result:', docUrl ? 'SUCCESS' : 'FAILED');
+      if (!docUrl) throw new Error('Document upload failed: storage returned null');
 
       // Upload selfie to Firebase Storage
-      const selfiePath = `kyc/${user.uid}/${timestamp}_selfie.${selfieFile.name.split('.').pop()}`;
+      const selfieExt = selfieFile.name.split('.').pop() || 'jpg';
+      const selfiePath = `kyc/${user.uid}/${timestamp}_selfie.${selfieExt}`;
+      console.log('[KYC] Uploading selfie to path:', selfiePath);
       const selfieUrl = await uploadSelfie(selfieFile, selfiePath);
-      if (!selfieUrl) throw new Error('Selfie upload failed');
+      console.log('[KYC] Selfie upload result:', selfieUrl ? 'SUCCESS' : 'FAILED');
+      if (!selfieUrl) throw new Error('Selfie upload failed: storage returned null');
 
       const kycSubmission = {
         id: submissionId,
@@ -241,10 +248,14 @@ export default function KycVerificationModal({
       });
 
     } catch (error: any) {
-      console.error('KYC submission error:', error);
+      console.error('[KYC] CATCH ERROR:', error);
+      console.error('[KYC] Error name:', error?.name);
+      console.error('[KYC] Error code:', error?.code);
+      console.error('[KYC] Error message:', error?.message);
+      console.error('[KYC] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       toast({
         title: 'Submission Failed',
-        description: error.message || 'Unable to submit verification. Please try again.',
+        description: error?.message || error?.code || 'Unable to submit verification. Please try again.',
         variant: 'destructive',
       });
     } finally {
