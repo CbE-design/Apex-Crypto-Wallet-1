@@ -10,24 +10,25 @@ function initializeFirebaseAdmin() {
 
   if (configJson) {
     try {
-      // The config is expected to be a stringified JSON object.
+      // Diagnostic log to help find syntax errors in Secret Manager without exposing the key
+      const start = (configJson || '').substring(0, 15);
+      console.log(`[firebase-admin] Attempting to parse config. Length: ${configJson.length}. Starts with: ${start}...`);
+      
       const serviceAccount = JSON.parse(configJson);
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
         databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`,
       });
-      console.log('[firebase-admin] Initialized using FIREBASE_ADMIN_SDK_CONFIG');
+      console.log('[firebase-admin] Initialized successfully using FIREBASE_ADMIN_SDK_CONFIG');
       return;
-    } catch (e) {
-      console.error('[firebase-admin] Failed to parse or use FIREBASE_ADMIN_SDK_CONFIG:', e);
-      // Fall through to the warning
+    } catch (e: any) {
+      console.error('[firebase-admin] CRITICAL: Failed to parse FIREBASE_ADMIN_SDK_CONFIG. Check your Secret Manager formatting.', e.message);
     }
   }
 
   console.error(
     '[firebase-admin] CRITICAL: Firebase Admin initialization failed. ' +
-    'The FIREBASE_ADMIN_SDK_CONFIG environment variable is missing or invalid. ' +
-    'Admin features will be disabled.'
+    'The FIREBASE_ADMIN_SDK_CONFIG environment variable is missing or invalid.'
   );
 }
 
