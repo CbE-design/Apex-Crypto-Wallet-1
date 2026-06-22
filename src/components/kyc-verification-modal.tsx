@@ -75,7 +75,6 @@ export default function KycVerificationModal({
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  // Handle controlled vs uncontrolled
   const open = propsOpen !== undefined ? propsOpen : hook.isKycModalOpen;
   const setOpen = propsOnOpenChange !== undefined ? propsOnOpenChange : hook.setKycModalOpen;
   const kycStatus = propsKycStatus !== undefined ? propsKycStatus : hook.kycStatus;
@@ -85,13 +84,10 @@ export default function KycVerificationModal({
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [loadingReason, setLoadingReason] = useState(false);
 
-  // File upload state
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null);
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null);
-  const [upload1Loading, setUpload1Loading] = useState(false);
-  const [upload2Loading, setUpload2Loading] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -106,7 +102,6 @@ export default function KycVerificationModal({
 
   const progress = { intro: 0, personal: 33, document: 66, review: 90, submitted: 100 };
 
-  // Fetch rejection reason when modal opens for a rejected user
   useEffect(() => {
     if (!open || kycStatus !== 'REJECTED' || !user || !firestore) return;
 
@@ -158,17 +153,36 @@ export default function KycVerificationModal({
     documentFile &&
     selfieFile;
 
-  const fileToBase64 = (file: File): Promise<string> => {
+  const compressImage = (file: File, maxWidth = 800, quality = 0.8): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        // Strip the data URL prefix if present
-        const clean = base64.includes(',') ? base64.split(',')[1] : base64;
-        resolve(clean);
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement('canvas');
+        let w = img.width;
+        let h = img.height;
+        if (w > maxWidth) {
+          h = Math.round(h * (maxWidth / w));
+          w = maxWidth;
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas context not available'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+        resolve(base64);
       };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to load image'));
+      };
+      img.src = url;
     });
   };
 
@@ -193,12 +207,13 @@ export default function KycVerificationModal({
 
     setIsSubmitting(true);
     try {
-      console.log('[KYC] Encoding files as base64...');
+      console.log('[KYC] Compressing images...');
       const [documentBase64, selfieBase64] = await Promise.all([
-        fileToBase64(documentFile),
-        fileToBase64(selfieFile),
+        compressImage(documentFile, 800, 0.8),
+        compressImage(selfieFile, 800, 0.8),
       ]);
-      console.log('[KYC] Files encoded. Sending to server API...');
+      console.log('[KYC] Images compressed. Doc length:', documentBase64.length, 'Selfie length:', selfieBase64.length);
+      console.log('[KYC] Sending to server API...');
 
       const response = await fetch('/api/kyc/upload', {
         method: 'POST',
@@ -371,7 +386,7 @@ export default function KycVerificationModal({
         sublabel="ID front or Passport page"
         accept="image/*,.pdf"
         previewUrl={documentPreviewUrl}
-        uploading={upload1Loading}
+        uploading={false}
         error={null}
         onFileSelect={(file) => {
           setDocumentFile(file);
@@ -389,7 +404,7 @@ export default function KycVerificationModal({
         sublabel="Take a clear photo of your face holding your ID"
         accept="image/*"
         previewUrl={selfiePreviewUrl}
-        uploading={upload2Loading}
+        uploading={false}
         error={null}
         onFileSelect={(file) => {
           setSelfieFile(file);
