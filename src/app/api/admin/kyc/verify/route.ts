@@ -30,6 +30,13 @@ async function verifyAdminToken(request: NextRequest) {
 }
 
 async function fetchImageBuffer(url: string): Promise<Buffer> {
+  // Handle base64 data URLs (images stored directly in Firestore)
+  if (url.startsWith('data:')) {
+    const base64 = url.split(',')[1];
+    if (!base64) throw new Error('Invalid data URL');
+    return Buffer.from(base64, 'base64');
+  }
+  // Handle HTTP URLs (legacy storage or external URLs)
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
   return Buffer.from(await res.arrayBuffer());

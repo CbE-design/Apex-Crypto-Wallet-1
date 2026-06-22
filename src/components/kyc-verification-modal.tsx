@@ -22,9 +22,8 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc, serverTimestamp, collection, addDoc, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { useStorageUpload } from '@/hooks/use-storage-upload';
 import { DocumentUploadField } from '@/components/document-upload-field';
 import { 
   Shield, 
@@ -91,9 +90,8 @@ export default function KycVerificationModal({
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null);
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null);
-
-  const { upload: uploadToStorage, uploading: upload1Uploading, error: upload1Error } = useStorageUpload();
-  const { upload: uploadSelfie, uploading: upload2Uploading, error: upload2Error } = useStorageUpload();
+  const [upload1Loading, setUpload1Loading] = useState(false);
+  const [upload2Loading, setUpload2Loading] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -160,8 +158,22 @@ export default function KycVerificationModal({
     documentFile &&
     selfieFile;
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        // Strip the data URL prefix if present
+        const clean = base64.includes(',') ? base64.split(',')[1] : base64;
+        resolve(clean);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSubmit = async () => {
-    if (!user || !firestore) {
+    if (!user) {
       toast({
         title: 'Submission Failed',
         description: 'Connection error. Please try again.',
@@ -181,64 +193,42 @@ export default function KycVerificationModal({
 
     setIsSubmitting(true);
     try {
-      const submissionId = `kyc_${user.uid}_${Date.now()}`;
-      const timestamp = Date.now();
-      console.log('[KYC] Starting submission:', { submissionId, userId: user.uid, hasDocFile: !!documentFile, hasSelfieFile: !!selfieFile });
+      console.log('[KYC] Encoding files as base64...');
+      const [documentBase64, selfieBase64] = await Promise.all([
+        fileToBase64(documentFile),
+        fileToBase64(selfieFile),
+      ]);
+      console.log('[KYC] Files encoded. Sending to server API...');
 
-      // Upload document to Firebase Storage
-      const docExt = documentFile.name.split('.').pop() || 'jpg';
-      const docPath = `kyc/${user.uid}/${timestamp}_document.${docExt}`;
-      console.log('[KYC] Uploading document to path:', docPath);
-      const docUrl = await uploadToStorage(documentFile, docPath);
-      console.log('[KYC] Document upload result:', docUrl ? 'SUCCESS' : 'FAILED');
-      if (!docUrl) throw new Error('Document upload failed: storage returned null');
-
-      // Upload selfie to Firebase Storage
-      const selfieExt = selfieFile.name.split('.').pop() || 'jpg';
-      const selfiePath = `kyc/${user.uid}/${timestamp}_selfie.${selfieExt}`;
-      console.log('[KYC] Uploading selfie to path:', selfiePath);
-      const selfieUrl = await uploadSelfie(selfieFile, selfiePath);
-      console.log('[KYC] Selfie upload result:', selfieUrl ? 'SUCCESS' : 'FAILED');
-      if (!selfieUrl) throw new Error('Selfie upload failed: storage returned null');
-
-      const kycSubmission = {
-        id: submissionId,
-        userId: user.uid,
-        userEmail: userProfile?.email || user.email || 'unknown@apex.io',
-        walletAddress: userProfile?.walletAddress || '',
-        status: 'PENDING',
-        fullName: formData.fullName,
-        dateOfBirth: formData.dateOfBirth,
-        nationality: formData.nationality,
-        countryCode: formData.countryCode || 'ZA',
-        address: formData.address,
-        documentType: formData.documentType,
-        documentNumber: formData.documentNumber,
-        documentExpiry: documentRequiresExpiry ? formData.documentExpiry : 'N/A',
-        documentImageUrl: docUrl,
-        selfieImageUrl: selfieUrl,
-        submittedAt: serverTimestamp(),
-        ...(withdrawalContext ? { withdrawalIntent: withdrawalContext } : {}),
-      };
-
-      await setDoc(doc(firestore, 'kyc_submissions', submissionId), kycSubmission);
-
-      await setDoc(doc(firestore, 'users', user.uid), {
-        kycStatus: 'PENDING',
-        kycSubmissionId: submissionId,
-        kycSubmittedAt: serverTimestamp(),
-      }, { merge: true });
-
-      await addDoc(collection(firestore, 'admin_notifications'), {
-        type: 'KYC_VERIFICATION',
-        title: withdrawalContext ? 'Urgent: KYC for Withdrawal' : 'New KYC Submission',
-        message: `${formData.fullName} has submitted KYC documents for manual review.`,
-        userId: user.uid,
-        userEmail: userProfile?.email || 'unknown@apex.io',
-        referenceId: submissionId,
-        read: false,
-        createdAt: serverTimestamp(),
+      const response = await fetch('/api/kyc/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          userEmail: userProfile?.email || user.email || 'unknown@apex.io',
+          walletAddress: userProfile?.walletAddress || '',
+          fullName: formData.fullName,
+          dateOfBirth: formData.dateOfBirth,
+          nationality: formData.nationality,
+          countryCode: formData.countryCode || 'ZA',
+          address: formData.address,
+          documentType: formData.documentType,
+          documentNumber: formData.documentNumber,
+          documentExpiry: documentRequiresExpiry ? formData.documentExpiry : 'N/A',
+          documentBase64,
+          selfieBase64,
+          documentFileName: documentFile.name,
+          selfieFileName: selfieFile.name,
+          withdrawalIntent: withdrawalContext || null,
+        }),
       });
+
+      const result = await response.json();
+      console.log('[KYC] API response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || `Server error: ${response.status}`);
+      }
 
       setStep('submitted');
       onSubmissionComplete?.();
@@ -246,16 +236,11 @@ export default function KycVerificationModal({
         title: 'Verification Submitted',
         description: 'Your identity verification is under review.',
       });
-
     } catch (error: any) {
       console.error('[KYC] CATCH ERROR:', error);
-      console.error('[KYC] Error name:', error?.name);
-      console.error('[KYC] Error code:', error?.code);
-      console.error('[KYC] Error message:', error?.message);
-      console.error('[KYC] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       toast({
         title: 'Submission Failed',
-        description: error?.message || error?.code || 'Unable to submit verification. Please try again.',
+        description: error?.message || 'Unable to submit verification. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -386,8 +371,8 @@ export default function KycVerificationModal({
         sublabel="ID front or Passport page"
         accept="image/*,.pdf"
         previewUrl={documentPreviewUrl}
-        uploading={upload1Uploading}
-        error={upload1Error}
+        uploading={upload1Loading}
+        error={null}
         onFileSelect={(file) => {
           setDocumentFile(file);
           const url = URL.createObjectURL(file);
@@ -404,8 +389,8 @@ export default function KycVerificationModal({
         sublabel="Take a clear photo of your face holding your ID"
         accept="image/*"
         previewUrl={selfiePreviewUrl}
-        uploading={upload2Uploading}
-        error={upload2Error}
+        uploading={upload2Loading}
+        error={null}
         onFileSelect={(file) => {
           setSelfieFile(file);
           const url = URL.createObjectURL(file);

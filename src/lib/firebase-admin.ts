@@ -10,17 +10,17 @@ function initializeFirebaseAdmin() {
 
   if (configJson) {
     try {
-      // The config is expected to be a stringified JSON object.
       const serviceAccount = JSON.parse(configJson);
+      const projectId = serviceAccount.project_id;
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
-        databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`,
+        databaseURL: `https://${projectId}.firebaseio.com`,
+        storageBucket: `${projectId}.appspot.com`,
       });
       console.log('[firebase-admin] Initialized using FIREBASE_ADMIN_SDK_CONFIG');
       return;
     } catch (e) {
       console.error('[firebase-admin] Failed to parse or use FIREBASE_ADMIN_SDK_CONFIG:', e);
-      // Fall through to the warning
     }
   }
 
@@ -48,6 +48,15 @@ export function getAdminMessaging(): admin.messaging.Messaging | null {
   if (!admin.apps.length) return null;
   try {
     return admin.messaging();
+  } catch {
+    return null;
+  }
+}
+
+export function getAdminStorage(): admin.storage.Storage | null {
+  if (!admin.apps.length) return null;
+  try {
+    return admin.storage();
   } catch {
     return null;
   }
