@@ -61,7 +61,7 @@ export function Header() {
     : null;
 
   return (
-    <header className="flex items-center justify-between px-4 h-14 border-b border-border/60">
+    <header className="flex items-center justify-between px-4 h-14 border-b border-border/60 text-[17px]">
       {/* Left: page title */}
       <div className="flex items-center gap-3">
         <SidebarTrigger className="md:hidden -ml-1 h-8 w-8 rounded-lg hover:bg-muted/60 text-muted-foreground transition-colors" />

@@ -22,8 +22,9 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc, serverTimestamp, collection, addDoc, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { DocumentUploadField } from '@/components/document-upload-field';
 import { 
   Shield, 
   User, 
@@ -31,15 +32,13 @@ import {
   CheckCircle2, 
   AlertTriangle,
   Clock,
-  Upload,
   ArrowRight,
-  ArrowLeft,
   Loader2,
   Banknote,
   Globe,
 } from 'lucide-react';
 import { COUNTRIES } from '@/lib/countries';
-import type { KYCStatus, KYCSubmission, AdminNotification } from '@/lib/types';
+import type { KYCStatus, KYCSubmission } from '@/lib/types';
 import { useKycVerification } from '@/hooks/use-kyc-verification';
 
 export interface WithdrawalContext {
@@ -85,12 +84,20 @@ export default function KycVerificationModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [loadingReason, setLoadingReason] = useState(false);
-  const [documentFile, setDocumentFile] = useState<{ name: string; size: string } | null>(null);
+
+  // File upload state
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [selfieFile, setSelfieFile] = useState<File | null>(null);
+  const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null);
+  const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null);
+  const [upload1Loading, setUpload1Loading] = useState(false);
+  const [upload2Loading, setUpload2Loading] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
     dateOfBirth: '',
     nationality: 'South Africa',
+    countryCode: 'ZA',
     address: '',
     documentType: '' as 'passport' | 'drivers_license' | 'national_id' | '',
     documentNumber: '',
@@ -129,7 +136,12 @@ export default function KycVerificationModal({
   }, [open, kycStatus, user, firestore]);
 
   const handleInputChange = useCallback((field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === 'nationality') {
+      const country = COUNTRIES.find(c => c.name === value);
+      setFormData(prev => ({ ...prev, nationality: value, countryCode: country?.code || 'ZA' }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   }, []);
 
   const validatePersonalInfo = () =>
@@ -143,10 +155,25 @@ export default function KycVerificationModal({
     formData.documentType &&
     formData.documentNumber &&
     (!documentRequiresExpiry || formData.documentExpiry) &&
-    documentFile;
+    documentFile &&
+    selfieFile;
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        // Strip the data URL prefix if present
+        const clean = base64.includes(',') ? base64.split(',')[1] : base64;
+        resolve(clean);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
   const handleSubmit = async () => {
-    if (!user || !firestore) {
+    if (!user) {
       toast({
         title: 'Submission Failed',
         description: 'Connection error. Please try again.',
@@ -154,48 +181,54 @@ export default function KycVerificationModal({
       });
       return;
     }
-    
+
+    if (!documentFile || !selfieFile) {
+      toast({
+        title: 'Missing Files',
+        description: 'Please upload both your document and a selfie.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const submissionId = `kyc_${user.uid}_${Date.now()}`;
-      
-      const kycSubmission = {
-        userId: user.uid,
-        userEmail: userProfile?.email || user.email || 'unknown@apex.io',
-        walletAddress: userProfile?.walletAddress || '',
-        status: 'PENDING',
-        fullName: formData.fullName,
-        dateOfBirth: formData.dateOfBirth,
-        nationality: formData.nationality,
-        address: formData.address,
-        documentType: formData.documentType,
-        documentNumber: formData.documentNumber,
-        documentExpiry: documentRequiresExpiry ? formData.documentExpiry : 'N/A',
-        submittedAt: serverTimestamp(),
-      };
+      console.log('[KYC] Encoding files as base64...');
+      const [documentBase64, selfieBase64] = await Promise.all([
+        fileToBase64(documentFile),
+        fileToBase64(selfieFile),
+      ]);
+      console.log('[KYC] Files encoded. Sending to server API...');
 
-      await setDoc(doc(firestore, 'kyc_submissions', submissionId), {
-        id: submissionId,
-        ...kycSubmission,
-        ...(withdrawalContext ? { withdrawalIntent: withdrawalContext } : {}),
+      const response = await fetch('/api/kyc/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          userEmail: userProfile?.email || user.email || 'unknown@apex.io',
+          walletAddress: userProfile?.walletAddress || '',
+          fullName: formData.fullName,
+          dateOfBirth: formData.dateOfBirth,
+          nationality: formData.nationality,
+          countryCode: formData.countryCode || 'ZA',
+          address: formData.address,
+          documentType: formData.documentType,
+          documentNumber: formData.documentNumber,
+          documentExpiry: documentRequiresExpiry ? formData.documentExpiry : 'N/A',
+          documentBase64,
+          selfieBase64,
+          documentFileName: documentFile.name,
+          selfieFileName: selfieFile.name,
+          withdrawalIntent: withdrawalContext || null,
+        }),
       });
 
-      await setDoc(doc(firestore, 'users', user.uid), {
-        kycStatus: 'PENDING',
-        kycSubmissionId: submissionId,
-        kycSubmittedAt: serverTimestamp(),
-      }, { merge: true });
+      const result = await response.json();
+      console.log('[KYC] API response:', result);
 
-      await addDoc(collection(firestore, 'admin_notifications'), {
-        type: 'KYC_VERIFICATION',
-        title: withdrawalContext ? 'Urgent: KYC for Withdrawal' : 'New KYC Submission',
-        message: `${formData.fullName} has submitted KYC documents for manual review.`,
-        userId: user.uid,
-        userEmail: userProfile?.email,
-        referenceId: submissionId,
-        read: false,
-        createdAt: serverTimestamp(),
-      });
+      if (!response.ok) {
+        throw new Error(result.error || `Server error: ${response.status}`);
+      }
 
       setStep('submitted');
       onSubmissionComplete?.();
@@ -203,12 +236,11 @@ export default function KycVerificationModal({
         title: 'Verification Submitted',
         description: 'Your identity verification is under review.',
       });
-
-    } catch (error) {
-      console.error('KYC submission error:', error);
+    } catch (error: any) {
+      console.error('[KYC] CATCH ERROR:', error);
       toast({
         title: 'Submission Failed',
-        description: 'Unable to submit verification. Please try again.',
+        description: error?.message || 'Unable to submit verification. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -334,28 +366,42 @@ export default function KycVerificationModal({
           <Input type="date" value={formData.documentExpiry} onChange={(e) => handleInputChange('documentExpiry', e.target.value)} />
         </div>
       )}
-      <div className="space-y-2">
-        <Label>Upload Document Photo</Label>
-        <label className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed p-6 text-center cursor-pointer hover:bg-muted/20">
-          <input type="file" accept="image/*,.pdf" className="sr-only" onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) setDocumentFile({ name: file.name, size: `${(file.size / 1024).toFixed(0)} KB` });
-          }} />
-          {documentFile ? (
-            <>
-              <CheckCircle2 className="h-7 w-7 text-accent" />
-              <p className="text-sm font-semibold text-accent">Document Attached</p>
-              <p className="text-xs text-muted-foreground truncate max-w-full">{documentFile.name}</p>
-            </>
-          ) : (
-            <>
-              <Upload className="h-7 w-7 text-muted-foreground" />
-              <p className="text-sm font-semibold">Click to upload photo</p>
-              <p className="text-xs text-muted-foreground">ID front or Passport page</p>
-            </>
-          )}
-        </label>
-      </div>
+      <DocumentUploadField
+        label="Upload Document Photo"
+        sublabel="ID front or Passport page"
+        accept="image/*,.pdf"
+        previewUrl={documentPreviewUrl}
+        uploading={upload1Loading}
+        error={null}
+        onFileSelect={(file) => {
+          setDocumentFile(file);
+          const url = URL.createObjectURL(file);
+          setDocumentPreviewUrl(url);
+        }}
+        onClear={() => {
+          setDocumentFile(null);
+          if (documentPreviewUrl) URL.revokeObjectURL(documentPreviewUrl);
+          setDocumentPreviewUrl(null);
+        }}
+      />
+      <DocumentUploadField
+        label="Upload Selfie"
+        sublabel="Take a clear photo of your face holding your ID"
+        accept="image/*"
+        previewUrl={selfiePreviewUrl}
+        uploading={upload2Loading}
+        error={null}
+        onFileSelect={(file) => {
+          setSelfieFile(file);
+          const url = URL.createObjectURL(file);
+          setSelfiePreviewUrl(url);
+        }}
+        onClear={() => {
+          setSelfieFile(null);
+          if (selfiePreviewUrl) URL.revokeObjectURL(selfiePreviewUrl);
+          setSelfiePreviewUrl(null);
+        }}
+      />
       <div className="flex gap-3 pt-2">
         <Button variant="outline" onClick={() => setStep('personal')} className="flex-1">Back</Button>
         <Button onClick={() => setStep('review')} disabled={!validateDocumentInfo()} className="flex-1 btn-premium text-white">Review</Button>
