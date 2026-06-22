@@ -11,19 +11,19 @@ export async function POST(req: NextRequest) {
 
     const db = getAdminFirestore();
     if (!db) {
+      console.error('[wallet-token] Admin SDK not initialized. Check FIREBASE_ADMIN_SDK_CONFIG.');
       return NextResponse.json(
-        { error: 'Firebase Admin SDK is not configured. Please set FIREBASE_ADMIN_SDK_CONFIG.' },
+        { error: 'Wallet verification service is starting up. Please try again in a moment.' },
         { status: 503 },
       );
     }
 
     const addressLower = walletAddress.toLowerCase();
-    let uid: string;
+    let uid: string | null = null;
     let isReturningUser = false;
 
     // Look up whether this wallet address already belongs to an existing user.
-    // This guarantees the same seed phrase always resolves to the same Firebase UID,
-    // so KYC status, balances, and all history are automatically preserved.
+    // Try both field names for maximum compatibility with older user records.
     const snap = await db
       .collection('users')
       .where('walletAddressLowercase', '==', addressLower)
@@ -33,12 +33,28 @@ export async function POST(req: NextRequest) {
     if (!snap.empty) {
       uid = snap.docs[0].id;
       isReturningUser = true;
-      console.log("Found existing user! ID:", uid);
     } else {
-      // New wallet — create a deterministic UID from the address so future imports
-      // of the same wallet always get the same UID, even before a doc exists.
+      // Fallback: Check the original camelCase field
+      const fallbackSnap = await db
+        .collection('users')
+        .where('walletAddress', '==', walletAddress)
+        .limit(1)
+        .get();
+      
+      if (!fallbackSnap.empty) {
+        uid = fallbackSnap.docs[0].id;
+        isReturningUser = true;
+      }
+    }
+
+    if (!uid) {
+      // New wallet — create a deterministic UID from the address.
+      // This ensures that even if they import on a different device before 
+      // a doc is created, they get the same ID.
       uid = `w_${addressLower.replace('0x', '').slice(0, 40)}`;
     }
+
+    console.log(`[wallet-token] UID resolved: ${uid} (Returning: ${isReturningUser})`);
 
     // Issue a short-lived Firebase custom auth token for this UID.
     const token = await firebaseAdmin.auth().createCustomToken(uid);
@@ -46,6 +62,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ token, isReturningUser, uid });
   } catch (error: any) {
     console.error('[wallet-token] Error:', error);
-    return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    return NextResponse.json({ error: 'System busy. Please try again shortly.' }, { status: 500 });
   }
 }

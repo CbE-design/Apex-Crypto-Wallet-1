@@ -16,29 +16,6 @@ interface DocumentUploadFieldProps {
   onClear: () => void;
 }
 
-function compressImage(file: File, maxWidth = 1600, maxHeight = 1600, quality = 0.85): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let { width, height } = img;
-      if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
-      if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { reject(new Error('Canvas context unavailable')); return; }
-      ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob((blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error('Canvas toBlob failed'));
-      }, 'image/jpeg', quality);
-    };
-    img.onerror = reject;
-    img.src = URL.createObjectURL(file);
-  });
-}
-
 export function DocumentUploadField({
   label,
   sublabel,
@@ -54,19 +31,7 @@ export function DocumentUploadField({
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // If image, compress before passing up
-    if (file.type.startsWith('image/')) {
-      try {
-        const compressed = await compressImage(file);
-        const compressedFile = new File([compressed], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
-        onFileSelect(compressedFile);
-      } catch {
-        onFileSelect(file); // fallback to original
-      }
-    } else {
-      onFileSelect(file);
-    }
+    onFileSelect(file);
   };
 
   return (

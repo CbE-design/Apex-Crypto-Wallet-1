@@ -21,16 +21,10 @@ export const useKycVerification = () => {
   const { data: userData, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
   const kycStatus: KYCStatus = userData?.kycStatus || 'NOT_SUBMITTED';
-  const isKycRequired = !!user && !isProfileLoading && (kycStatus === 'NOT_SUBMITTED' || kycStatus === 'PENDING');
-
-  useEffect(() => {
-    // Automatically open the modal if KYC is required
-    if (isKycRequired) {
-      setKycModalOpen(true);
-    } else {
-      setKycModalOpen(false);
-    }
-  }, [isKycRequired]);
+  
+  // We no longer automatically open the modal. 
+  // Components can use isKycRequired to show alerts/buttons.
+  const isKycRequired = !!user && !isProfileLoading && (kycStatus === 'NOT_SUBMITTED' || kycStatus === 'REJECTED');
 
   return { isKycRequired, kycStatus, isKycModalOpen, setKycModalOpen };
 };

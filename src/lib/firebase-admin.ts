@@ -7,31 +7,28 @@ function initializeFirebaseAdmin() {
   }
 
   const configJson = process.env.FIREBASE_ADMIN_SDK_CONFIG;
+
   if (configJson) {
     try {
+      // The config is expected to be a stringified JSON object.
       const serviceAccount = JSON.parse(configJson);
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
+        databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`,
       });
+      console.log('[firebase-admin] Initialized using FIREBASE_ADMIN_SDK_CONFIG');
       return;
     } catch (e) {
-      console.error('[firebase-admin] Failed to parse FIREBASE_ADMIN_SDK_CONFIG:', e);
+      console.error('[firebase-admin] Failed to parse or use FIREBASE_ADMIN_SDK_CONFIG:', e);
+      // Fall through to the warning
     }
   }
 
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-  if (projectId && clientEmail && privateKey) {
-    admin.initializeApp({
-      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
-      databaseURL: `https://${projectId}.firebaseio.com`,
-    });
-    return;
-  }
-
-  console.warn('[firebase-admin] No Firebase Admin credentials found. Admin features will be disabled.');
+  console.error(
+    '[firebase-admin] CRITICAL: Firebase Admin initialization failed. ' +
+    'The FIREBASE_ADMIN_SDK_CONFIG environment variable is missing or invalid. ' +
+    'Admin features will be disabled.'
+  );
 }
 
 initializeFirebaseAdmin();

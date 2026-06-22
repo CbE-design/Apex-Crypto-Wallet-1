@@ -47,8 +47,8 @@ const sendNotificationFlow = ai.defineFlow(
     };
 
     try {
-      // firebase-admin v10 uses sendMulticast; v11+ uses sendEachForMulticast
-      const response = await messaging.sendMulticast(message);
+      // Modern firebase-admin uses sendEachForMulticast
+      const response = await (messaging as any).sendEachForMulticast(message);
       return {
         successCount: response.successCount,
         failureCount: response.failureCount,

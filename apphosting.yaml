@@ -1,17 +1,16 @@
-
 # Settings to manage and configure a Firebase App Hosting backend.
 # https://firebase.google.com/docs/app-hosting/configure
 
 runConfig:
-  # Increase this value if you'd like to automatically spin up
-  # more instances in response to increased traffic.
   maxInstances: 10
   minInstances: 1
   cpu: 1
 
-vpc:
-  egress: private-ranges-only
+# Environment variables for the backend
+# This links to the secret you created in Secret Manager
+env:
+  - variable: FIREBASE_ADMIN_SDK_CONFIG
+    secret: FIREBASE_ADMIN_SDK_CONFIG
 
-serviceAccount: service-account
-labels:
-  some-label: some-value
+requiredSecrets:
+  - secret: FIREBASE_ADMIN_SDK_CONFIG

@@ -115,5 +115,4 @@ export const COUNTRIES: Country[] = [
   { code: 'KH', name: 'Cambodia', flag: '🇰🇭' },
   { code: 'LA', name: 'Laos', flag: '🇱🇦' },
   { code: 'MM', name: 'Myanmar', flag: '🇲🇲' },
-  { code: 'KH', name: 'Cambodia', flag: '🇰🇭' },
 ];

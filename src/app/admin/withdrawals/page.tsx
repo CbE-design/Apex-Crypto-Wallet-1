@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,11 +17,10 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/context/wallet-context';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { 
   collection, 
-  query, 
-  where, 
+  getDocs,
   doc, 
   updateDoc, 
   serverTimestamp,
@@ -58,6 +57,10 @@ export default function WithdrawalApprovalsPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
 
+  const [withdrawals, setWithdrawals] = useState<WithdrawalDoc[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<WithdrawalDoc | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -65,57 +68,52 @@ export default function WithdrawalApprovalsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
 
-  // Fetch withdrawal requests
-  const withdrawalsRef = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'withdrawal_requests');
+  const fetchWithdrawals = useCallback(async () => {
+    if (!firestore) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const snap = await getDocs(collection(firestore, 'withdrawal_requests'));
+      const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as WithdrawalDoc));
+      setWithdrawals(data);
+    } catch (err: any) {
+      console.error('[Withdrawals] Fetch error:', err);
+      setError(err.message || 'Failed to pull payouts.');
+    } finally {
+      setIsLoading(false);
+    }
   }, [firestore]);
 
-  const pendingQuery = useMemoFirebase(() => {
-    if (!withdrawalsRef) return null;
-    return query(withdrawalsRef, where('status', '==', 'PENDING'));
-  }, [withdrawalsRef]);
+  useEffect(() => {
+    fetchWithdrawals();
+  }, [fetchWithdrawals]);
 
-  const approvedQuery = useMemoFirebase(() => {
-    if (!withdrawalsRef) return null;
-    return query(withdrawalsRef, where('status', 'in', ['APPROVED', 'PROCESSING', 'COMPLETED']));
-  }, [withdrawalsRef]);
+  const { pendingWithdrawals, approvedWithdrawals, rejectedWithdrawals } = useMemo(() => {
+    const p: WithdrawalDoc[] = [];
+    const a: WithdrawalDoc[] = [];
+    const r: WithdrawalDoc[] = [];
+    
+    withdrawals.forEach(w => {
+      if (w.status === 'PENDING') p.push(w);
+      else if (['APPROVED', 'PROCESSING', 'COMPLETED'].includes(w.status)) a.push(w);
+      else r.push(w);
+    });
 
-  const rejectedQuery = useMemoFirebase(() => {
-    if (!withdrawalsRef) return null;
-    return query(withdrawalsRef, where('status', '==', 'REJECTED'));
-  }, [withdrawalsRef]);
+    const sortFn = (x: WithdrawalDoc, y: WithdrawalDoc) => {
+      const t1 = x.createdAt?.toMillis?.() ?? (x.createdAt?.seconds * 1000) ?? 0;
+      const t2 = y.createdAt?.toMillis?.() ?? (y.createdAt?.seconds * 1000) ?? 0;
+      return t2 - t1;
+    };
 
-  const sortByDate = (items: WithdrawalDoc[] | null) =>
-    items ? [...items].sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0)) : null;
-
-  const { data: rawPending, isLoading: loadingPending } = useCollection<WithdrawalDoc>(pendingQuery);
-  const { data: rawApproved, isLoading: loadingApproved } = useCollection<WithdrawalDoc>(approvedQuery);
-  const { data: rawRejected, isLoading: loadingRejected } = useCollection<WithdrawalDoc>(rejectedQuery);
-
-  const pendingWithdrawals = sortByDate(rawPending);
-  const approvedWithdrawals = sortByDate(rawApproved);
-  const rejectedWithdrawals = sortByDate(rawRejected);
+    return {
+      pendingWithdrawals: p.sort(sortFn),
+      approvedWithdrawals: a.sort(sortFn),
+      rejectedWithdrawals: r.sort(sortFn),
+    };
+  }, [withdrawals]);
 
   const handleApprove = useCallback(async (withdrawal: WithdrawalDoc) => {
-    if (!firestore || !user) {
-        toast({
-            title: 'Authentication Error',
-            description: 'Please log in to approve withdrawals.',
-            variant: 'destructive',
-        });
-        return;
-    }
-
-    if (!withdrawal || !withdrawal.id || !withdrawal.userId) {
-        toast({
-            title: 'Invalid Data',
-            description: 'The withdrawal request data is incomplete.',
-            variant: 'destructive',
-        });
-        return;
-    }
-
+    if (!firestore || !user) return;
     setIsProcessing(true);
     try {
         await runTransaction(firestore, async (transaction) => {
@@ -123,34 +121,17 @@ export default function WithdrawalApprovalsPage() {
             const withdrawalSnap = await transaction.get(withdrawalRef);
 
             if (!withdrawalSnap.exists() || withdrawalSnap.data().status !== 'PENDING') {
-                throw new Error('Withdrawal request not found or already processed.');
-            }
-
-            // De-duplication check
-            if (withdrawalSnap.data().processedAt) {
-                throw new Error('This withdrawal has already been processed.');
+                throw new Error('Already processed.');
             }
 
             if (withdrawal.cryptoBreakdown) {
                 for (const crypto of withdrawal.cryptoBreakdown) {
-                    if (!crypto.symbol || !crypto.amount || crypto.amount <= 0) {
-                        throw new Error(`Invalid crypto breakdown for ${crypto.symbol}.`);
-                    }
-
                     const walletRef = doc(firestore, 'users', withdrawal.userId, 'wallets', crypto.symbol);
                     const walletSnap = await transaction.get(walletRef);
-
-                    if (!walletSnap.exists()) {
-                        throw new Error(`Wallet for ${crypto.symbol} not found.`);
-                    }
+                    if (!walletSnap.exists()) continue;
 
                     const currentBalance = walletSnap.data().balance || 0;
-                    if (currentBalance < crypto.amount) {
-                        throw new Error(`Insufficient funds for ${crypto.symbol}.`);
-                    }
-
-                    const newBalance = currentBalance - crypto.amount;
-                    transaction.update(walletRef, { balance: newBalance });
+                    transaction.update(walletRef, { balance: currentBalance - crypto.amount });
 
                     const txRef = doc(collection(walletRef, 'transactions'));
                     transaction.set(txRef, {
@@ -161,9 +142,6 @@ export default function WithdrawalApprovalsPage() {
                         timestamp: serverTimestamp(),
                         status: 'Completed',
                         referenceNo: withdrawal.transactionReference ?? '',
-                        method: withdrawal.withdrawalMethod ?? 'N/A',
-                        beneficiaryName: withdrawal.accountHolder ?? 'N/A',
-                        notes: `Approved withdrawal - Ref: ${withdrawal.transactionReference ?? ''}`,
                     });
                 }
             }
@@ -176,126 +154,49 @@ export default function WithdrawalApprovalsPage() {
             });
         });
 
-        await addDoc(collection(firestore, 'admin_notifications'), {
-            type: 'SYSTEM_ALERT',
-            title: 'Withdrawal Approved',
-            message: `Withdrawal request ${withdrawal.transactionReference} has been approved and is being processed.`,
-            userId: withdrawal.userId,
-            userEmail: withdrawal.userEmail,
-            referenceId: withdrawal.transactionReference,
-            read: false,
-            createdAt: serverTimestamp(),
-        });
-
-        toast({
-            title: 'Withdrawal Approved',
-            description: `Successfully approved withdrawal ${withdrawal.transactionReference}. User\'s balance has been updated.`,
-        });
-
+        toast({ title: 'Success', description: 'Payout approved.' });
         setIsDetailOpen(false);
-        setSelectedWithdrawal(null);
+        fetchWithdrawals();
     } catch (error: any) {
-        console.error('Error approving withdrawal:', error);
-        toast({
-            title: 'Approval Failed',
-            description: error.message || 'Failed to approve withdrawal. Please try again.',
-            variant: 'destructive',
-        });
-
-        // Optionally, update the withdrawal status to FAILED
-        if (withdrawal && withdrawal.id) {
-            try {
-                const withdrawalRef = doc(firestore, 'withdrawal_requests', withdrawal.id);
-                await updateDoc(withdrawalRef, {
-                    status: 'FAILED',
-                    updatedAt: serverTimestamp(),
-                    failureReason: error.message || 'An unknown error occurred during approval.',
-                });
-            } catch (updateError) {
-                console.error('Error updating withdrawal to FAILED:', updateError);
-            }
-        }
+        toast({ title: 'Failed', description: error.message, variant: 'destructive' });
     } finally {
         setIsProcessing(false);
     }
-}, [firestore, user, toast]);
+}, [firestore, user, toast, fetchWithdrawals]);
 
   const handleReject = useCallback(async (withdrawal: WithdrawalDoc) => {
-    if (!firestore || !user || !rejectionReason.trim()) {
-      toast({
-        title: 'Rejection Reason Required',
-        description: 'Please provide a reason for rejection.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
+    if (!firestore || !user || !rejectionReason.trim()) return;
     setIsProcessing(true);
     try {
-      const withdrawalRef = doc(firestore, 'withdrawal_requests', withdrawal.id);
-      
-      await updateDoc(withdrawalRef, {
+      await updateDoc(doc(firestore, 'withdrawal_requests', withdrawal.id), {
         status: 'REJECTED',
         processedAt: serverTimestamp(),
         processedBy: user.uid,
         rejectionReason: rejectionReason.trim(),
         updatedAt: serverTimestamp(),
       });
-
-      // Create notification for user
-      await addDoc(collection(firestore, 'admin_notifications'), {
-        type: 'SYSTEM_ALERT',
-        title: 'Withdrawal Rejected',
-        message: `Withdrawal request ${withdrawal.transactionReference} was rejected. Reason: ${rejectionReason.trim()}`,
-        userId: withdrawal.userId,
-        userEmail: withdrawal.userEmail,
-        referenceId: withdrawal.transactionReference,
-        read: false,
-        createdAt: serverTimestamp(),
-      });
-
-      toast({
-        title: 'Withdrawal Rejected',
-        description: `Withdrawal ${withdrawal.transactionReference} has been rejected.`,
-      });
-      
+      toast({ title: 'Rejected', description: 'Payout declined.' });
       setIsDetailOpen(false);
-      setSelectedWithdrawal(null);
-      setRejectionReason('');
+      fetchWithdrawals();
     } catch (error) {
-      console.error('Error rejecting withdrawal:', error);
-      toast({
-        title: 'Rejection Failed',
-        description: 'Failed to reject withdrawal. Please try again.',
-        variant: 'destructive',
-      });
+      console.error(error);
     } finally {
       setIsProcessing(false);
     }
-  }, [firestore, user, rejectionReason, toast]);
+  }, [firestore, user, rejectionReason, toast, fetchWithdrawals]);
 
   const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-    }).format(amount);
+    return new Intl.NumberFormat('en-ZA', { style: 'currency', currency }).format(amount);
   };
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return date.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
   const getStatusBadge = (status: WithdrawalStatus) => {
-    const configs: Record<WithdrawalStatus, { className: string; icon: typeof CheckCircle2 }> = {
+    const configs: Record<WithdrawalStatus, { className: string; icon: any }> = {
       PENDING: { className: 'bg-amber-500/20 text-amber-500 border-amber-500/30', icon: Clock },
       APPROVED: { className: 'bg-green-500/20 text-green-500 border-green-500/30', icon: CheckCircle2 },
       REJECTED: { className: 'bg-destructive/20 text-destructive border-destructive/30', icon: XCircle },
@@ -304,44 +205,30 @@ export default function WithdrawalApprovalsPage() {
       FAILED: { className: 'bg-destructive/20 text-destructive border-destructive/30', icon: XCircle },
       CANCELLED: { className: 'bg-muted/20 text-muted-foreground border-muted/30', icon: XCircle },
     };
-    const config = configs[status];
+    const config = configs[status] || configs.PENDING;
     const Icon = config.icon;
-    
-    return (
-      <Badge variant="outline" className={cn('text-[10px] font-bold uppercase', config.className)}>
-        <Icon className="h-3 w-3 mr-1" />
-        {status}
-      </Badge>
-    );
+    return <Badge variant="outline" className={cn('text-[10px] font-bold uppercase', config.className)}><Icon className="h-3 w-3 mr-1" />{status}</Badge>;
   };
 
-  const filterWithdrawals = (withdrawals: WithdrawalDoc[] | null) => {
-    if (!withdrawals || !searchQuery.trim()) return withdrawals;
-    const query = searchQuery.toLowerCase();
-    return withdrawals.filter(w => 
-      w.userEmail?.toLowerCase().includes(query) ||
-      w.transactionReference?.toLowerCase().includes(query) ||
-      w.accountHolder?.toLowerCase().includes(query)
-    );
+  const filterList = (list: WithdrawalDoc[]) => {
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase();
+    return list.filter(w => (w.userEmail || '').toLowerCase().includes(q) || (w.transactionReference || '').toLowerCase().includes(q));
   };
+
+  const currentList = useMemo(() => {
+    if (activeTab === 'pending') return filterList(pendingWithdrawals);
+    if (activeTab === 'approved') return filterList(approvedWithdrawals);
+    return filterList(rejectedWithdrawals);
+  }, [activeTab, pendingWithdrawals, approvedWithdrawals, rejectedWithdrawals, searchQuery]);
 
   const WithdrawalCard = ({ withdrawal }: { withdrawal: WithdrawalDoc }) => (
-    <Card 
-      className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer"
-      onClick={() => {
-        setSelectedWithdrawal(withdrawal);
-        setIsDetailOpen(true);
-      }}
-    >
+    <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer" onClick={() => { setSelectedWithdrawal(withdrawal); setIsDetailOpen(true); }}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
             <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              {withdrawal.withdrawalMethod === 'EFT' ? (
-                <Building2 className="h-5 w-5 text-primary" />
-              ) : (
-                <Globe className="h-5 w-5 text-primary" />
-              )}
+              {withdrawal.withdrawalMethod === 'EFT' ? <Building2 className="h-5 w-5 text-primary" /> : <Globe className="h-5 w-5 text-primary" />}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate">{withdrawal.accountHolder}</p>
@@ -351,250 +238,55 @@ export default function WithdrawalApprovalsPage() {
           </div>
           <div className="text-right shrink-0">
             <p className="text-lg font-bold">{formatCurrency(withdrawal.fiatAmount, withdrawal.fiatCurrency)}</p>
-            <p className="text-xs text-muted-foreground">{withdrawal.withdrawalMethod}</p>
             {getStatusBadge(withdrawal.status)}
           </div>
-        </div>
-        <div className="mt-3 pt-3 border-t border-border/30 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            {formatDate(withdrawal.createdAt)}
-          </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-7 text-xs"
-            onClick={() => {
-              setSelectedWithdrawal(withdrawal);
-              setIsDetailOpen(true);
-            }}
-          >
-            <Eye className="h-3 w-3 mr-1" /> View Details
-          </Button>
         </div>
       </CardContent>
     </Card>
   );
 
-  const currentWithdrawals = activeTab === 'pending' 
-    ? filterWithdrawals(pendingWithdrawals) 
-    : activeTab === 'approved' 
-    ? filterWithdrawals(approvedWithdrawals) 
-    : filterWithdrawals(rejectedWithdrawals);
-
-  const isLoading = activeTab === 'pending' ? loadingPending : activeTab === 'approved' ? loadingApproved : loadingRejected;
-
   return (
     <div className="space-y-6 pb-20">
       <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Withdrawal Approvals</h1>
-          <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400">
-            Review & Approve Pending Withdrawals
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/30">
-            <Clock className="h-3 w-3 mr-1" />
-            {pendingWithdrawals?.length || 0} Pending
-          </Badge>
-        </div>
+        <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Withdrawal Approvals</h1>
+        <Button variant="outline" size="sm" onClick={fetchWithdrawals} disabled={isLoading} className="gap-2 h-9 rounded-xl"><RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} /> Refresh</Button>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by email, reference, or name..."
-            className="pl-10 bg-background/50"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
         <TabsList className="grid w-full grid-cols-3 bg-white/5 rounded-2xl p-1 h-12">
-          <TabsTrigger value="pending" className="rounded-xl font-bold text-xs gap-2">
-            <Clock className="h-3 w-3" /> Pending ({pendingWithdrawals?.length || 0})
-          </TabsTrigger>
-          <TabsTrigger value="approved" className="rounded-xl font-bold text-xs gap-2">
-            <CheckCircle2 className="h-3 w-3" /> Approved ({approvedWithdrawals?.length || 0})
-          </TabsTrigger>
-          <TabsTrigger value="rejected" className="rounded-xl font-bold text-xs gap-2">
-            <XCircle className="h-3 w-3" /> Rejected ({rejectedWithdrawals?.length || 0})
-          </TabsTrigger>
+          <TabsTrigger value="pending">Pending ({pendingWithdrawals.length})</TabsTrigger>
+          <TabsTrigger value="approved">Settled ({approvedWithdrawals.length})</TabsTrigger>
+          <TabsTrigger value="rejected">Rejected ({rejectedWithdrawals.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-6">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : currentWithdrawals && currentWithdrawals.length > 0 ? (
-            <div className="grid gap-4">
-              {currentWithdrawals.map((withdrawal) => (
-                <WithdrawalCard key={withdrawal.id} withdrawal={withdrawal} />
-              ))}
-            </div>
-          ) : (
-            <Card className="border-border/50 bg-card/60">
-              <CardContent className="py-20 text-center">
-                <div className="h-16 w-16 rounded-full bg-muted/30 flex items-center justify-center mx-auto mb-4">
-                  <ArrowDownRight className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">No {activeTab} Withdrawals</h3>
-                <p className="text-sm text-muted-foreground">
-                  {activeTab === 'pending' 
-                    ? 'All withdrawal requests have been processed.' 
-                    : `No ${activeTab} withdrawal requests found.`}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+          {isLoading ? <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> : currentList.length > 0 ? <div className="grid gap-4">{currentList.map(w => <WithdrawalCard key={w.id} withdrawal={w} />)}</div> : <div className="py-20 text-center font-bold text-muted-foreground uppercase opacity-20">No Entries Detected</div>}
         </TabsContent>
       </Tabs>
 
-      {/* Withdrawal Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-primary" />
-              Withdrawal Request Details
-            </DialogTitle>
-            <DialogDescription>
-              Review the withdrawal request and take action.
-            </DialogDescription>
+            <DialogTitle>Payout Details</DialogTitle>
+            <DialogDescription>Review and settle this withdrawal.</DialogDescription>
           </DialogHeader>
-
           {selectedWithdrawal && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Reference</span>
-                <span className="font-mono text-sm font-semibold">{selectedWithdrawal.transactionReference}</span>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Status</span>
-                {getStatusBadge(selectedWithdrawal.status)}
-              </div>
-
-              <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">User Information</h4>
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">{selectedWithdrawal.accountHolder}</p>
-                    <p className="text-xs text-muted-foreground">{selectedWithdrawal.userEmail}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Withdrawal Details</h4>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Amount</span>
-                    <p className="font-semibold">{formatCurrency(selectedWithdrawal.fiatAmount, selectedWithdrawal.fiatCurrency)}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Net Amount</span>
-                    <p className="font-semibold text-accent">
-                      {formatCurrency(selectedWithdrawal.netFiatAmount || selectedWithdrawal.fiatAmount - selectedWithdrawal.networkFee, selectedWithdrawal.fiatCurrency)}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Method</span>
-                    <p className="font-semibold">{selectedWithdrawal.withdrawalMethod}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Bank</span>
-                    <p className="font-semibold">{selectedWithdrawal.bankName}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground">Account Number</span>
-                    <p className="font-mono font-semibold">{selectedWithdrawal.accountNumber}</p>
-                  </div>
-                </div>
-              </div>
-
-              {selectedWithdrawal.cryptoBreakdown && selectedWithdrawal.cryptoBreakdown.length > 0 && (
-                <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-3">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Crypto to Deduct</h4>
-                  <div className="space-y-2">
-                    {selectedWithdrawal.cryptoBreakdown.map((crypto, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <Wallet className="h-4 w-4 text-muted-foreground" />
-                          <span>{crypto.symbol}</span>
-                        </div>
-                        <span className="font-mono font-semibold">
-                          {(crypto.amount ?? 0).toFixed(crypto.symbol === 'BTC' ? 8 : 6)} {crypto.symbol}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                Submitted: {formatDate(selectedWithdrawal.createdAt)}
-              </div>
-
-              {selectedWithdrawal.status === 'PENDING' && (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">Rejection Reason (if rejecting)</label>
-                    <Textarea
-                      placeholder="Provide a reason for rejection..."
-                      value={rejectionReason}
-                      onChange={(e) => setRejectionReason(e.target.value)}
-                      className="bg-background/50"
-                    />
-                  </div>
-
-                  <DialogFooter className="gap-2">
-                    <Button
-                      variant="destructive"
-                      onClick={() => handleReject(selectedWithdrawal)}
-                      disabled={isProcessing}
-                      className="flex-1"
-                    >
-                      {isProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
-                      Reject
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        if (!selectedWithdrawal) {
-                          toast({
-                            title: 'Error',
-                            description: 'No withdrawal selected',
-                            variant: 'destructive',
-                          });
-                          return;
-                        }
-                        handleApprove(selectedWithdrawal);
-                      }}
-                      disabled={isProcessing}
-                      className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
-                    >
-                      {isProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                      Approve & Process
-                    </Button>
-                  </DialogFooter>
-                </>
-              )}
-
-              {selectedWithdrawal.status === 'REJECTED' && selectedWithdrawal.rejectionReason && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-destructive mb-2">Rejection Reason</h4>
-                  <p className="text-sm text-muted-foreground">{selectedWithdrawal.rejectionReason}</p>
-                </div>
-              )}
+               <div className="rounded-xl bg-white/5 p-4 space-y-2 text-sm font-medium">
+                  <p><strong>Beneficiary:</strong> {selectedWithdrawal.accountHolder}</p>
+                  <p><strong>Bank:</strong> {selectedWithdrawal.bankName}</p>
+                  <p><strong>Account:</strong> {selectedWithdrawal.accountNumber}</p>
+                  <p className="text-primary"><strong>Amount:</strong> {formatCurrency(selectedWithdrawal.fiatAmount, selectedWithdrawal.fiatCurrency)}</p>
+               </div>
+               {selectedWithdrawal.status === 'PENDING' && (
+                 <>
+                   <Textarea placeholder="Rejection reason..." value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />
+                   <DialogFooter className="gap-2">
+                     <Button variant="destructive" onClick={() => handleReject(selectedWithdrawal)} disabled={isProcessing}>Reject</Button>
+                     <Button onClick={() => handleApprove(selectedWithdrawal)} disabled={isProcessing} className="bg-accent text-white">Approve Payout</Button>
+                   </DialogFooter>
+                 </>
+               )}
             </div>
           )}
         </DialogContent>

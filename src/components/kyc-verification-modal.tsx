@@ -1,477 +1,428 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useState, useCallback, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  ShieldCheck, ArrowRight, CheckCircle2, Clock, XCircle,
-  Loader2, User, FileText, ChevronRight, AlertTriangle, Globe, Camera, Upload,
-} from 'lucide-react';
-import { useKycVerification } from '@/hooks/use-kyc-verification';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, addDoc, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { useStorageUpload } from '@/hooks/use-storage-upload';
-import { DocumentUploadField } from '@/components/document-upload-field';
+import { 
+  Shield, 
+  User, 
+  FileText, 
+  CheckCircle2, 
+  AlertTriangle,
+  Clock,
+  Upload,
+  ArrowRight,
+  ArrowLeft,
+  Loader2,
+  Banknote,
+  Globe,
+} from 'lucide-react';
 import { COUNTRIES } from '@/lib/countries';
-import { cn } from '@/lib/utils';
-import type { KYCStatus } from '@/lib/types';
+import type { KYCStatus, KYCSubmission, AdminNotification } from '@/lib/types';
+import { useKycVerification } from '@/hooks/use-kyc-verification';
+
+export interface WithdrawalContext {
+  amount: string;
+  currency: string;
+  method: 'EFT' | 'SWIFT';
+}
 
 interface KYCVerificationModalProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   kycStatus?: KYCStatus;
   onSubmissionComplete?: () => void;
+  withdrawalContext?: WithdrawalContext;
 }
 
-type Step = 'status' | 'personal' | 'document' | 'uploads' | 'review' | 'done';
+type Step = 'intro' | 'personal' | 'document' | 'review' | 'submitted';
 
-interface FormData {
-  fullName: string;
-  dateOfBirth: string;
-  countryCode: string;
-  address: string;
-  documentType: 'passport' | 'drivers_license' | 'national_id';
-  documentNumber: string;
-  documentExpiry: string;
-  documentImageUrl: string;
-  selfieImageUrl: string;
-}
+const DOCUMENT_TYPES = [
+  { value: 'passport', label: 'Passport' },
+  { value: 'drivers_license', label: "Driver's License" },
+  { value: 'national_id', label: 'National ID Card (RSA)' },
+];
 
-const INITIAL_FORM: FormData = {
-  fullName: '',
-  dateOfBirth: '',
-  countryCode: 'ZA',
-  address: '',
-  documentType: 'national_id',
-  documentNumber: '',
-  documentExpiry: '',
-  documentImageUrl: '',
-  selfieImageUrl: '',
-};
-
-const DOC_LABELS: Record<FormData['documentType'], string> = {
-  passport: 'Passport',
-  drivers_license: "Driver's Licence",
-  national_id: 'National ID',
-};
-
-const DOC_LABELS_COUNTRY: Record<string, Record<FormData['documentType'], string>> = {
-  ZA: { passport: 'Passport', drivers_license: "Driver's Licence", national_id: 'SA National ID' },
-};
-
-function getDocLabel(countryCode: string, docType: FormData['documentType']): string {
-  return DOC_LABELS_COUNTRY[countryCode]?.[docType] ?? DOC_LABELS[docType];
-}
-
-export default function KycVerificationModal(props: KYCVerificationModalProps) {
+export default function KycVerificationModal({
+  open: propsOpen,
+  onOpenChange: propsOnOpenChange,
+  kycStatus: propsKycStatus,
+  onSubmissionComplete,
+  withdrawalContext,
+}: KYCVerificationModalProps) {
   const hook = useKycVerification();
   const { user, userProfile } = useWallet();
   const firestore = useFirestore();
   const { toast } = useToast();
-  const docUploader = useStorageUpload();
-  const selfieUploader = useStorageUpload();
 
-  const isControlled = props.open !== undefined;
-  const open = isControlled ? (props.open ?? false) : hook.isKycModalOpen;
-  const setOpen = isControlled
-    ? (v: boolean) => props.onOpenChange?.(v)
-    : hook.setKycModalOpen;
-  const kycStatus: KYCStatus = props.kycStatus ?? hook.kycStatus;
+  // Handle controlled vs uncontrolled
+  const open = propsOpen !== undefined ? propsOpen : hook.isKycModalOpen;
+  const setOpen = propsOnOpenChange !== undefined ? propsOnOpenChange : hook.setKycModalOpen;
+  const kycStatus = propsKycStatus !== undefined ? propsKycStatus : hook.kycStatus;
 
-  const [step, setStep] = useState<Step>(() => {
-    if (kycStatus === 'APPROVED' || kycStatus === 'PENDING') return 'status';
-    return 'personal';
+  const [step, setStep] = useState<Step>('intro');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  const [loadingReason, setLoadingReason] = useState(false);
+  const [documentFile, setDocumentFile] = useState<{ name: string; size: string } | null>(null);
+
+  const [formData, setFormData] = useState({
+    fullName: '',
+    dateOfBirth: '',
+    nationality: 'South Africa',
+    address: '',
+    documentType: '' as 'passport' | 'drivers_license' | 'national_id' | '',
+    documentNumber: '',
+    documentExpiry: '',
   });
-  const [form, setForm] = useState<FormData>(INITIAL_FORM);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormData | 'upload', string>>>({});
-  const [submitting, setSubmitting] = useState(false);
 
-  React.useEffect(() => {
-    if (open) {
-      if (kycStatus === 'APPROVED' || kycStatus === 'PENDING') {
-        setStep('status');
-      } else {
-        setStep('personal');
-        setForm(INITIAL_FORM);
-        setErrors({});
+  const progress = { intro: 0, personal: 33, document: 66, review: 90, submitted: 100 };
+
+  // Fetch rejection reason when modal opens for a rejected user
+  useEffect(() => {
+    if (!open || kycStatus !== 'REJECTED' || !user || !firestore) return;
+
+    const fetchRejectionReason = async () => {
+      setLoadingReason(true);
+      try {
+        const q = query(
+          collection(firestore, 'kyc_submissions'),
+          where('userId', '==', user.uid),
+          where('status', '==', 'REJECTED'),
+          orderBy('submittedAt', 'desc'),
+          limit(1),
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data() as KYCSubmission;
+          setRejectionReason(data.rejectionReason || null);
+        }
+      } catch (err) {
+        console.error("Error fetching rejection reason:", err);
+      } finally {
+        setLoadingReason(false);
       }
-    }
-  }, [open, kycStatus]);
+    };
 
-  const countryName = COUNTRIES.find(c => c.code === form.countryCode)?.name || form.countryCode;
-  const documentRequiresExpiry = form.documentType !== 'national_id' || form.countryCode !== 'ZA';
-  const isLocal = form.countryCode === 'ZA';
+    fetchRejectionReason();
+  }, [open, kycStatus, user, firestore]);
 
-  const set = (field: keyof FormData, value: string) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-    setErrors(prev => ({ ...prev, [field]: undefined }));
-  };
+  const handleInputChange = useCallback((field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
 
-  const handleDocFile = useCallback(async (file: File) => {
-    if (!user) return;
-    const path = `kyc/${user.uid}/documents/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
-    const url = await docUploader.upload(file, path);
-    if (url) setForm(prev => ({ ...prev, documentImageUrl: url }));
-  }, [user, docUploader]);
+  const validatePersonalInfo = () =>
+    formData.fullName && formData.dateOfBirth && formData.nationality && formData.address;
 
-  const handleSelfieFile = useCallback(async (file: File) => {
-    if (!user) return;
-    const path = `kyc/${user.uid}/selfies/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
-    const url = await selfieUploader.upload(file, path);
-    if (url) setForm(prev => ({ ...prev, selfieImageUrl: url }));
-  }, [user, selfieUploader]);
+  const documentRequiresExpiry =
+    formData.documentType === 'passport' ||
+    formData.documentType === 'drivers_license';
 
-  const validatePersonal = (): boolean => {
-    const errs: Partial<Record<keyof FormData | 'upload', string>> = {};
-    if (!form.fullName.trim()) errs.fullName = 'Full name is required';
-    if (!form.dateOfBirth) errs.dateOfBirth = 'Date of birth is required';
-    if (!form.countryCode) errs.countryCode = 'Country is required';
-    if (!form.address.trim()) errs.address = 'Residential address is required';
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const validateDocument = (): boolean => {
-    const errs: Partial<Record<keyof FormData | 'upload', string>> = {};
-    if (!form.documentNumber.trim()) errs.documentNumber = 'Document number is required';
-    if (form.documentType === 'national_id' && isLocal && !/^\d{13}$/.test(form.documentNumber.trim())) {
-      errs.documentNumber = 'SA National ID must be exactly 13 digits';
-    }
-    if (documentRequiresExpiry && !form.documentExpiry) {
-      errs.documentExpiry = 'Expiry date is required';
-    }
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const validateUploads = (): boolean => {
-    const errs: Partial<Record<keyof FormData | 'upload', string>> = {};
-    if (!form.documentImageUrl) errs.upload = 'Please upload a photo of your identity document';
-    else if (!form.selfieImageUrl) errs.upload = 'Please upload a selfie for face verification';
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
+  const validateDocumentInfo = () =>
+    formData.documentType &&
+    formData.documentNumber &&
+    (!documentRequiresExpiry || formData.documentExpiry) &&
+    documentFile;
 
   const handleSubmit = async () => {
-    if (!user || !firestore) return;
-    setSubmitting(true);
+    if (!user || !firestore) {
+      toast({
+        title: 'Submission Failed',
+        description: 'Connection error. Please try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    setIsSubmitting(true);
     try {
-      const walletAddress = userProfile?.walletAddress || '';
-      const userEmail = userProfile?.email || '';
-
-      await addDoc(collection(firestore, 'kyc_submissions'), {
+      const submissionId = `kyc_${user.uid}_${Date.now()}`;
+      
+      const kycSubmission = {
         userId: user.uid,
-        userEmail,
-        walletAddress,
+        userEmail: userProfile?.email || user.email || 'unknown@apex.io',
+        walletAddress: userProfile?.walletAddress || '',
         status: 'PENDING',
-        fullName: form.fullName.trim(),
-        dateOfBirth: form.dateOfBirth,
-        nationality: countryName,
-        countryCode: form.countryCode,
-        address: form.address.trim(),
-        documentType: form.documentType,
-        documentNumber: form.documentNumber.trim(),
-        documentExpiry: documentRequiresExpiry ? form.documentExpiry : 'N/A',
-        documentImageUrl: form.documentImageUrl,
-        selfieImageUrl: form.selfieImageUrl,
+        fullName: formData.fullName,
+        dateOfBirth: formData.dateOfBirth,
+        nationality: formData.nationality,
+        address: formData.address,
+        documentType: formData.documentType,
+        documentNumber: formData.documentNumber,
+        documentExpiry: documentRequiresExpiry ? formData.documentExpiry : 'N/A',
         submittedAt: serverTimestamp(),
+      };
+
+      await setDoc(doc(firestore, 'kyc_submissions', submissionId), {
+        id: submissionId,
+        ...kycSubmission,
+        ...(withdrawalContext ? { withdrawalIntent: withdrawalContext } : {}),
       });
 
-      await updateDoc(doc(firestore, 'users', user.uid), {
+      await setDoc(doc(firestore, 'users', user.uid), {
         kycStatus: 'PENDING',
+        kycSubmissionId: submissionId,
         kycSubmittedAt: serverTimestamp(),
-      });
+      }, { merge: true });
 
       await addDoc(collection(firestore, 'admin_notifications'), {
         type: 'KYC_VERIFICATION',
-        title: 'New KYC Submission',
-        message: `${form.fullName} (${countryName}) has submitted KYC documents for review.`,
+        title: withdrawalContext ? 'Urgent: KYC for Withdrawal' : 'New KYC Submission',
+        message: `${formData.fullName} has submitted KYC documents for manual review.`,
         userId: user.uid,
-        userEmail,
+        userEmail: userProfile?.email,
+        referenceId: submissionId,
         read: false,
         createdAt: serverTimestamp(),
       });
 
-      setStep('done');
-      props.onSubmissionComplete?.();
-    } catch (err) {
-      console.error('[KYC] submission failed:', err);
+      setStep('submitted');
+      onSubmissionComplete?.();
+      toast({
+        title: 'Verification Submitted',
+        description: 'Your identity verification is under review.',
+      });
+
+    } catch (error) {
+      console.error('KYC submission error:', error);
       toast({
         title: 'Submission Failed',
-        description: 'Could not submit your documents. Please try again.',
+        description: 'Unable to submit verification. Please try again.',
         variant: 'destructive',
       });
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
-  const renderStatus = () => {
-    if (kycStatus === 'APPROVED') {
-      return (
-        <div className="flex flex-col items-center gap-4 py-6 text-center">
-          <div className="h-16 w-16 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center">
-            <CheckCircle2 className="h-8 w-8 text-accent" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold">Identity Verified</h3>
-            <p className="text-sm text-muted-foreground mt-1">Your account is fully verified and all features are available.</p>
-          </div>
-          <Button className="w-full h-11 rounded-xl btn-premium text-white font-semibold" onClick={() => setOpen(false)}>Continue</Button>
-        </div>
-      );
-    }
+  const WithdrawalContextBadge = () => {
+    if (!withdrawalContext) return null;
+    const Icon = withdrawalContext.method === 'EFT' ? Banknote : Globe;
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-4">
+        <Icon className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+        <p className="text-[11px] text-amber-300">
+          Verifying to release: <strong>{withdrawalContext.currency} {parseFloat(withdrawalContext.amount).toLocaleString()}</strong>
+        </p>
+      </div>
+    );
+  };
+
+  const renderStatusView = () => {
     if (kycStatus === 'PENDING') {
       return (
-        <div className="flex flex-col items-center gap-4 py-6 text-center">
-          <div className="h-16 w-16 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-            <Clock className="h-8 w-8 text-amber-500 animate-pulse" />
+        <div className="flex flex-col items-center py-6 text-center gap-4">
+          <div className="rounded-full bg-amber-500/10 p-4 border border-amber-500/20">
+            <Clock className="h-10 w-10 text-amber-500" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold">Under Review</h3>
-            <p className="text-sm text-muted-foreground mt-1">Your documents have been submitted and are being reviewed. This typically takes 1-2 business days.</p>
+            <h3 className="text-lg font-semibold">Verification In Progress</h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+              Our compliance team is reviewing your documents. This typically takes 1–2 business days.
+            </p>
           </div>
-          <Button variant="outline" className="w-full h-11 rounded-xl" onClick={() => setOpen(false)}>Close</Button>
+          <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
         </div>
       );
     }
     return null;
   };
 
-  const renderPersonal = () => (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-muted-foreground">Country / Jurisdiction</Label>
-        <select
-          className={cn('h-11 w-full rounded-xl bg-muted/30 border border-input px-3 text-sm', errors.countryCode && 'border-destructive')}
-          value={form.countryCode}
-          onChange={e => set('countryCode', e.target.value)}
-        >
-          {COUNTRIES.map(c => (
-            <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
-          ))}
-        </select>
-        {errors.countryCode && <p className="text-xs text-destructive">{errors.countryCode}</p>}
+  const renderIntro = () => (
+    <div className="flex flex-col items-center py-4 text-center gap-5">
+      <div className="rounded-full bg-primary/10 p-4 border border-primary/20">
+        <Shield className="h-10 w-10 text-primary" />
       </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-muted-foreground">Full Legal Name</Label>
-        <Input className={cn('h-11 rounded-xl bg-muted/30', errors.fullName && 'border-destructive')} placeholder="e.g. Thabo Nkosi" value={form.fullName} onChange={e => set('fullName', e.target.value)} />
-        {errors.fullName && <p className="text-xs text-destructive">{errors.fullName}</p>}
+      <div>
+        <h3 className="text-lg font-semibold">Verify Your Identity</h3>
+        <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+          To comply with regulations and ensure account security, we need to verify your identity.
+        </p>
       </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-muted-foreground">Date of Birth</Label>
-        <Input type="date" className={cn('h-11 rounded-xl bg-muted/30', errors.dateOfBirth && 'border-destructive')} value={form.dateOfBirth} onChange={e => set('dateOfBirth', e.target.value)} />
-        {errors.dateOfBirth && <p className="text-xs text-destructive">{errors.dateOfBirth}</p>}
+      <WithdrawalContextBadge />
+      <div className="w-full space-y-2.5">
+        {[
+          { icon: User, label: 'Personal Information', sub: 'Name, DOB, address' },
+          { icon: FileText, label: 'Identity Document', sub: 'Passport, DL, or National ID' },
+          { icon: CheckCircle2, label: 'Manual Review', sub: 'Verified by our compliance team' },
+        ].map(({ icon: Icon, label, sub }) => (
+          <div key={label} className="flex items-center gap-3 rounded-xl border border-border/50 bg-muted/20 p-3 text-left">
+            <Icon className="h-4 w-4 text-primary shrink-0" />
+            <div>
+              <p className="text-sm font-medium">{label}</p>
+              <p className="text-xs text-muted-foreground">{sub}</p>
+            </div>
+          </div>
+        ))}
       </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-muted-foreground">Residential Address</Label>
-        <Input className={cn('h-11 rounded-xl bg-muted/30', errors.address && 'border-destructive')} placeholder="Street, City, Province, Postal Code" value={form.address} onChange={e => set('address', e.target.value)} />
-        {errors.address && <p className="text-xs text-destructive">{errors.address}</p>}
-      </div>
-      <Button className="w-full h-11 rounded-xl btn-premium text-white font-semibold mt-2" onClick={() => { if (validatePersonal()) setStep('document'); }}>
-        Continue <ChevronRight className="h-4 w-4 ml-1" />
+      <Button onClick={() => setStep('personal')} className="w-full btn-premium text-white">
+        Start Verification
+        <ArrowRight className="ml-2 h-4 w-4" />
       </Button>
     </div>
   );
 
-  const renderDocument = () => (
+  const renderPersonalInfo = () => (
     <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-muted-foreground">Document Type</Label>
-        <div className="grid grid-cols-3 gap-2">
-          {(['national_id', 'passport', 'drivers_license'] as const).map(dt => (
-            <button
-              key={dt}
-              onClick={() => { set('documentType', dt); set('documentNumber', ''); set('documentExpiry', ''); }}
-              className={cn(
-                'px-2 py-2.5 rounded-xl text-[11px] font-semibold border transition-all text-center',
-                form.documentType === dt ? 'bg-primary/15 border-primary/30 text-primary' : 'bg-muted/20 border-border/40 text-muted-foreground hover:border-primary/20',
-              )}
-            >
-              {getDocLabel(form.countryCode, dt)}
-            </button>
-          ))}
-        </div>
+      <div className="space-y-2">
+        <Label>Full Legal Name</Label>
+        <Input placeholder="As it appears on your ID" value={formData.fullName} onChange={(e) => handleInputChange('fullName', e.target.value)} />
       </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-muted-foreground">Document Number</Label>
-        <Input
-          className={cn('h-11 rounded-xl bg-muted/30 font-mono', errors.documentNumber && 'border-destructive')}
-          placeholder={form.documentType === 'national_id' && isLocal ? '13-digit RSA ID number' : 'Document number'}
-          value={form.documentNumber}
-          onChange={e => set('documentNumber', e.target.value)}
-        />
-        {errors.documentNumber && <p className="text-xs text-destructive">{errors.documentNumber}</p>}
+      <div className="space-y-2">
+        <Label>Date of Birth</Label>
+        <Input type="date" value={formData.dateOfBirth} onChange={(e) => handleInputChange('dateOfBirth', e.target.value)} />
       </div>
-      {documentRequiresExpiry ? (
-        <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-muted-foreground">Expiry Date</Label>
-          <Input type="date" className={cn('h-11 rounded-xl bg-muted/30', errors.documentExpiry && 'border-destructive')} value={form.documentExpiry} onChange={e => set('documentExpiry', e.target.value)} />
-          {errors.documentExpiry && <p className="text-xs text-destructive">{errors.documentExpiry}</p>}
-        </div>
-      ) : (
-        <div className="p-3 rounded-xl bg-primary/5 border border-primary/15">
-          <p className="text-xs text-muted-foreground">
-            {isLocal ? 'South African National IDs do not have an expiry date.' : 'National IDs from your country typically do not have an expiry date.'}
-          </p>
-        </div>
-      )}
-      <div className="flex gap-2 mt-2">
-        <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setStep('personal')}>Back</Button>
-        <Button className="flex-1 h-11 rounded-xl btn-premium text-white font-semibold" onClick={() => { if (validateDocument()) setStep('uploads'); }}>
-          Continue <ChevronRight className="h-4 w-4 ml-1" />
-        </Button>
+      <div className="space-y-2">
+        <Label>Nationality</Label>
+        <Select value={formData.nationality} onValueChange={(val) => handleInputChange('nationality', val)}>
+          <SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger>
+          <SelectContent>
+            {COUNTRIES.map(c => <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Residential Address</Label>
+        <Input placeholder="Street address, city, postal code" value={formData.address} onChange={(e) => handleInputChange('address', e.target.value)} />
+      </div>
+      <div className="flex gap-3 pt-2">
+        <Button variant="outline" onClick={() => setStep('intro')} className="flex-1">Back</Button>
+        <Button onClick={() => setStep('document')} disabled={!validatePersonalInfo()} className="flex-1 btn-premium text-white">Continue</Button>
       </div>
     </div>
   );
 
-  const renderUploads = () => (
+  const renderDocumentInfo = () => (
     <div className="space-y-4">
-      <div className="p-3 rounded-xl bg-primary/5 border border-primary/15">
-        <p className="text-xs text-muted-foreground flex items-start gap-2">
-          <Camera className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          Please upload clear photos. We will compare your selfie to the photo on your ID using AI-powered face matching to verify your identity.
-        </p>
+      <div className="space-y-2">
+        <Label>Document Type</Label>
+        <Select value={formData.documentType} onValueChange={(val) => handleInputChange('documentType', val)}>
+          <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+          <SelectContent>
+            {DOCUMENT_TYPES.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
-
-      <DocumentUploadField
-        label="Identity Document Photo"
-        sublabel="Take a clear photo of the entire document page"
-        previewUrl={form.documentImageUrl}
-        uploading={docUploader.uploading}
-        error={errors.upload}
-        onFileSelect={handleDocFile}
-        onClear={() => setForm(prev => ({ ...prev, documentImageUrl: '' }))}
-      />
-
-      <DocumentUploadField
-        label="Selfie"
-        sublabel="Hold the camera at eye level, neutral expression, good lighting"
-        previewUrl={form.selfieImageUrl}
-        uploading={selfieUploader.uploading}
-        error={errors.upload}
-        onFileSelect={handleSelfieFile}
-        onClear={() => setForm(prev => ({ ...prev, selfieImageUrl: '' }))}
-      />
-
-      {errors.upload && <p className="text-xs text-destructive">{errors.upload}</p>}
-
-      <div className="flex gap-2 mt-2">
-        <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setStep('document')}>Back</Button>
-        <Button className="flex-1 h-11 rounded-xl btn-premium text-white font-semibold" onClick={() => { if (validateUploads()) setStep('review'); }}>
-          Review <ChevronRight className="h-4 w-4 ml-1" />
-        </Button>
+      <div className="space-y-2">
+        <Label>Document Number</Label>
+        <Input placeholder="Enter number" value={formData.documentNumber} onChange={(e) => handleInputChange('documentNumber', e.target.value)} />
+      </div>
+      {documentRequiresExpiry && (
+        <div className="space-y-2">
+          <Label>Expiry Date</Label>
+          <Input type="date" value={formData.documentExpiry} onChange={(e) => handleInputChange('documentExpiry', e.target.value)} />
+        </div>
+      )}
+      <div className="space-y-2">
+        <Label>Upload Document Photo</Label>
+        <label className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed p-6 text-center cursor-pointer hover:bg-muted/20">
+          <input type="file" accept="image/*,.pdf" className="sr-only" onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) setDocumentFile({ name: file.name, size: `${(file.size / 1024).toFixed(0)} KB` });
+          }} />
+          {documentFile ? (
+            <>
+              <CheckCircle2 className="h-7 w-7 text-accent" />
+              <p className="text-sm font-semibold text-accent">Document Attached</p>
+              <p className="text-xs text-muted-foreground truncate max-w-full">{documentFile.name}</p>
+            </>
+          ) : (
+            <>
+              <Upload className="h-7 w-7 text-muted-foreground" />
+              <p className="text-sm font-semibold">Click to upload photo</p>
+              <p className="text-xs text-muted-foreground">ID front or Passport page</p>
+            </>
+          )}
+        </label>
+      </div>
+      <div className="flex gap-3 pt-2">
+        <Button variant="outline" onClick={() => setStep('personal')} className="flex-1">Back</Button>
+        <Button onClick={() => setStep('review')} disabled={!validateDocumentInfo()} className="flex-1 btn-premium text-white">Review</Button>
       </div>
     </div>
   );
 
   const renderReview = () => (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border/40 bg-muted/20 divide-y divide-border/30 overflow-hidden">
-        <div className="px-4 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Personal Information</p>
-          <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Name</span><span className="font-medium">{form.fullName}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Date of Birth</span><span className="font-medium">{form.dateOfBirth}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Country</span><span className="font-medium">{countryName}</span></div>
-            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Address</span><span className="font-medium text-right text-xs">{form.address}</span></div>
-          </div>
-        </div>
-        <div className="px-4 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Identity Document</p>
-          <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="font-medium">{getDocLabel(form.countryCode, form.documentType)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Number</span><span className="font-mono font-medium">{form.documentNumber}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Expiry</span><span className="font-medium">{documentRequiresExpiry ? form.documentExpiry : 'N/A'}</span></div>
-          </div>
-        </div>
-        <div className="px-4 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Uploaded Photos</p>
-          <div className="grid grid-cols-2 gap-2">
-            {form.documentImageUrl && <img src={form.documentImageUrl} alt="Document" className="rounded-lg h-24 w-full object-cover border border-border/30" />}
-            {form.selfieImageUrl && <img src={form.selfieImageUrl} alt="Selfie" className="rounded-lg h-24 w-full object-cover border border-border/30" />}
-          </div>
-        </div>
+      <div className="rounded-xl border bg-muted/20 p-4 space-y-3 text-sm">
+        <div><p className="text-xs text-muted-foreground">Full Name</p><p className="font-medium">{formData.fullName}</p></div>
+        <div><p className="text-xs text-muted-foreground">Document</p><p className="font-medium">{formData.documentType} ({formData.documentNumber})</p></div>
       </div>
-      <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
-        By submitting you confirm the information is accurate. False declarations may result in account suspension under FICA / AML regulations.
+      <p className="text-xs text-muted-foreground">
+        By submitting, you confirm all information is accurate.
       </p>
-      <div className="flex gap-2">
-        <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setStep('uploads')} disabled={submitting}>Back</Button>
-        <Button className="flex-1 h-11 rounded-xl btn-premium text-white font-semibold" onClick={handleSubmit} disabled={submitting}>
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Submit <ShieldCheck className="h-4 w-4 ml-1" /></>}
+      <div className="flex gap-3 pt-2">
+        <Button variant="outline" onClick={() => setStep('document')} disabled={isSubmitting} className="flex-1">Back</Button>
+        <Button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 btn-premium text-white">
+          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit for Review'}
         </Button>
       </div>
     </div>
   );
 
-  const renderDone = () => (
-    <div className="flex flex-col items-center gap-4 py-6 text-center">
-      <div className="h-16 w-16 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center">
-        <CheckCircle2 className="h-8 w-8 text-accent" />
-      </div>
-      <div>
-        <h3 className="text-lg font-semibold">Documents Submitted</h3>
-        <p className="text-sm text-muted-foreground mt-1">Your KYC documents are under review. We&apos;ll notify you once verified — usually within 1-2 business days.</p>
-      </div>
-      <Button className="w-full h-11 rounded-xl btn-premium text-white font-semibold" onClick={() => setOpen(false)}>Done</Button>
+  const renderSubmitted = () => (
+    <div className="flex flex-col items-center py-6 text-center gap-4">
+      <CheckCircle2 className="h-10 w-10 text-accent" />
+      <h3 className="text-lg font-semibold">Verification Submitted</h3>
+      <p className="text-sm text-muted-foreground">Our compliance team will review your documents. This usually takes 1-2 business days.</p>
+      <Button className="btn-premium text-white w-full" onClick={() => setOpen(false)}>Done</Button>
     </div>
   );
 
-  const STEP_LABELS: Record<Step, string> = {
-    status: '',
-    personal: `Step 1 of 4 — Personal Details`,
-    document: `Step 2 of 4 — Identity Document`,
-    uploads: `Step 3 of 4 — Photo Uploads`,
-    review: `Step 4 of 4 — Review & Submit`,
-    done: '',
-  };
-
-  if (!open) return null;
-
-  const isStatusOnlyStep = step === 'status' || step === 'done';
+  if (kycStatus === 'PENDING') {
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Identity Verification</DialogTitle>
+            <DialogDescription>Your identity verification is currently being reviewed.</DialogDescription>
+          </DialogHeader>
+          {renderStatusView()}
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
-    <Dialog open={open} onOpenChange={isStatusOnlyStep ? setOpen : () => {}}>
-      <DialogContent className="sm:max-w-md rounded-2xl border-border/60 bg-card max-h-[90vh] overflow-y-auto"
-        onInteractOutside={e => { if (!isStatusOnlyStep) e.preventDefault(); }}
-        onEscapeKeyDown={e => { if (!isStatusOnlyStep) e.preventDefault(); }}>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <div className="flex items-center gap-2 mb-1">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <span className="text-[11px] uppercase tracking-widest font-semibold text-primary">Identity Verification</span>
-          </div>
-          <DialogTitle className="text-[17px] font-semibold">
-            {step === 'status' && kycStatus === 'APPROVED' && 'Account Verified'}
-            {step === 'status' && kycStatus === 'PENDING' && 'Verification Pending'}
-            {step === 'personal' && 'Personal Details'}
-            {step === 'document' && 'Identity Document'}
-            {step === 'uploads' && 'Document Photos'}
-            {step === 'review' && 'Review & Submit'}
-            {step === 'done' && 'Submitted Successfully'}
-          </DialogTitle>
-          {!isStatusOnlyStep && (
-            <DialogDescription className="text-xs text-muted-foreground">{STEP_LABELS[step]}</DialogDescription>
-          )}
-          {!isStatusOnlyStep && kycStatus === 'REJECTED' && (
-            <div className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20 mt-2">
-              <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-              <p className="text-xs text-destructive">Your previous submission was rejected. Please re-submit with correct details and clear photos.</p>
-            </div>
-          )}
+          <DialogTitle>{step === 'submitted' ? 'Verification Submitted' : 'Identity Verification'}</DialogTitle>
+          <DialogDescription>
+            {step === 'intro' && 'Follow the steps to complete your identity verification.'}
+            {step === 'personal' && 'Please provide your personal information.'}
+            {step === 'document' && 'Upload your identity document.'}
+            {step === 'review' && 'Review your information before submitting.'}
+            {step === 'submitted' && 'Your verification has been submitted.'}
+          </DialogDescription>
         </DialogHeader>
-        <div className="mt-2">
-          {step === 'status' && renderStatus()}
-          {step === 'personal' && renderPersonal()}
-          {step === 'document' && renderDocument()}
-          {step === 'uploads' && renderUploads()}
-          {step === 'review' && renderReview()}
-          {step === 'done' && renderDone()}
-        </div>
+        {step !== 'intro' && step !== 'submitted' && <Progress value={progress[step]} className="h-1" />}
+        {step === 'intro' && renderIntro()}
+        {step === 'personal' && renderPersonalInfo()}
+        {step === 'document' && renderDocumentInfo()}
+        {step === 'review' && renderReview()}
+        {step === 'submitted' && renderSubmitted()}
       </DialogContent>
     </Dialog>
   );
