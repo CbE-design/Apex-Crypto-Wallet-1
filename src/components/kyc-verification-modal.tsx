@@ -207,43 +207,64 @@ export default function KycVerificationModal({
 
     setIsSubmitting(true);
     try {
-      console.log('[KYC] Compressing images...');
-      const [documentBase64, selfieBase64] = await Promise.all([
-        compressImage(documentFile, 800, 0.8),
-        compressImage(selfieFile, 800, 0.8),
-      ]);
-      console.log('[KYC] Images compressed. Doc length:', documentBase64.length, 'Selfie length:', selfieBase64.length);
-      console.log('[KYC] Sending to server API...');
+      const submissionId = `kyc_${user.uid}_${Date.now()}`;
+      const timestamp = Date.now();
+      console.log('[KYC] Starting submission:', { submissionId, userId: user.uid, hasDocFile: !!documentFile, hasSelfieFile: !!selfieFile });
 
-      const response = await fetch('/api/kyc/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.uid,
-          userEmail: userProfile?.email || user.email || 'unknown@apex.io',
-          walletAddress: userProfile?.walletAddress || '',
-          fullName: formData.fullName,
-          dateOfBirth: formData.dateOfBirth,
-          nationality: formData.nationality,
-          countryCode: formData.countryCode || 'ZA',
-          address: formData.address,
-          documentType: formData.documentType,
-          documentNumber: formData.documentNumber,
-          documentExpiry: documentRequiresExpiry ? formData.documentExpiry : 'N/A',
-          documentBase64,
-          selfieBase64,
-          documentFileName: documentFile.name,
-          selfieFileName: selfieFile.name,
-          withdrawalIntent: withdrawalContext || null,
-        }),
+      // Upload document to Firebase Storage
+      const docExt = documentFile.name.split('.').pop() || 'jpg';
+      const docPath = `kyc/${user.uid}/${timestamp}_document.${docExt}`;
+      console.log('[KYC] Uploading document to path:', docPath);
+      const docUrl = await uploadToStorage(documentFile, docPath);
+      console.log('[KYC] Document upload result:', docUrl ? 'SUCCESS' : 'FAILED');
+      if (!docUrl) throw new Error('Document upload failed: storage returned null');
+
+      // Upload selfie to Firebase Storage
+      const selfieExt = selfieFile.name.split('.').pop() || 'jpg';
+      const selfiePath = `kyc/${user.uid}/${timestamp}_selfie.${selfieExt}`;
+      console.log('[KYC] Uploading selfie to path:', selfiePath);
+      const selfieUrl = await uploadSelfie(selfieFile, selfiePath);
+      console.log('[KYC] Selfie upload result:', selfieUrl ? 'SUCCESS' : 'FAILED');
+      if (!selfieUrl) throw new Error('Selfie upload failed: storage returned null');
+
+      const kycSubmission = {
+        id: submissionId,
+        userId: user.uid,
+        userEmail: userProfile?.email || user.email || 'unknown@apex.io',
+        walletAddress: userProfile?.walletAddress || '',
+        status: 'PENDING',
+        fullName: formData.fullName,
+        dateOfBirth: formData.dateOfBirth,
+        nationality: formData.nationality,
+        countryCode: formData.countryCode || 'ZA',
+        address: formData.address,
+        documentType: formData.documentType,
+        documentNumber: formData.documentNumber,
+        documentExpiry: documentRequiresExpiry ? formData.documentExpiry : 'N/A',
+        documentImageUrl: docUrl,
+        selfieImageUrl: selfieUrl,
+        submittedAt: serverTimestamp(),
+        ...(withdrawalContext ? { withdrawalIntent: withdrawalContext } : {}),
+      };
+
+      await setDoc(doc(firestore, 'kyc_submissions', submissionId), kycSubmission);
+
+      await setDoc(doc(firestore, 'users', user.uid), {
+        kycStatus: 'PENDING',
+        kycSubmissionId: submissionId,
+        kycSubmittedAt: serverTimestamp(),
+      }, { merge: true });
+
+      await addDoc(collection(firestore, 'admin_notifications'), {
+        type: 'KYC_VERIFICATION',
+        title: withdrawalContext ? 'Urgent: KYC for Withdrawal' : 'New KYC Submission',
+        message: `${formData.fullName} has submitted KYC documents for manual review.`,
+        userId: user.uid,
+        userEmail: userProfile?.email || 'unknown@apex.io',
+        referenceId: submissionId,
+        read: false,
+        createdAt: serverTimestamp(),
       });
-
-      const result = await response.json();
-      console.log('[KYC] API response:', result);
-
-      if (!response.ok) {
-        throw new Error(result.error || `Server error: ${response.status}`);
-      }
 
       setStep('submitted');
       onSubmissionComplete?.();
@@ -253,9 +274,13 @@ export default function KycVerificationModal({
       });
     } catch (error: any) {
       console.error('[KYC] CATCH ERROR:', error);
+      console.error('[KYC] Error name:', error?.name);
+      console.error('[KYC] Error code:', error?.code);
+      console.error('[KYC] Error message:', error?.message);
+      console.error('[KYC] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       toast({
         title: 'Submission Failed',
-        description: error?.message || 'Unable to submit verification. Please try again.',
+        description: error?.message || error?.code || 'Unable to submit verification. Please try again.',
         variant: 'destructive',
       });
     } finally {
