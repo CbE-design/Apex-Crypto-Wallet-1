@@ -75,7 +75,6 @@ export default function KycVerificationModal({
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  // Handle controlled vs uncontrolled
   const open = propsOpen !== undefined ? propsOpen : hook.isKycModalOpen;
   const setOpen = propsOnOpenChange !== undefined ? propsOnOpenChange : hook.setKycModalOpen;
   const kycStatus = propsKycStatus !== undefined ? propsKycStatus : hook.kycStatus;
@@ -85,13 +84,10 @@ export default function KycVerificationModal({
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [loadingReason, setLoadingReason] = useState(false);
 
-  // File upload state
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null);
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null);
-  const [upload1Loading, setUpload1Loading] = useState(false);
-  const [upload2Loading, setUpload2Loading] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -106,7 +102,6 @@ export default function KycVerificationModal({
 
   const progress = { intro: 0, personal: 33, document: 66, review: 90, submitted: 100 };
 
-  // Fetch rejection reason when modal opens for a rejected user
   useEffect(() => {
     if (!open || kycStatus !== 'REJECTED' || !user || !firestore) return;
 
@@ -258,9 +253,13 @@ export default function KycVerificationModal({
       });
     } catch (error: any) {
       console.error('[KYC] CATCH ERROR:', error);
+      console.error('[KYC] Error name:', error?.name);
+      console.error('[KYC] Error code:', error?.code);
+      console.error('[KYC] Error message:', error?.message);
+      console.error('[KYC] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       toast({
         title: 'Submission Failed',
-        description: error?.message || 'Unable to submit verification. Please try again.',
+        description: error?.message || error?.code || 'Unable to submit verification. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -391,7 +390,7 @@ export default function KycVerificationModal({
         sublabel="ID front or Passport page"
         accept="image/*,.pdf"
         previewUrl={documentPreviewUrl}
-        uploading={upload1Loading}
+        uploading={false}
         error={null}
         onFileSelect={(file) => {
           setDocumentFile(file);
@@ -409,7 +408,7 @@ export default function KycVerificationModal({
         sublabel="Take a clear photo of your face holding your ID"
         accept="image/*"
         previewUrl={selfiePreviewUrl}
-        uploading={upload2Loading}
+        uploading={false}
         error={null}
         onFileSelect={(file) => {
           setSelfieFile(file);
