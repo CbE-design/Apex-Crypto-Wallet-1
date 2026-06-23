@@ -80,3 +80,13 @@ build = ["bash", "build.sh"]
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 120000
+
+[userenv]
+
+[userenv.shared]
+NEXT_PUBLIC_FIREBASE_API_KEY = "AIzaSyDS9a7kdaxG0bnk0SGbszoRQPJgJL29gu8"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "studio-8025635453-a4860.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID = "studio-8025635453-a4860"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "studio-8025635453-a4860.firebasestorage.app"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "8096780200"
+NEXT_PUBLIC_FIREBASE_APP_ID = "1:8096780200:web:a5eb539594b5608314979d"
