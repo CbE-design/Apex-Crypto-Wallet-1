@@ -165,14 +165,18 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
       marketCoins.forEach(coin => {
         const walletRef = doc(firestore, 'users', firebaseUser.uid, 'wallets', coin.symbol);
-        batch.set(walletRef, {
+        const walletData: Record<string, any> = {
           id: coin.symbol,
           userId: firebaseUser.uid,
           currency: coin.symbol,
-          balance: 0,
           address: deriveIdentityAddress(coin.symbol, walletInstance.address),
           lastSynced: serverTimestamp(),
-        }, { merge: true });
+        };
+        // Only set balance: 0 for brand-new users; returning users keep their credited balances.
+        if (isNew) {
+          walletData.balance = 0;
+        }
+        batch.set(walletRef, walletData, { merge: true });
       });
 
       await batch.commit();
