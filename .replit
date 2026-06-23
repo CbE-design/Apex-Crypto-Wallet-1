@@ -80,3 +80,8 @@ build = ["bash", "build.sh"]
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 120000
+
+[userenv]
+
+[userenv.shared]
+NEXT_PUBLIC_FIREBASE_API_KEY = "AIzaSyDS9a7kdaxG0bnk0SGbszoRQPJgJL29gu8"
