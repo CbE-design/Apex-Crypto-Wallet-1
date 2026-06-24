@@ -2,21 +2,20 @@
 
 import KycVerificationModal from '@/components/kyc-verification-modal';
 import { WithdrawalContent } from '@/app/cash-out/withdrawal-content';
-import { useKycVerification } from '@/hooks/use-kyc-verification';
 
 /**
- * The parent component for the Cash Out page, responsible for rendering either the 
- * KYC verification modal or the main withdrawal content based on the user's KYC status.
- * This component ensures that unverified users are prompted to complete KYC before 
- * accessing withdrawal functionality.
+ * Cash Out page. WithdrawalContent handles all KYC states internally:
+ * - NOT_SUBMITTED / REJECTED → KycStatusAlert with a button to open the modal
+ * - PENDING → KycStatusAlert with a "under review" message
+ * - APPROVED → full withdrawal form + history
+ *
+ * KycVerificationModal is always mounted so KycStatusAlert can open it.
  */
 export default function CashOutPage() {
-  const { isKycRequired } = useKycVerification();
-
   return (
     <>
       <KycVerificationModal />
-      {isKycRequired ? null : <WithdrawalContent />}
+      <WithdrawalContent />
     </>
   );
 }
