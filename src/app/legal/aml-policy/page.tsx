@@ -3,6 +3,19 @@ import { Shield, Calendar } from 'lucide-react';
 export const metadata = {
   title: 'AML, FICA & Compliance Policy — Apex Wallet',
   description: 'Anti-Money Laundering, FICA compliance, and KYC policy for Apex Wallet.',
+  alternates: {
+    canonical: '/legal/aml-policy',
+  },
+  openGraph: {
+    title: 'AML, FICA & Compliance Policy — Apex Wallet',
+    description: 'Anti-Money Laundering, FICA compliance, and KYC policy for Apex Wallet.',
+    url: '/legal/aml-policy',
+    type: 'website',
+  },
+  twitter: {
+    title: 'AML, FICA & Compliance Policy — Apex Wallet',
+    description: 'Anti-Money Laundering, FICA compliance, and KYC policy for Apex Wallet.',
+  },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

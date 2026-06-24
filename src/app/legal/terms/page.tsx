@@ -3,6 +3,19 @@ import { Scale, Calendar } from 'lucide-react';
 export const metadata = {
   title: 'Terms of Service — Apex Wallet',
   description: 'Terms and conditions governing your use of Apex Wallet.',
+  alternates: {
+    canonical: '/legal/terms',
+  },
+  openGraph: {
+    title: 'Terms of Service — Apex Wallet',
+    description: 'Terms and conditions governing your use of Apex Wallet.',
+    url: '/legal/terms',
+    type: 'website',
+  },
+  twitter: {
+    title: 'Terms of Service — Apex Wallet',
+    description: 'Terms and conditions governing your use of Apex Wallet.',
+  },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

@@ -12,7 +12,7 @@ export default {
       fontFamily: {
         body: ['var(--font-inter)', 'var(--font-geist-sans)', 'sans-serif'],
         headline: ['var(--font-inter)', 'var(--font-geist-sans)', 'sans-serif'],
-        code: ['var(--font-roboto-mono)', 'monospace'],
+        code: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       colors: {
         background: 'hsl(var(--background))',
