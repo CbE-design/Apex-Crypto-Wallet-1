@@ -139,6 +139,20 @@ export default function WithdrawalApprovalsPage() {
                         type: 'Withdrawal',
                         amount: crypto.amount,
                         price: crypto.priceUSD,
+                        currency: crypto.symbol,
+                        timestamp: serverTimestamp(),
+                        status: 'Completed',
+                        referenceNo: withdrawal.transactionReference ?? '',
+                    });
+
+                    // Mirror to top-level transactions for dashboard TransactionHistory.
+                    const dashTxRef = doc(collection(firestore, 'users', withdrawal.userId, 'transactions'));
+                    transaction.set(dashTxRef, {
+                        userId: withdrawal.userId,
+                        type: 'Withdrawal',
+                        amount: crypto.amount,
+                        price: crypto.priceUSD,
+                        currency: crypto.symbol,
                         timestamp: serverTimestamp(),
                         status: 'Completed',
                         referenceNo: withdrawal.transactionReference ?? '',

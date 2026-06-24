@@ -213,7 +213,7 @@ export default function ConnectWalletPage() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-10 relative z-10">
           <div className="mb-4">
-            <img src="/apex-icon.png" alt="Apex Wallet" className="h-16 w-16 rounded-2xl shadow-xl shadow-primary/30" />
+            <img src="/logo.svg" alt="Apex Wallet" className="h-16 w-16 rounded-2xl shadow-xl shadow-primary/30" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Apex Wallet</h1>
           <p className="text-sm text-muted-foreground mt-1">Institutional-grade crypto custody</p>

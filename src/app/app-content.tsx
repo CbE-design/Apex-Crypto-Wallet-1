@@ -7,7 +7,8 @@ import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { Header } from '@/components/header';
 import { MobileNav } from '@/components/mobile-nav';
 import { useWallet } from '@/context/wallet-context';
-import { ShieldAlert, Loader2, Power, Code } from 'lucide-react';
+import { ShieldAlert, Power, Code } from 'lucide-react';
+import { AllSeeingEye } from '@/components/loading-spinner';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { EyeWatermark } from '@/components/eye-watermark';
@@ -48,8 +49,24 @@ export default function AppContent({
   if (loading && !isPublicPage) {
     return (
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-6">
+          <div className="relative w-20 h-20">
+            {/* Spinning gradient ring */}
+            <svg className="animate-spin absolute inset-0 w-20 h-20" viewBox="0 0 80 80" fill="none">
+              <defs>
+                <linearGradient id="auth-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#3B8EF3" />
+                  <stop offset="75%" stopColor="#16C780" />
+                  <stop offset="100%" stopColor="#3B8EF3" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <circle cx="40" cy="40" r="36" stroke="url(#auth-ring-grad)" strokeWidth="3" strokeLinecap="round" strokeDasharray="188" strokeDashoffset="47" />
+            </svg>
+            {/* Eye in center */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <AllSeeingEye size={44} className="animate-pulse" />
+            </div>
+          </div>
           <p className="text-xs font-medium text-muted-foreground animate-pulse uppercase tracking-[0.2em]">Authenticating Identity...</p>
         </div>
       </div>
