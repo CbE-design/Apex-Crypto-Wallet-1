@@ -3,6 +3,19 @@ import { Lock, Calendar } from 'lucide-react';
 export const metadata = {
   title: 'Privacy Policy — Apex Wallet',
   description: 'How Apex Wallet collects, uses, and protects your personal information.',
+  alternates: {
+    canonical: '/legal/privacy',
+  },
+  openGraph: {
+    title: 'Privacy Policy — Apex Wallet',
+    description: 'How Apex Wallet collects, uses, and protects your personal information.',
+    url: '/legal/privacy',
+    type: 'website',
+  },
+  twitter: {
+    title: 'Privacy Policy — Apex Wallet',
+    description: 'How Apex Wallet collects, uses, and protects your personal information.',
+  },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

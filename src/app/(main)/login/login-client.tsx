@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/context/wallet-context';
@@ -10,7 +10,7 @@ import {
   Loader2, Shield, Key, AlertTriangle, ArrowRight,
   Eye, EyeOff, Copy, CheckCircle2, Lock, Mail, Code,
 } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { EyeWatermark } from '@/components/eye-watermark';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -23,9 +23,8 @@ import { cn } from '@/lib/utils';
 import { PinSetupDialog } from '@/components/pin-setup-dialog';
 import { PinUnlockScreen } from '@/components/pin-unlock-screen';
 
-export default function ConnectWalletPage() {
+export default function LoginClient({ initialAdminMode }: { initialAdminMode: boolean }) {
   const router                   = useRouter();
-  const searchParams             = useSearchParams();
   const { toast }                = useToast();
   const auth                     = useAuth();
   const {
@@ -42,43 +41,28 @@ export default function ConnectWalletPage() {
   const [copied,                 setCopied]                 = useState(false);
   const [pinSetupOpen,           setPinSetupOpen]           = useState(false);
 
-  // Developer sign-in state — initialised directly from URL to prevent redirect loops
-  const [showAdminLogin,  setShowAdminLogin]  = useState(searchParams.get('admin') === 'true');
+  const [showAdminLogin,  setShowAdminLogin]  = useState(initialAdminMode);
   const [adminEmail,      setAdminEmail]      = useState('');
   const [adminPassword,   setAdminPassword]   = useState('');
   const [adminPwVisible,  setAdminPwVisible]  = useState(false);
   const [adminLoading,    setAdminLoading]    = useState(false);
 
-  useEffect(() => {
-    if (searchParams.get('admin') === 'true') {
-      setShowAdminLogin(true);
-    } else {
-      setShowAdminLogin(false);
-    }
-  }, [searchParams]);
-  
-  // Open PIN setup dialog as soon as wallet is pending vault
   React.useEffect(() => {
     if (pendingVaultSetup) setPinSetupOpen(true);
   }, [pendingVaultSetup]);
 
-  // Redirect once wallet is unlocked and ready, BUT not while the PIN setup
-  // dialog is still open, and NOT if the user is explicitly in the developer portal.
   React.useEffect(() => {
-    const isDevRequest = searchParams.get('admin') === 'true' || showAdminLogin;
-    if (user && wallet && !vaultLocked && !pendingVaultSetup && !pinSetupOpen && !isDevRequest) {
+    if (user && wallet && !vaultLocked && !pendingVaultSetup && !pinSetupOpen && !showAdminLogin) {
       router.push('/');
     }
-  }, [user, wallet, vaultLocked, pendingVaultSetup, pinSetupOpen, showAdminLogin, searchParams, router]);
+  }, [user, wallet, vaultLocked, pendingVaultSetup, pinSetupOpen, showAdminLogin, router]);
 
-  // Redirect email-based developers straight to the admin panel (no wallet needed)
   React.useEffect(() => {
     if (user && isAdmin && !wallet) {
       router.push('/admin');
     }
   }, [user, isAdmin, wallet, router]);
 
-  // ── handlers ─────────────────────────────────────────────────────────
   const handleCreateWallet = async () => {
     try {
       const generated = await createWallet();
@@ -96,9 +80,7 @@ export default function ConnectWalletPage() {
     }
     try {
       await importWallet(mnemonic);
-      // PIN setup dialog opens automatically via pendingVaultSetup
     } catch (error: any) {
-      // This toast is for development convenience. The context provider shows a more user-friendly one.
       toast({ title: 'Import failed', description: 'See console for details.', variant: 'destructive' });
     }
   };
@@ -108,14 +90,13 @@ export default function ConnectWalletPage() {
     try {
       await confirmAndCreateWallet(newMnemonic);
       setIsNewWalletDialogOpen(false);
-      // PIN setup dialog opens automatically via pendingVaultSetup
     } catch {
       toast({ title: 'Creation failed', description: 'Could not finalise wallet.', variant: 'destructive' });
     }
   };
 
   const handleUnlockWithPin = async (pin: string) => {
-    await unlockWithPin(pin); // throws on wrong PIN
+    await unlockWithPin(pin);
   };
 
   const handleUnlockWithPasskey = async () => {
@@ -128,7 +109,6 @@ export default function ConnectWalletPage() {
     setAdminLoading(true);
     try {
       await signInWithEmailAndPassword(auth, adminEmail.trim(), adminPassword);
-      // redirect is handled by the useEffect above
     } catch (error: any) {
       const msg =
         error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password'
@@ -146,28 +126,21 @@ export default function ConnectWalletPage() {
 
   const copyMnemonic = async () => {
     try {
-      // Modern browsers with clipboard access
       await navigator.clipboard.writeText(newMnemonic);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      // Fallback for older browsers or restricted environments (like Replit's iframe)
       try {
         const textArea = document.createElement('textarea');
         textArea.value = newMnemonic;
-        
-        // Make the textarea invisible
         textArea.style.position = 'fixed';
         textArea.style.top = '-9999px';
         textArea.style.left = '-9999px';
-        
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
-        
         const successful = document.execCommand('copy');
         document.body.removeChild(textArea);
-
         if (successful) {
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
@@ -187,7 +160,6 @@ export default function ConnectWalletPage() {
 
   const words = newMnemonic.split(' ').filter(Boolean);
 
-  // ── vault locked → show PIN screen ───────────────────────────────────
   if (vaultLocked) {
     return (
       <PinUnlockScreen
@@ -201,30 +173,25 @@ export default function ConnectWalletPage() {
     );
   }
 
-  // ── main login UI ─────────────────────────────────────────────────────
   return (
     <>
       <div className="min-h-screen w-full bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
-        {/* Background glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-0 right-0 w-[300px] h-[300px] bg-accent/5 rounded-full blur-[80px] pointer-events-none" />
         <EyeWatermark className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] text-primary pointer-events-none" opacity={0.04} />
 
-        {/* Logo */}
         <div className="flex flex-col items-center mb-10 relative z-10">
           <div className="mb-4">
-            <img src="/logo.svg" alt="Apex Wallet" className="h-16 w-16 rounded-2xl shadow-xl shadow-primary/30" />
+            <img src="/apex-icon.png" alt="Apex Wallet" className="h-16 w-16 rounded-2xl shadow-xl shadow-primary/30" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Apex Wallet</h1>
           <p className="text-sm text-muted-foreground mt-1">Institutional-grade crypto custody</p>
         </div>
 
-        {/* Card */}
         <div className="w-full max-w-sm relative z-10">
           {!showAdminLogin && (
             <>
               <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl shadow-2xl overflow-hidden">
-                {/* Header */}
                 <div className="px-6 pt-6 pb-5 border-b border-border/40">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
@@ -240,7 +207,6 @@ export default function ConnectWalletPage() {
                   </p>
                 </div>
 
-                {/* Body */}
                 <div className="px-6 py-6">
                   {isImporting ? (
                     <div className="space-y-4">
@@ -311,7 +277,6 @@ export default function ConnectWalletPage() {
                 </div>
               </div>
 
-              {/* Trust indicators */}
               <div className="flex items-center justify-center gap-4 mt-6 text-muted-foreground/50">
                 <div className="flex items-center gap-1.5 text-[11px]">
                   <Shield className="h-3 w-3" />
@@ -324,7 +289,6 @@ export default function ConnectWalletPage() {
                 </div>
               </div>
 
-              {/* T&C acceptance notice */}
               <p className="text-center text-[10px] text-muted-foreground/40 mt-4 max-w-xs mx-auto leading-relaxed">
                 By creating or importing a wallet you agree to our{' '}
                 <a href="/legal/terms" className="underline hover:text-muted-foreground/60 transition-colors">Terms of Service</a>,{' '}
@@ -333,7 +297,6 @@ export default function ConnectWalletPage() {
                 Crypto assets are high-risk instruments — you may lose your entire investment.
               </p>
 
-              {/* Regulatory footer */}
               <div className="flex flex-wrap items-center justify-center gap-3 mt-5 text-[9px] text-muted-foreground/30 uppercase tracking-widest">
                 <span>FICA Compliant</span>
                 <span>·</span>
@@ -346,7 +309,6 @@ export default function ConnectWalletPage() {
             </>
           )}
 
-          {/* Developer portal toggle */}
           <div className="mt-8">
             {!showAdminLogin ? (
               <button
@@ -431,7 +393,6 @@ export default function ConnectWalletPage() {
         </div>
       </div>
 
-      {/* Seed phrase backup dialog */}
       <Dialog open={isNewWalletDialogOpen} onOpenChange={setIsNewWalletDialogOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl border-border/60 bg-card">
           <DialogHeader>
@@ -494,14 +455,12 @@ export default function ConnectWalletPage() {
         </DialogContent>
       </Dialog>
 
-      {/* PIN vault setup dialog — shown after seed phrase is confirmed */}
       <PinSetupDialog
         open={pinSetupOpen}
         passkeySupported={passkeySupported}
         onPinConfirmed={async (pin) => {
           await setupVault(pin);
           toast({ title: 'PIN set', description: 'Your wallet is now protected.' });
-          // dialog stays open for passkey step — handled inside PinSetupDialog
         }}
         onPasskeySetup={async () => {
           await setupPasskey();
