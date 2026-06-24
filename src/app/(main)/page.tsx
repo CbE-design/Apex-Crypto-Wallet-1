@@ -4,15 +4,10 @@ import { MarketOverview } from '@/components/dashboard/market-overview';
 import { TransactionHistory } from '@/components/dashboard/transaction-history';
 import { PriceAlerts } from '@/components/dashboard/price-alerts';
 import { PrivateRoute } from '@/components/private-route';
-import { QuickActions } from '@/components/dashboard/quick-actions';
-
 export default function DashboardPage() {
   return (
     <PrivateRoute>
       <div className="space-y-5">
-        {/* Quick action bar */}
-        <QuickActions />
-
         {/* Main grid */}
         <div className="grid grid-cols-12 gap-5">
           {/* Left column — portfolio + transactions */}
