@@ -87,7 +87,7 @@ export function PinUnlockScreen({
 
       {/* Logo */}
       <div className="flex flex-col items-center mb-10 relative z-10">
-        <img src="/apex-icon.png" alt="Apex Wallet" className="h-16 w-16 rounded-2xl shadow-xl shadow-primary/30 mb-4" />
+        <img src="/logo.svg" alt="Apex Wallet" className="h-16 w-16 rounded-2xl shadow-xl shadow-primary/30 mb-4" />
         <h1 className="text-2xl font-bold tracking-tight text-white">Apex Wallet</h1>
         {addressHint && (
           <p className="text-[12px] text-muted-foreground mt-1 font-mono">{addressHint}</p>

@@ -61,7 +61,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border/60">
           <div className="relative flex-shrink-0">
             <img
-              src="/apex-icon.png"
+              src="/logo.svg"
               alt="Apex Wallet"
               className="h-9 w-9 rounded-xl shadow-lg shadow-primary/30 object-cover"
             />

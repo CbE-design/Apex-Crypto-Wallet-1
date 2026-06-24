@@ -187,6 +187,32 @@ export default function SwapPage() {
                 status: 'Completed',
                 notes: `Swap from ${fromAsset}`
             });
+
+            // Mirror both legs to the top-level transactions subcollection so the
+            // dashboard TransactionHistory query (users/{uid}/transactions) can read them.
+            const dashSellRef = doc(collection(firestore, 'users', user.uid, 'transactions'));
+            transaction.set(dashSellRef, {
+                userId: user.uid,
+                type: 'Sell',
+                currency: fromAsset,
+                amount: amountNum,
+                price: fromAssetPrice,
+                timestamp: serverTimestamp(),
+                status: 'Completed',
+                notes: `Swap to ${toAsset}`
+            });
+
+            const dashBuyRef = doc(collection(firestore, 'users', user.uid, 'transactions'));
+            transaction.set(dashBuyRef, {
+                userId: user.uid,
+                type: 'Buy',
+                currency: toAsset,
+                amount: toAmountNum,
+                price: toAssetPrice,
+                timestamp: serverTimestamp(),
+                status: 'Completed',
+                notes: `Swap from ${fromAsset}`
+            });
         });
 
         setStatus('success');
