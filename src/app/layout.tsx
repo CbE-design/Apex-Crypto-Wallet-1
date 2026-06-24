@@ -75,13 +75,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn('h-full', inter.variable, GeistSans.variable)} suppressHydrationWarning>
-      <head>
+      <body className={cn('font-body antialiased h-full', inter.className)}>
+        {/* JSON-LD must live in <body>, not <head>, in Next.js App Router */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
-      </head>
-      <body className={cn('font-body antialiased h-full', inter.className)}>
         <Providers>
           {children}
         </Providers>
