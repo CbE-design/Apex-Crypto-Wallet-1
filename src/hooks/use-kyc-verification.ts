@@ -26,5 +26,5 @@ export const useKycVerification = () => {
   // Components can use isKycRequired to show alerts/buttons.
   const isKycRequired = !!user && !isProfileLoading && (kycStatus === 'NOT_SUBMITTED' || kycStatus === 'REJECTED');
 
-  return { isKycRequired, kycStatus, isKycModalOpen, setKycModalOpen };
+  return { isKycRequired, kycStatus, isProfileLoading, isKycModalOpen, setKycModalOpen };
 };
