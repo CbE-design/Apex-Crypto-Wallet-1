@@ -3,6 +3,19 @@ import { AlertTriangle, Calendar } from 'lucide-react';
 export const metadata = {
   title: 'Risk Disclosure Statement — Apex Wallet',
   description: 'Important risks associated with cryptocurrency and digital asset trading.',
+  alternates: {
+    canonical: '/legal/risk-disclosure',
+  },
+  openGraph: {
+    title: 'Risk Disclosure Statement — Apex Wallet',
+    description: 'Important risks associated with cryptocurrency and digital asset trading.',
+    url: '/legal/risk-disclosure',
+    type: 'website',
+  },
+  twitter: {
+    title: 'Risk Disclosure Statement — Apex Wallet',
+    description: 'Important risks associated with cryptocurrency and digital asset trading.',
+  },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

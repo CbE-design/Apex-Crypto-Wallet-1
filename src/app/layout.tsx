@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
-import { Inter, Roboto_Mono, Space_Grotesk } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Providers } from './providers';
-import { ClientShell } from './client-shell';
-import { Suspense } from 'react';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -13,19 +11,10 @@ const inter = Inter({
   display: 'swap',
 });
 
-const roboto_mono = Roboto_Mono({
-  subsets: ['latin'],
-  variable: '--font-roboto-mono',
-  display: 'swap',
-});
-
-const space_grotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space-grotesk',
-  display: 'swap',
-});
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://apexwallet.co.za';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: 'Apex Crypto Wallet',
   description: 'Institutional-grade self-custodial crypto wallet.',
   manifest: '/manifest.json',
@@ -37,6 +26,46 @@ export const metadata: Metadata = {
       { url: '/apple-icon.png', sizes: '512x512', type: 'image/png' },
     ],
   },
+  openGraph: {
+    siteName: 'Apex Wallet',
+    type: 'website',
+    images: ['/apex-icon.png'],
+  },
+  twitter: {
+    card: 'summary',
+    images: ['/apex-icon.png'],
+  },
+};
+
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: 'Apex Wallet',
+      url: SITE_URL,
+      logo: {
+        '@type': 'ImageObject',
+        url: `${SITE_URL}/apex-icon.png`,
+      },
+      contactPoint: {
+        '@type': 'ContactPoint',
+        email: 'support@apexwallet.co.za',
+        contactType: 'customer support',
+      },
+      sameAs: [],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: 'Apex Wallet',
+      publisher: {
+        '@id': `${SITE_URL}/#organization`,
+      },
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -45,14 +74,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn('h-full', inter.variable, roboto_mono.variable, space_grotesk.variable, GeistSans.variable)} suppressHydrationWarning>
+    <html lang="en" className={cn('h-full', inter.variable, GeistSans.variable)} suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+      </head>
       <body className={cn('font-body antialiased h-full', inter.className)}>
         <Providers>
-          <Suspense fallback={null}>
-            <ClientShell>
-              {children}
-            </ClientShell>
-          </Suspense>
+          {children}
         </Providers>
       </body>
     </html>
