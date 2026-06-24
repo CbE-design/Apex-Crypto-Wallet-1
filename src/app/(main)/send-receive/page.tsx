@@ -22,7 +22,8 @@ import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, runTransaction, doc, serverTimestamp, getDocs, where, limit } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { marketCoins } from '@/lib/data';
 import { useCurrency } from '@/context/currency-context';
@@ -117,90 +118,47 @@ export default function SendReceivePage() {
   }, [wallet?.address]);
 
   const executeSend = async (data: SendFormValues) => {
-    if (!wallet || !user || !firestore || isSending) return;
+    if (!wallet || !user || isSending) return;
     setIsSending(true);
 
     if (data.recipientAddress.toLowerCase() === userAddress.toLowerCase()) {
-        toast({ title: "Invalid Recipient", description: "You cannot send to your own address.", variant: "destructive"});
-        setIsSending(false);
-        return;
+      toast({ title: 'Invalid Recipient', description: 'You cannot send to your own address.', variant: 'destructive' });
+      setIsSending(false);
+      return;
     }
-    
+
     try {
-        // Recipient lookup must happen OUTSIDE the transaction — getDocs is not
-        // an atomic transaction read and Firestore does not allow collection queries
-        // inside runTransaction.
-        const usersRef = collection(firestore, 'users');
-        const recipientQuery = query(usersRef, where("walletAddressLowercase", "==", data.recipientAddress.toLowerCase()), limit(1));
-        const recipientSnapshot = await getDocs(recipientQuery);
+      // Get the user's Firebase ID token to authenticate the server-side transfer
+      const auth = getAuth();
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('Not authenticated. Please reconnect your wallet.');
 
-        if (recipientSnapshot.empty) {
-            throw new Error("Recipient address not found. Please check the address and try again.");
-        }
-        const recipientId = recipientSnapshot.docs[0].id;
-        const amount = parseFloat(data.amount);
+      const res = await fetch('/api/transfer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          recipientAddress: data.recipientAddress,
+          asset: data.asset,
+          amount: parseFloat(data.amount),
+          complianceId: data.complianceId,
+          travelRuleVerified: isComplianceRequired,
+        }),
+      });
 
-        await runTransaction(firestore, async (transaction) => {
-            const senderWalletRef = doc(firestore, 'users', user.uid, 'wallets', data.asset);
-            const recipientWalletRef = doc(firestore, 'users', recipientId, 'wallets', data.asset);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Transfer failed.');
 
-            const senderWalletDoc = await transaction.get(senderWalletRef);
-            if (!senderWalletDoc.exists() || senderWalletDoc.data().balance < amount) {
-                throw new Error("Insufficient balance.");
-            }
-
-            const recipientWalletDoc = await transaction.get(recipientWalletRef);
-            
-            transaction.update(senderWalletRef, { balance: senderWalletDoc.data().balance - amount });
-            transaction.set(recipientWalletRef, { 
-                balance: (recipientWalletDoc.exists() ? recipientWalletDoc.data().balance : 0) + amount, 
-                currency: data.asset,
-                id: data.asset,
-                userId: recipientId
-            }, { merge: true });
-
-            const senderTxRef = doc(collection(senderWalletRef, 'transactions'));
-            transaction.set(senderTxRef, {
-                userId: user.uid,
-                type: 'Internal Transfer',
-                currency: data.asset,
-                amount: amount,
-                price: 0,
-                timestamp: serverTimestamp(),
-                status: 'Completed',
-                recipient: data.recipientAddress,
-                metadata: {
-                    travelRuleVerified: isComplianceRequired,
-                    complianceId: data.complianceId || 'AUTO_KYC_OK'
-                }
-            });
-
-            // Mirror to top-level transactions so the dashboard TransactionHistory can read it.
-            const dashTxRef = doc(collection(firestore, 'users', user.uid, 'transactions'));
-            transaction.set(dashTxRef, {
-                userId: user.uid,
-                type: 'Internal Transfer',
-                currency: data.asset,
-                amount: amount,
-                price: 0,
-                timestamp: serverTimestamp(),
-                status: 'Completed',
-                recipient: data.recipientAddress,
-                metadata: {
-                    travelRuleVerified: isComplianceRequired,
-                    complianceId: data.complianceId || 'AUTO_KYC_OK'
-                }
-            });
-        });
-
-        toast({ title: 'Transfer Complete', description: `Successfully sent ${data.amount} ${data.asset}.` });
-        reset({ asset: selectedAsset, amount: '', recipientAddress: '' });
+      toast({ title: 'Transfer Complete', description: `Successfully sent ${data.amount} ${data.asset}.` });
+      reset({ asset: selectedAsset, amount: '', recipientAddress: '' });
 
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'An unknown error occurred.';
-        toast({ title: 'Transfer Failed', description: message, variant: 'destructive' });
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: 'Transfer Failed', description: message, variant: 'destructive' });
     } finally {
-        setIsSending(false);
+      setIsSending(false);
     }
   };
 
