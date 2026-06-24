@@ -2,24 +2,25 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Wallet, Send, ArrowRightLeft, Banknote } from 'lucide-react';
+import { LayoutDashboard, Wallet, ArrowRightLeft, Send, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Home',       href: '/'             },
-  { icon: Wallet,          label: 'Wallets',     href: '/wallets'      },
-  { icon: ArrowRightLeft,  label: 'Swap',        href: '/swap'         },
-  { icon: Send,            label: 'Send',        href: '/send-receive' },
-  { icon: Banknote,        label: 'Withdraw',    href: '/cash-out'     },
+  { icon: LayoutDashboard, label: 'Home',    href: '/'             },
+  { icon: Wallet,          label: 'Wallets', href: '/wallets'      },
+  { icon: ArrowRightLeft,  label: 'Swap',    href: '/swap'         },
+  { icon: Send,            label: 'Send',    href: '/send-receive' },
+  { icon: Bot,             label: 'AI',      href: '/ai-assistant' },
 ];
 
 export function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="md:hidden h-16 bg-background/95 backdrop-blur-xl border-t border-border/50 flex items-center justify-around px-2 z-50">
+    <nav className="md:hidden h-16 bg-background/95 backdrop-blur-xl border-t border-white/5 flex items-center justify-around px-2 z-50">
       {navItems.map((item) => {
         const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+        const isAI = item.href === '/ai-assistant';
         return (
           <Link
             key={item.href}
@@ -28,19 +29,26 @@ export function MobileNav() {
           >
             <div
               className={cn(
-                "h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200",
+                "h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 relative",
                 isActive
-                  ? "bg-primary/15 border border-primary/25 shadow-sm shadow-primary/10"
-                  : "group-active:bg-muted/50"
+                  ? isAI
+                    ? "bg-gradient-to-br from-primary/20 to-accent/15 border border-primary/25 shadow-sm shadow-primary/10"
+                    : "bg-primary/15 border border-primary/25 shadow-sm shadow-primary/10"
+                  : "group-active:bg-white/5"
               )}
             >
               <item.icon
                 className={cn(
                   "h-[18px] w-[18px] transition-colors",
-                  isActive ? "text-primary" : "text-muted-foreground"
+                  isActive
+                    ? isAI ? "text-primary" : "text-primary"
+                    : "text-muted-foreground"
                 )}
                 strokeWidth={isActive ? 2.5 : 1.75}
               />
+              {isAI && !isActive && (
+                <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-accent" />
+              )}
             </div>
             <span
               className={cn(

@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, LogOut, Settings, User, ChevronDown, Copy } from 'lucide-react';
+import { Bell, LogOut, Settings, User, ChevronDown, Copy, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useWallet } from '@/context/wallet-context';
@@ -26,7 +26,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/swap':          'Swap',
   '/send-receive':  'Send & Receive',
   '/cash-out':      'Withdrawal',
-  '/ai-assistant':  'Support',
+  '/ai-assistant':  'AI Assistant',
   '/settings':      'Settings',
 };
 
@@ -61,11 +61,14 @@ export function Header() {
     : null;
 
   return (
-    <header className="flex items-center justify-between px-4 h-14 border-b border-border/60 text-[17px]">
-      {/* Left: page title */}
+    <header className="flex items-center justify-between px-4 h-14 bg-background/80 backdrop-blur-xl border-b border-white/5">
+      {/* Left: sidebar trigger + page title */}
       <div className="flex items-center gap-3">
         <SidebarTrigger className="md:hidden -ml-1 h-8 w-8 rounded-lg hover:bg-muted/60 text-muted-foreground transition-colors" />
-        <h1 className="text-[15px] font-semibold text-foreground tracking-tight">{pageTitle}</h1>
+        <div className="flex items-center gap-2">
+          <div className="hidden md:block h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+          <h1 className="text-[15px] font-semibold text-foreground tracking-tight">{pageTitle}</h1>
+        </div>
       </div>
 
       {/* Right: controls */}
@@ -77,10 +80,10 @@ export function Header() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1.5 px-2.5 rounded-lg text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60"
+              className="h-8 gap-1.5 px-2.5 rounded-lg text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:bg-white/5"
             >
               <span className="text-foreground/80">{currency.symbol}</span>
-              <div className="relative h-3 w-4.5 overflow-hidden rounded-sm border border-white/10 hidden sm:block">
+              <div className="relative h-3 w-[18px] overflow-hidden rounded-sm border border-white/10 hidden sm:block">
                 <Image
                   src={currency.flagUrl}
                   alt={currency.name}
@@ -91,11 +94,11 @@ export function Header() {
               <ChevronDown className="h-3 w-3 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 rounded-xl p-1">
+          <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 bg-card/95 backdrop-blur-xl border-border/60">
             <DropdownMenuLabel className="text-[11px] uppercase tracking-widest text-muted-foreground px-2 py-1.5">
               Display Currency
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="bg-border/50" />
             <div className="max-h-60 overflow-y-auto space-y-0.5">
               {currencies.map((c) => (
                 <DropdownMenuItem
@@ -106,7 +109,7 @@ export function Header() {
                     currency.symbol === c.symbol && "bg-primary/10 text-primary"
                   )}
                 >
-                  <div className="relative h-3 w-4.5 overflow-hidden rounded-sm border border-white/5 mr-2 shrink-0">
+                  <div className="relative h-3 w-[18px] overflow-hidden rounded-sm border border-white/5 mr-2 shrink-0">
                     <Image
                       src={c.flagUrl}
                       alt={c.name}
@@ -122,25 +125,35 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Support / Notifications bell — navigates to AI support chat */}
+        {/* AI Assistant button */}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => router.push('/ai-assistant')}
-          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 relative"
-          title="Customer Support"
+          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 relative"
+          title="AI Assistant"
         >
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+          <Bot className="h-4 w-4" />
+          <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
         </Button>
 
-        {/* Profile / Account dropdown */}
+        {/* Notifications bell */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 relative"
+          title="Notifications"
+        >
+          <Bell className="h-4 w-4" />
+        </Button>
+
+        {/* Profile dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-lg p-0 overflow-hidden border border-border/60 hover:border-primary/40 transition-colors"
+              className="h-8 w-8 rounded-lg p-0 overflow-hidden border border-white/10 hover:border-primary/40 transition-colors shadow-sm"
             >
               <div className="h-full w-full bg-gradient-to-br from-primary/30 to-accent/20 flex items-center justify-center">
                 {initials ? (
@@ -151,22 +164,20 @@ export function Header() {
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 rounded-xl p-1">
-            {/* Email */}
+          <DropdownMenuContent align="end" className="w-56 rounded-xl p-1 bg-card/95 backdrop-blur-xl border-border/60">
             {user?.email && (
               <>
                 <div className="px-2 py-2">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Signed in as</p>
                   <p className="text-[12px] font-medium text-foreground truncate">{user.email}</p>
                 </div>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator className="bg-border/50" />
               </>
             )}
-            {/* Wallet address */}
             {truncatedAddress && (
               <>
                 <div className="px-2 py-2">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Wallet Address</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Wallet</p>
                   <div className="flex items-center gap-2">
                     <code className="text-[11px] font-mono text-foreground flex-1 truncate">{truncatedAddress}</code>
                     <button
@@ -177,7 +188,7 @@ export function Header() {
                     </button>
                   </div>
                 </div>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator className="bg-border/50" />
               </>
             )}
             <DropdownMenuItem asChild className="rounded-lg cursor-pointer text-[13px]">
@@ -186,7 +197,7 @@ export function Header() {
                 Settings
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="bg-border/50" />
             <DropdownMenuItem
               onClick={onDisconnect}
               className="rounded-lg cursor-pointer text-[13px] text-destructive hover:text-destructive focus:text-destructive"

@@ -22,6 +22,7 @@ import {
   ChevronUp,
   ChevronDown,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { useWallet } from "@/context/wallet-context";
 import Link from "next/link";
@@ -30,19 +31,18 @@ import { cn } from "@/lib/utils";
 import { EyeWatermark } from "@/components/eye-watermark";
 
 const mainNav = [
-  { href: "/",             label: "Dashboard",    icon: LayoutDashboard, desc: "Overview"        },
-  { href: "/wallets",      label: "My Wallets",   icon: Wallet,          desc: "Holdings"        },
-  { href: "/swap",         label: "Swap",         icon: ArrowRightLeft,  desc: "Exchange assets" },
-  { href: "/send-receive", label: "Send / Receive",icon: Send,           desc: "Transfer"        },
-  { href: "/cash-out",     label: "Withdrawal",   icon: Banknote,        desc: "Withdraw funds"  },
-  { href: "/ai-assistant", label: "AI Assistant", icon: Bot,             desc: "Ask anything"    },
+  { href: "/",             label: "Dashboard",      icon: LayoutDashboard, desc: "Overview",        accent: false },
+  { href: "/wallets",      label: "My Wallets",     icon: Wallet,          desc: "Holdings",        accent: false },
+  { href: "/swap",         label: "Swap",           icon: ArrowRightLeft,  desc: "Exchange assets", accent: false },
+  { href: "/send-receive", label: "Send / Receive", icon: Send,            desc: "Transfer",        accent: false },
+  { href: "/cash-out",     label: "Withdrawal",     icon: Banknote,        desc: "Withdraw funds",  accent: false },
 ];
 
 const legalLinks = [
-  { href: '/legal/terms',           label: 'Terms of Service',     desc: 'User agreement & platform rules' },
-  { href: '/legal/privacy',         label: 'Privacy Policy',       desc: 'POPIA-compliant data handling'   },
-  { href: '/legal/risk-disclosure', label: 'Risk Disclosure',      desc: 'Investment & crypto risks'       },
-  { href: '/legal/aml-policy',      label: 'AML & FICA Policy',   desc: 'Compliance & KYC framework'      },
+  { href: '/legal/terms',           label: 'Terms of Service',   desc: 'User agreement & platform rules' },
+  { href: '/legal/privacy',         label: 'Privacy Policy',     desc: 'POPIA-compliant data handling'   },
+  { href: '/legal/risk-disclosure', label: 'Risk Disclosure',    desc: 'Investment & crypto risks'       },
+  { href: '/legal/aml-policy',      label: 'AML & FICA Policy',  desc: 'Compliance & KYC framework'      },
 ];
 
 export function AppSidebar() {
@@ -58,18 +58,20 @@ export function AppSidebar() {
     <>
       {/* Brand */}
       <SidebarHeader className="p-0">
-        <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border/60">
+        <div className="flex items-center gap-3 px-4 py-5 border-b border-white/5">
           <div className="relative flex-shrink-0">
-            <img
-              src="/apex-icon.png"
-              alt="Apex Wallet"
-              className="h-9 w-9 rounded-xl shadow-lg shadow-primary/30 object-cover"
-            />
-            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-accent border-2 border-sidebar" />
+            <div className="h-9 w-9 rounded-xl overflow-hidden shadow-lg shadow-primary/20 ring-1 ring-white/10">
+              <img
+                src="/apex-icon.png"
+                alt="Apex Wallet"
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-accent border-2 border-sidebar shadow-sm shadow-accent/50" />
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
             <p className="text-[15px] font-bold tracking-tight text-white leading-none">Apex Wallet</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Crypto Wallet</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Institutional Custody</p>
           </div>
         </div>
       </SidebarHeader>
@@ -90,7 +92,7 @@ export function AppSidebar() {
                     "h-10 rounded-xl px-3 gap-3 transition-all duration-150",
                     isActive
                       ? "bg-primary/15 text-primary border border-primary/20 shadow-sm shadow-primary/10"
-                      : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                      : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-white/5"
                   )}
                 >
                   <Link href={item.href}>
@@ -107,9 +109,41 @@ export function AppSidebar() {
             );
           })}
 
+          {/* AI Assistant — visually distinct */}
+          <div className="my-2 h-px bg-white/5 group-data-[collapsible=icon]:hidden" />
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname.startsWith('/ai-assistant')}
+              tooltip="AI Assistant"
+              className={cn(
+                "h-10 rounded-xl px-3 gap-3 transition-all duration-150",
+                pathname.startsWith('/ai-assistant')
+                  ? "bg-gradient-to-r from-primary/20 to-accent/15 text-primary border border-primary/20 shadow-sm"
+                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-white/5"
+              )}
+            >
+              <Link href="/ai-assistant">
+                <div className="relative">
+                  <Bot className={cn(
+                    "h-4 w-4 flex-shrink-0",
+                    pathname.startsWith('/ai-assistant') ? "text-primary" : "text-muted-foreground"
+                  )} />
+                  <Sparkles className="h-2 w-2 text-accent absolute -top-1 -right-1" />
+                </div>
+                <span className="font-medium text-[13px]">AI Assistant</span>
+                <span className="ml-auto group-data-[collapsible=icon]:hidden">
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-accent/15 text-accent border border-accent/20">
+                    AI
+                  </span>
+                </span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
           {isAdmin && (
             <>
-              <div className="my-2 h-px bg-sidebar-border/50 group-data-[collapsible=icon]:hidden" />
+              <div className="my-2 h-px bg-white/5 group-data-[collapsible=icon]:hidden" />
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
@@ -134,20 +168,20 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* Footer */}
-      <SidebarFooter className="p-2 border-t border-sidebar-border/60 relative overflow-hidden">
+      <SidebarFooter className="p-2 border-t border-white/5 relative overflow-hidden">
         <EyeWatermark
           className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-28 h-28 text-primary pointer-events-none group-data-[collapsible=icon]:opacity-0 transition-opacity"
-          opacity={0.07}
+          opacity={0.06}
         />
 
         {/* Wallet address strip */}
         {truncatedAddress && (
-          <div className="group-data-[collapsible=icon]:hidden mb-2 px-3 py-2.5 rounded-xl bg-sidebar-accent/40 border border-sidebar-border/50">
+          <div className="group-data-[collapsible=icon]:hidden mb-2 px-3 py-2.5 rounded-xl bg-white/3 border border-white/5">
             <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground mb-1">Connected Wallet</p>
             <p className="font-mono text-[11px] text-sidebar-foreground/80">{truncatedAddress}</p>
             <div className="flex items-center gap-1.5 mt-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-              <p className="text-[10px] text-accent font-medium">Mainnet</p>
+              <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse shadow-sm shadow-accent/50" />
+              <p className="text-[10px] text-accent font-medium">Mainnet · Live</p>
             </div>
           </div>
         )}
@@ -163,7 +197,7 @@ export function AppSidebar() {
                 "h-10 rounded-xl px-3 gap-3 transition-all duration-150",
                 pathname === "/settings"
                   ? "bg-primary/15 text-primary border border-primary/20"
-                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-white/5"
               )}
             >
               <Link href="/settings">
@@ -173,7 +207,7 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
 
-          {/* Legal button */}
+          {/* Legal */}
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Legal & Compliance"
@@ -182,7 +216,7 @@ export function AppSidebar() {
                 "h-10 rounded-xl px-3 gap-3 transition-all duration-150 cursor-pointer group-data-[collapsible=icon]:justify-center",
                 legalOpen
                   ? "bg-primary/10 text-primary border border-primary/20"
-                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-white/5"
               )}
             >
               <Scale className={cn("h-4 w-4 flex-shrink-0", legalOpen ? "text-primary" : "text-muted-foreground")} />
@@ -196,11 +230,10 @@ export function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
 
-        {/* Legal panel expands inline */}
+        {/* Legal panel */}
         {legalOpen && (
-          <div className="group-data-[collapsible=icon]:hidden mt-1 rounded-xl border border-border/40 bg-sidebar-accent/20 overflow-hidden">
-            {/* Compliance badge row */}
-            <div className="px-3 pt-3 pb-2 border-b border-border/30">
+          <div className="group-data-[collapsible=icon]:hidden mt-1 rounded-xl border border-white/8 bg-white/3 overflow-hidden">
+            <div className="px-3 pt-3 pb-2 border-b border-white/5">
               <p className="text-[9px] uppercase tracking-widest font-semibold text-muted-foreground/50 mb-1.5">Regulatory Compliance</p>
               <div className="flex flex-wrap gap-1">
                 {['FICA', 'POPIA', 'FSCA', 'FATF'].map(badge => (
@@ -210,15 +243,13 @@ export function AppSidebar() {
                 ))}
               </div>
             </div>
-
-            {/* Links */}
             <div className="p-1.5 space-y-0.5">
               {legalLinks.map(({ href, label, desc }) => (
                 <Link
                   key={href}
                   href={href}
                   onClick={() => setLegalOpen(false)}
-                  className="flex items-start justify-between gap-2 px-2.5 py-2 rounded-lg hover:bg-sidebar-accent/60 transition-colors group/item"
+                  className="flex items-start justify-between gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors group/item"
                 >
                   <div className="min-w-0">
                     <p className="text-[11px] font-medium text-sidebar-foreground/80 group-hover/item:text-sidebar-foreground transition-colors leading-tight">{label}</p>
@@ -228,9 +259,7 @@ export function AppSidebar() {
                 </Link>
               ))}
             </div>
-
-            {/* Risk notice */}
-            <div className="px-3 pt-1 pb-3 border-t border-border/30 mt-1">
+            <div className="px-3 pt-1 pb-3 border-t border-white/5 mt-1">
               <p className="text-[9px] text-muted-foreground/35 leading-relaxed">
                 Crypto assets are high-risk instruments. You may lose your entire investment. Not financial advice.
               </p>
