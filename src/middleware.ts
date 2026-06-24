@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  // Check if the request is HTTP
+  // Only redirect to HTTPS when the request explicitly came through HTTP
+  // via a reverse proxy (x-forwarded-proto: http).  Skip when the header is
+  // absent (internal health checks, direct container traffic) so the deploy
+  // healthchecker can probe us successfully.
   if (
     process.env.NODE_ENV === 'production' &&
-    request.headers.get('x-forwarded-proto') !== 'https' &&
+    request.headers.get('x-forwarded-proto') === 'http' &&
     !request.url.includes('localhost')
   ) {
     const httpsUrl = request.url.replace(/^http:/, 'https:');
