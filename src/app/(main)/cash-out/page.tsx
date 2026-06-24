@@ -1,7 +1,7 @@
 'use client';
 
 import KycVerificationModal from '@/components/kyc-verification-modal';
-import { WithdrawalContent } from '@/app/cash-out/withdrawal-content';
+import { WithdrawalContent } from '@/app/(main)/cash-out/withdrawal-content';
 
 /**
  * Cash Out page. WithdrawalContent handles all KYC states internally:
