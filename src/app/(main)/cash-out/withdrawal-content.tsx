@@ -5,13 +5,24 @@ import { useKycVerification } from '@/hooks/use-kyc-verification';
 import { WithdrawalForm } from '@/components/withdrawal-form';
 import { WithdrawalHistory } from '@/components/withdrawal-history';
 import { KycStatusAlert } from '@/components/kyc-status-alert';
+import { Loader2 } from 'lucide-react';
 
 export function WithdrawalContent() {
-  const { kycStatus } = useKycVerification();
+  const { kycStatus, isKycStatusLoading } = useKycVerification();
+
+  // Show a spinner while auth + Firestore profile are loading.
+  // This prevents the KYC banner from flashing for already-approved users.
+  if (isKycStatusLoading) {
+    return (
+      <div className="flex justify-center items-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (kycStatus !== 'APPROVED') {
     return (
-      <div className="container max-w-2xl py-8 animate-in fade-in duration-500 delay-300 fill-mode-both">
+      <div className="container max-w-2xl py-8">
         <KycStatusAlert kycStatus={kycStatus} />
       </div>
     );

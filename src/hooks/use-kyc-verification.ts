@@ -9,7 +9,7 @@ import { useFirestore } from '@/firebase/provider';
 import type { KYCStatus, UserProfile } from '@/lib/types';
 
 export const useKycVerification = () => {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const [isKycModalOpen, setKycModalOpen] = useState(false);
 
@@ -22,9 +22,15 @@ export const useKycVerification = () => {
 
   const kycStatus: KYCStatus = userData?.kycStatus || 'NOT_SUBMITTED';
 
-  // We no longer automatically open the modal. 
-  // Components can use isKycRequired to show alerts/buttons.
-  const isKycRequired = !!user && !isProfileLoading && (kycStatus === 'NOT_SUBMITTED' || kycStatus === 'REJECTED');
+  // True while we're still waiting for auth or the Firestore profile.
+  // Only guard on isProfileLoading when we actually have a user to load for —
+  // when userDocRef is null (no user yet), useDoc returns isLoading=false immediately.
+  const isKycStatusLoading = isUserLoading || (!!user && isProfileLoading);
 
-  return { isKycRequired, kycStatus, isKycModalOpen, setKycModalOpen };
+  const isKycRequired =
+    !isKycStatusLoading &&
+    !!user &&
+    (kycStatus === 'NOT_SUBMITTED' || kycStatus === 'REJECTED');
+
+  return { isKycRequired, kycStatus, isKycStatusLoading, isKycModalOpen, setKycModalOpen };
 };
