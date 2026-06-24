@@ -31,7 +31,7 @@ service cloud.firestore {
     // ─── Core App Data ─────────────────────────────────────────────────────────
 
     match /withdrawal_requests/{requestId} {
-      allow list:   if isAdmin();
+      allow list:   if isAdmin() || isSignedIn();
       allow get:    if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn();
       allow update: if isAdmin();
