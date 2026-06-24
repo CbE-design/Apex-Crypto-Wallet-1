@@ -22,7 +22,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore } from '@/firebase';
-import { query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { DocumentUploadField } from '@/components/document-upload-field';
 import { 
