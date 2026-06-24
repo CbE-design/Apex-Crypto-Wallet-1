@@ -7,7 +7,13 @@ import { WithdrawalHistory } from '@/components/withdrawal-history';
 import { KycStatusAlert } from '@/components/kyc-status-alert';
 
 export function WithdrawalContent() {
-  const { kycStatus } = useKycVerification();
+  const { kycStatus, isProfileLoading } = useKycVerification();
+
+  // Don't render anything while the KYC status is still being fetched — this
+  // prevents the KYC banner from flashing briefly before the approved form appears.
+  if (isProfileLoading) {
+    return null;
+  }
 
   if (kycStatus !== 'APPROVED') {
     return (
