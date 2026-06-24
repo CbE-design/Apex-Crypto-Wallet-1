@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, LogOut, Settings, User, ChevronDown, Copy, Bot } from 'lucide-react';
+import { LogOut, Settings, User, ChevronDown, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useWallet } from '@/context/wallet-context';
@@ -124,28 +124,6 @@ export function Header() {
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        {/* AI Assistant button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/ai-assistant')}
-          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 relative"
-          title="AI Assistant"
-        >
-          <Bot className="h-4 w-4" />
-          <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-        </Button>
-
-        {/* Notifications bell */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 relative"
-          title="Notifications"
-        >
-          <Bell className="h-4 w-4" />
-        </Button>
 
         {/* Profile dropdown */}
         <DropdownMenu>
