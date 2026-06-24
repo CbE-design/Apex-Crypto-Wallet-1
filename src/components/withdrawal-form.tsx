@@ -141,7 +141,7 @@ export function WithdrawalForm() {
     if (!watchedAsset) return;
     setLoadingPrices(true);
     fetch(`/api/prices?symbols=${watchedAsset}&currency=USD`, { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('Price fetch failed')))
       .then(({ prices }: { prices: Record<string, number> }) => {
         setAssetPricesUSD(prev => ({ ...prev, [watchedAsset]: prices[watchedAsset] || 0 }));
       })

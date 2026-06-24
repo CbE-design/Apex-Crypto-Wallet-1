@@ -90,7 +90,7 @@ export default function SendReceivePage() {
   useEffect(() => {
     if (!selectedAsset) return;
     fetch(`/api/prices?symbols=${selectedAsset}&currency=USD`, { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('Price fetch failed')))
       .then(({ prices }: { prices: Record<string, number> }) => {
         setLiveAssetPriceUSD(prev => ({ ...prev, [selectedAsset]: prices[selectedAsset] || 0 }));
       })
