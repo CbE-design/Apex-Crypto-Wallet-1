@@ -165,7 +165,7 @@ export default function MyWalletsPage() {
   const [selectedQrAddress, setSelectedQrAddress] = useState<{ address: string; currency: string } | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [isQrOpen, setIsQrOpen] = useState(false);
-  const [expandedTx, setExpandedTx] = SetStateAction(new Set<string>());
+  const [expandedTx, setExpandedTx] = useState<Set<string>>(new Set<string>());
   const [kycModalOpen, setKycModalOpen] = useState(false);
   const [isProvisioning, setIsProvisioning] = useState(false);
   const [explorerOpen, setExplorerOpen] = useState(false);
@@ -372,14 +372,101 @@ export default function MyWalletsPage() {
           })}
         </div>
 
-        {/* KYC & QR Modals... */}
         <KYCVerificationModal open={kycModalOpen} onOpenChange={setKycModalOpen} kycStatus={kycStatus} />
-        {/* QR & Explorer Dialogs simplified for brevity */}
+
+        {/* QR Code Dialog */}
+        <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
+          <DialogContent className="max-w-xs rounded-2xl bg-card border-border/60">
+            <DialogHeader>
+              <DialogTitle className="text-center text-base font-bold">
+                {selectedQrAddress?.currency} Wallet QR
+              </DialogTitle>
+              <DialogDescription className="sr-only">Scan to send crypto to this wallet address.</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-2">
+              <div className="p-4 bg-white rounded-2xl shadow-lg">
+                {qrDataUrl
+                  ? <Image src={qrDataUrl} alt="Wallet QR Code" width={200} height={200} className="rounded-lg" />
+                  : <div className="w-[200px] h-[200px] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                }
+              </div>
+              <div className="w-full p-3 bg-muted/20 border border-border/40 rounded-xl">
+                <code className="text-[10px] font-mono break-all block text-center text-muted-foreground">{selectedQrAddress?.address}</code>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full rounded-xl gap-2 text-sm font-medium"
+                onClick={() => {
+                  if (selectedQrAddress?.address) {
+                    navigator.clipboard.writeText(selectedQrAddress.address);
+                    toast({ title: 'Address Copied', description: `${selectedQrAddress.currency} address copied to clipboard.` });
+                  }
+                }}
+              >
+                <Copy className="h-4 w-4" /> Copy Address
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Block Explorer Dialog */}
+        <Dialog open={explorerOpen} onOpenChange={setExplorerOpen}>
+          <DialogContent className="max-w-sm rounded-2xl bg-card border-border/60">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold flex items-center gap-2">
+                <Globe className="h-4 w-4 text-primary" /> Block Explorer
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                View {explorerCurrency} on-chain data for this address.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="p-3 bg-muted/20 border border-border/40 rounded-xl">
+                <code className="text-[10px] font-mono break-all block text-muted-foreground">{explorerAddress}</code>
+              </div>
+              {(() => {
+                const addr = explorerAddress || '';
+                const sym = explorerCurrency || '';
+                const links: { label: string; url: string }[] = [];
+                if (['ETH', 'LINK', 'USDT', 'USDC', 'UNI'].includes(sym)) {
+                  links.push({ label: 'Etherscan', url: `https://etherscan.io/address/${addr}` });
+                } else if (sym === 'BNB') {
+                  links.push({ label: 'BscScan', url: `https://bscscan.com/address/${addr}` });
+                } else if (sym === 'BTC') {
+                  links.push({ label: 'Blockchain.com', url: `https://www.blockchain.com/explorer/addresses/btc/${addr}` });
+                  links.push({ label: 'Mempool.space', url: `https://mempool.space/address/${addr}` });
+                } else if (sym === 'SOL') {
+                  links.push({ label: 'Solscan', url: `https://solscan.io/address/${addr}` });
+                } else if (sym === 'ADA') {
+                  links.push({ label: 'Cardanoscan', url: `https://cardanoscan.io/address/${addr}` });
+                } else {
+                  links.push({ label: 'Etherscan', url: `https://etherscan.io/address/${addr}` });
+                }
+                return links.map(link => (
+                  <a
+                    key={link.url}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors group"
+                  >
+                    <span className="text-sm font-medium text-primary">{link.label}</span>
+                    <ExternalLink className="h-4 w-4 text-primary/60 group-hover:text-primary transition-colors" />
+                  </a>
+                ));
+              })()}
+              <Button
+                variant="ghost"
+                className="w-full rounded-xl text-xs text-muted-foreground gap-2"
+                onClick={() => { if (explorerAddress) { navigator.clipboard.writeText(explorerAddress); toast({ title: 'Address Copied' }); } }}
+              >
+                <Copy className="h-3 w-3" /> Copy Address
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </PrivateRoute>
   );
 }
 
-function SetStateAction<T>(arg0: Set<T>): [any, any] {
-  return useState<T>(arg0 as any);
-}

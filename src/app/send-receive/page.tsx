@@ -174,6 +174,23 @@ export default function SendReceivePage() {
                     complianceId: data.complianceId || 'AUTO_KYC_OK'
                 }
             });
+
+            // Mirror to top-level transactions so the dashboard TransactionHistory can read it.
+            const dashTxRef = doc(collection(firestore, 'users', user.uid, 'transactions'));
+            transaction.set(dashTxRef, {
+                userId: user.uid,
+                type: 'Internal Transfer',
+                currency: data.asset,
+                amount: amount,
+                price: 0,
+                timestamp: serverTimestamp(),
+                status: 'Completed',
+                recipient: data.recipientAddress,
+                metadata: {
+                    travelRuleVerified: isComplianceRequired,
+                    complianceId: data.complianceId || 'AUTO_KYC_OK'
+                }
+            });
         });
 
         toast({ title: 'Transfer Complete', description: `Successfully sent ${data.amount} ${data.asset}.` });
