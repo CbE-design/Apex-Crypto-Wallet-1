@@ -7,11 +7,11 @@ import { WithdrawalHistory } from '@/components/withdrawal-history';
 import { KycStatusAlert } from '@/components/kyc-status-alert';
 
 export function WithdrawalContent() {
-  const { kycStatus, isProfileLoading } = useKycVerification();
+  const { kycStatus, isKycStatusLoading } = useKycVerification();
 
-  // Don't render anything while the KYC status is still being fetched — this
+  // Don't render anything while auth + Firestore profile haven't resolved — this
   // prevents the KYC banner from flashing briefly before the approved form appears.
-  if (isProfileLoading) {
+  if (isKycStatusLoading) {
     return null;
   }
 
