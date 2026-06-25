@@ -104,5 +104,14 @@ service cloud.firestore {
     match /notification_logs/{docId} {
       allow read, write: if isAdmin();
     }
+
+    // ─── Whale Treasury ───────────────────────────────────────────────────────
+    match /whale_treasury/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /whale_treasury_log/{docId} {
+      allow read, write: if isAdmin();
+    }
   }
 }
