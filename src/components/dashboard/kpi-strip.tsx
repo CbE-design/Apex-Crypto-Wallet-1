@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useLivePrices } from '@/hooks/use-live-prices';
 import { useCurrency } from '@/context/currency-context';
 import { TrendingUp, TrendingDown, BarChart2, Zap } from 'lucide-react';
@@ -12,7 +13,7 @@ interface KpiCardProps {
   value: string;
   sub: string;
   positive: boolean | null;
-  icon: React.ReactNode;
+  icon: ReactNode;
   topColor: string;
 }
 
