@@ -156,11 +156,12 @@ function FundWalletForm() {
           lastSynced: serverTimestamp(),
         }, { merge: true });
 
-        // Audit log
-        const txRef = doc(collection(walletRef, 'transactions'));
-        transaction.set(txRef, {
+        // Shared audit log fields
+        const refNo = 'ADM-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+        const txFields = {
           userId: recipientInfo.userId,
           type: 'Buy',
+          currency: formValues.asset,
           amount,
           price: 0,
           status: 'Completed',
@@ -169,8 +170,16 @@ function FundWalletForm() {
           fundedBy: adminUser.email,
           adminAction: true,
           sourceWallet: 'whale_treasury',
-          referenceNo: 'ADM-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
-        });
+          referenceNo: refNo,
+        };
+
+        // Wallet-level audit log
+        const txRef = doc(collection(walletRef, 'transactions'));
+        transaction.set(txRef, txFields);
+
+        // Top-level transaction record so it appears in the recipient's dashboard history
+        const dashTxRef = doc(collection(firestore, 'users', recipientInfo.userId, 'transactions'));
+        transaction.set(dashTxRef, txFields);
       });
 
       setLastTransaction({

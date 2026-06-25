@@ -13,7 +13,7 @@ import { useLivePrices } from '@/hooks/use-live-prices';
 
 interface Transaction {
   id: string;
-  type: 'Buy' | 'Sell' | 'Withdrawal' | 'Swap' | 'Internal Transfer';
+  type: 'Buy' | 'Sell' | 'Send' | 'Withdrawal' | 'Swap' | 'Internal Transfer';
   amount: number;
   price: number;
   currency: string;
@@ -40,9 +40,10 @@ const INCOMING_TYPES = new Set(['Buy', 'Internal Transfer']);
 const TYPE_CONFIG: Record<string, { icon: React.ReactNode; bg: string; text: string }> = {
   Buy:               { icon: <ArrowDownLeft className="h-3.5 w-3.5" />, bg: 'bg-cyan-500/12 border-cyan-500/20',       text: 'text-cyan-400' },
   Sell:              { icon: <ArrowUpRight  className="h-3.5 w-3.5" />, bg: 'bg-red-500/12 border-red-500/20',         text: 'text-red-400' },
+  Send:              { icon: <Send          className="h-3.5 w-3.5" />, bg: 'bg-red-500/12 border-red-500/20',         text: 'text-red-400' },
   Withdrawal:        { icon: <Building2     className="h-3.5 w-3.5" />, bg: 'bg-orange-500/12 border-orange-500/20',   text: 'text-orange-400' },
   Swap:              { icon: <ArrowLeftRight className="h-3.5 w-3.5" />, bg: 'bg-violet-500/12 border-violet-500/20',  text: 'text-violet-400' },
-  'Internal Transfer': { icon: <Send        className="h-3.5 w-3.5" />, bg: 'bg-violet-500/12 border-violet-500/20',  text: 'text-violet-400' },
+  'Internal Transfer': { icon: <ArrowDownLeft className="h-3.5 w-3.5" />, bg: 'bg-cyan-500/12 border-cyan-500/20',   text: 'text-cyan-400' },
 };
 
 const STATUS_CONFIG: Record<string, { dot: string; label: string; text: string }> = {
