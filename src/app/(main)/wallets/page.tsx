@@ -417,44 +417,31 @@ export default function MyWalletsPage() {
                 <Globe className="h-4 w-4 text-primary" /> Block Explorer
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                View {explorerCurrency} on-chain data for this address.
+                View on-chain data for this {explorerCurrency} address on the Apex ledger.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
               <div className="p-3 bg-muted/20 border border-border/40 rounded-xl">
                 <code className="text-[10px] font-mono break-all block text-muted-foreground">{explorerAddress}</code>
               </div>
-              {(() => {
-                const addr = explorerAddress || '';
-                const sym = explorerCurrency || '';
-                const links: { label: string; url: string }[] = [];
-                if (['ETH', 'LINK', 'USDT', 'USDC', 'UNI'].includes(sym)) {
-                  links.push({ label: 'Etherscan', url: `https://etherscan.io/address/${addr}` });
-                } else if (sym === 'BNB') {
-                  links.push({ label: 'BscScan', url: `https://bscscan.com/address/${addr}` });
-                } else if (sym === 'BTC') {
-                  links.push({ label: 'Blockchain.com', url: `https://www.blockchain.com/explorer/addresses/btc/${addr}` });
-                  links.push({ label: 'Mempool.space', url: `https://mempool.space/address/${addr}` });
-                } else if (sym === 'SOL') {
-                  links.push({ label: 'Solscan', url: `https://solscan.io/address/${addr}` });
-                } else if (sym === 'ADA') {
-                  links.push({ label: 'Cardanoscan', url: `https://cardanoscan.io/address/${addr}` });
-                } else {
-                  links.push({ label: 'Etherscan', url: `https://etherscan.io/address/${addr}` });
-                }
-                return links.map(link => (
-                  <a
-                    key={link.url}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors group"
-                  >
-                    <span className="text-sm font-medium text-primary">{link.label}</span>
-                    <ExternalLink className="h-4 w-4 text-primary/60 group-hover:text-primary transition-colors" />
-                  </a>
-                ));
-              })()}
+
+              <Link
+                href={`/explorer/${explorerAddress}?currency=${explorerCurrency}`}
+                onClick={() => setExplorerOpen(false)}
+                className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Globe className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-primary">Apex Block Explorer</p>
+                    <p className="text-[10px] text-muted-foreground">Live transactions · balance · network stats</p>
+                  </div>
+                </div>
+                <ExternalLink className="h-4 w-4 text-primary/60 group-hover:text-primary transition-colors shrink-0" />
+              </Link>
+
               <Button
                 variant="ghost"
                 className="w-full rounded-xl text-xs text-muted-foreground gap-2"
