@@ -65,73 +65,73 @@ export default function SettingsPage() {
 
         {/* ── Account ── */}
         <section>
-          <h2 className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground mb-3 px-1">Account</h2>
-          <Card className="rounded-2xl border-border/60 bg-card/60 backdrop-blur overflow-hidden divide-y divide-border/40">
+          <h2 className="text-[10px] uppercase tracking-widest font-semibold text-white/25 mb-3 px-1">Account</h2>
+          <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 overflow-hidden divide-y divide-white/[0.05]">
             <div className="flex items-center justify-between px-5 py-4">
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                  <User className="h-4 w-4 text-primary" />
+                <div className="h-8 w-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                  <User className="h-4 w-4 text-violet-400" />
                 </div>
                 <div>
-                  <p className="text-[13px] font-medium">Wallet Address</p>
-                  <code className="text-[11px] text-muted-foreground font-mono">{truncatedAddress}</code>
+                  <p className="text-[13px] font-medium text-white/70">Wallet Address</p>
+                  <code className="text-[11px] text-white/30 font-mono">{truncatedAddress}</code>
                 </div>
               </div>
-              <Badge variant="outline" className="text-[10px] border-accent/30 text-accent rounded-lg">
+              <Badge variant="outline" className="text-[10px] border-cyan-500/30 text-cyan-400 rounded-lg bg-cyan-500/5">
                 Active
               </Badge>
             </div>
 
             {/* KYC Row — fully dynamic, opens modal */}
             <button
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/20 transition-colors text-left"
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.03] transition-colors text-left"
               onClick={() => setKycModalOpen(true)}
             >
               <div className="flex items-center gap-3">
                 <div className={cn(
                   'h-8 w-8 rounded-lg border flex items-center justify-center',
                   kycStatus === 'APPROVED'
-                    ? 'bg-green-500/10 border-green-500/20'
+                    ? 'bg-emerald-500/10 border-emerald-500/20'
                     : kycStatus === 'PENDING'
                     ? 'bg-amber-500/10 border-amber-500/20'
                     : kycStatus === 'REJECTED'
-                    ? 'bg-destructive/10 border-destructive/20'
-                    : 'bg-muted/50 border-border/60'
+                    ? 'bg-red-500/10 border-red-500/20'
+                    : 'bg-white/[0.04] border-white/10'
                 )}>
                   <Shield className={cn(
                     'h-4 w-4',
-                    kycStatus === 'APPROVED' ? 'text-green-400'
+                    kycStatus === 'APPROVED' ? 'text-emerald-400'
                     : kycStatus === 'PENDING' ? 'text-amber-400'
-                    : kycStatus === 'REJECTED' ? 'text-destructive'
-                    : 'text-muted-foreground'
+                    : kycStatus === 'REJECTED' ? 'text-red-400'
+                    : 'text-white/25'
                   )} />
                 </div>
                 <div>
-                  <p className="text-[13px] font-medium">Identity Verification</p>
-                  <p className="text-[11px] text-muted-foreground">{kycSubtext()}</p>
+                  <p className="text-[13px] font-medium text-white/70">Identity Verification</p>
+                  <p className="text-[11px] text-white/25">{kycSubtext()}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 {kycBadge()}
                 {kycStatus !== 'APPROVED' && kycStatus !== 'PENDING' && (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+                  <ChevronRight className="h-4 w-4 text-white/20" />
                 )}
               </div>
             </button>
-          </Card>
+          </div>
         </section>
 
         {/* ── Appearance ── */}
         <section>
-          <h2 className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground mb-3 px-1">Appearance</h2>
-          <Card className="rounded-2xl border-border/60 bg-card/60 backdrop-blur overflow-hidden">
-            <CardContent className="px-5 py-4">
+          <h2 className="text-[10px] uppercase tracking-widest font-semibold text-white/25 mb-3 px-1">Appearance</h2>
+          <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 overflow-hidden">
+            <div className="px-5 py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[13px] font-medium">Theme</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Application colour scheme</p>
+                  <p className="text-[13px] font-medium text-white/70">Theme</p>
+                  <p className="text-[11px] text-white/25 mt-0.5">Application colour scheme</p>
                 </div>
-                <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/40 border border-border/40">
+                <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06]">
                   {[
                     { mode: 'light', icon: Sun },
                     { mode: 'dark',  icon: Moon },
@@ -140,10 +140,10 @@ export default function SettingsPage() {
                       key={mode}
                       onClick={() => setTheme(mode)}
                       className={cn(
-                        "h-8 w-8 rounded-lg flex items-center justify-center transition-all duration-200 text-[13px]",
+                        "h-8 w-8 rounded-lg flex items-center justify-center transition-all duration-200",
                         theme === mode
-                          ? "bg-primary text-white shadow-sm shadow-primary/30"
-                          : "text-muted-foreground hover:text-foreground"
+                          ? "bg-violet-500/30 text-violet-300 border border-violet-500/30"
+                          : "text-white/25 hover:text-white/50"
                       )}
                     >
                       <Icon className="h-4 w-4" />
@@ -151,27 +151,27 @@ export default function SettingsPage() {
                   ))}
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </section>
 
         {/* ── Localization ── */}
         <section>
-          <h2 className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground mb-3 px-1">Localization</h2>
-          <Card className="rounded-2xl border-border/60 bg-card/60 backdrop-blur overflow-hidden">
-            <CardContent className="px-5 py-4">
+          <h2 className="text-[10px] uppercase tracking-widest font-semibold text-white/25 mb-3 px-1">Localization</h2>
+          <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 overflow-hidden">
+            <div className="px-5 py-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-muted/50 border border-border/60 flex items-center justify-center">
-                    <Globe className="h-4 w-4 text-muted-foreground" />
+                  <div className="h-8 w-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">
+                    <Globe className="h-4 w-4 text-white/30" />
                   </div>
                   <div>
-                    <p className="text-[13px] font-medium">Display Currency</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">All prices shown in this currency</p>
+                    <p className="text-[13px] font-medium text-white/70">Display Currency</p>
+                    <p className="text-[11px] text-white/25 mt-0.5">All prices shown in this currency</p>
                   </div>
                 </div>
                 <Select value={currency.symbol} onValueChange={setCurrency}>
-                  <SelectTrigger className="w-40 h-10 rounded-xl bg-muted/30 border-border/60 text-[13px]">
+                  <SelectTrigger className="w-40 h-10 rounded-xl bg-white/[0.04] border-white/[0.08] text-[13px]">
                     <div className="flex items-center gap-2">
                       <div className="relative h-3 w-4.5 overflow-hidden rounded-sm border border-white/10 shrink-0">
                         <Image src={currency.flagUrl} alt={currency.name} fill className="object-cover" />
@@ -179,7 +179,7 @@ export default function SettingsPage() {
                       <SelectValue />
                     </div>
                   </SelectTrigger>
-                  <SelectContent className="max-h-56 rounded-xl border-border/60">
+                  <SelectContent className="max-h-56 rounded-xl border-white/[0.08]">
                     {currencies.map(c => (
                       <SelectItem key={c.symbol} value={c.symbol} className="text-[13px]">
                         <div className="flex items-center gap-2">
@@ -193,102 +193,90 @@ export default function SettingsPage() {
                   </SelectContent>
                 </Select>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </section>
 
         {/* ── Notifications ── */}
         <section>
-          <h2 className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground mb-3 px-1">Notifications</h2>
-          <Card className="rounded-2xl border-border/60 bg-card/60 backdrop-blur overflow-hidden divide-y divide-border/40">
+          <h2 className="text-[10px] uppercase tracking-widest font-semibold text-white/25 mb-3 px-1">Notifications</h2>
+          <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 overflow-hidden divide-y divide-white/[0.05]">
             {[
-              {
-                icon: Bell,
-                label: 'Push Notifications',
-                desc: 'Receive in-app alerts',
-                value: notifications,
-                set: setNotifications,
-              },
-              {
-                icon: Smartphone,
-                label: 'Price Alerts',
-                desc: 'Notify when targets are hit',
-                value: priceAlerts,
-                set: setPriceAlerts,
-              },
+              { icon: Bell, label: 'Push Notifications', desc: 'Receive in-app alerts', value: notifications, set: setNotifications },
+              { icon: Smartphone, label: 'Price Alerts', desc: 'Notify when targets are hit', value: priceAlerts, set: setPriceAlerts },
             ].map(({ icon: Icon, label, desc, value, set }) => (
               <div key={label} className="flex items-center justify-between px-5 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-muted/50 border border-border/60 flex items-center justify-center">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  <div className="h-8 w-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">
+                    <Icon className="h-4 w-4 text-white/30" />
                   </div>
                   <div>
-                    <p className="text-[13px] font-medium">{label}</p>
-                    <p className="text-[11px] text-muted-foreground">{desc}</p>
+                    <p className="text-[13px] font-medium text-white/70">{label}</p>
+                    <p className="text-[11px] text-white/25">{desc}</p>
                   </div>
                 </div>
                 <Switch checked={value} onCheckedChange={set} />
               </div>
             ))}
-          </Card>
+          </div>
         </section>
 
         {/* ── Security ── */}
         <section>
-          <h2 className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground mb-3 px-1">Security</h2>
-          <Card className="rounded-2xl border-border/60 bg-card/60 backdrop-blur overflow-hidden divide-y divide-border/40">
+          <h2 className="text-[10px] uppercase tracking-widest font-semibold text-white/25 mb-3 px-1">Security</h2>
+          <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 overflow-hidden divide-y divide-white/[0.05]">
 
             <div className="flex items-center justify-between px-5 py-4">
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-muted/50 border border-border/60 flex items-center justify-center">
-                  {privacyMode ? <EyeOff className="h-4 w-4 text-primary" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                <div className="h-8 w-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">
+                  {privacyMode ? <EyeOff className="h-4 w-4 text-violet-400" /> : <Eye className="h-4 w-4 text-white/30" />}
                 </div>
                 <div>
-                  <p className="text-[13px] font-medium">Privacy Mode</p>
-                  <p className="text-[11px] text-muted-foreground">{privacyMode ? 'Balances are hidden' : 'Balances are visible'}</p>
+                  <p className="text-[13px] font-medium text-white/70">Privacy Mode</p>
+                  <p className="text-[11px] text-white/25">{privacyMode ? 'Balances are hidden' : 'Balances are visible'}</p>
                 </div>
               </div>
               <Switch checked={privacyMode} onCheckedChange={togglePrivacyMode} />
             </div>
 
             <button
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/20 transition-colors text-left"
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.03] transition-colors text-left"
               onClick={() => toast({ title: 'Change PIN', description: 'Please log out and use the PIN setup flow to reset your PIN.' })}
             >
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-muted/50 border border-border/60 flex items-center justify-center">
-                  <Lock className="h-4 w-4 text-muted-foreground" />
+                <div className="h-8 w-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">
+                  <Lock className="h-4 w-4 text-white/30" />
                 </div>
                 <div>
-                  <p className="text-[13px] font-medium">Change PIN</p>
-                  <p className="text-[11px] text-muted-foreground">Update your 6-digit security PIN</p>
+                  <p className="text-[13px] font-medium text-white/70">Change PIN</p>
+                  <p className="text-[11px] text-white/25">Update your 6-digit security PIN</p>
                 </div>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+              <ChevronRight className="h-4 w-4 text-white/15" />
             </button>
 
             <button
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/20 transition-colors text-left"
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.03] transition-colors text-left"
               onClick={() => toast({ title: 'Biometric Auth', description: 'Use passkey authentication on the login screen to enable biometrics.' })}
             >
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-muted/50 border border-border/60 flex items-center justify-center">
-                  <Fingerprint className="h-4 w-4 text-muted-foreground" />
+                <div className="h-8 w-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">
+                  <Fingerprint className="h-4 w-4 text-white/30" />
                 </div>
                 <div>
-                  <p className="text-[13px] font-medium">Biometric / Passkey Auth</p>
-                  <p className="text-[11px] text-muted-foreground">Secure login with device biometrics</p>
+                  <p className="text-[13px] font-medium text-white/70">Biometric / Passkey Auth</p>
+                  <p className="text-[11px] text-white/25">Secure login with device biometrics</p>
                 </div>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+              <ChevronRight className="h-4 w-4 text-white/15" />
             </button>
-          </Card>
+          </div>
         </section>
 
         {/* ── Legal & Compliance ── */}
         <section>
-          <h2 className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground mb-3 px-1">Legal & Compliance</h2>
-          <Card className="rounded-2xl border-border/60 bg-card/60 backdrop-blur overflow-hidden divide-y divide-border/40">
+          <h2 className="text-[10px] uppercase tracking-widest font-semibold text-white/25 mb-3 px-1">Legal & Compliance</h2>
+          <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 overflow-hidden divide-y divide-white/[0.05]">
             {[
               { label: 'Terms of Service', desc: 'User agreement and platform rules', href: '/legal/terms' },
               { label: 'Privacy Policy', desc: 'POPIA-compliant data handling', href: '/legal/privacy' },
@@ -298,32 +286,32 @@ export default function SettingsPage() {
               <Link
                 key={href}
                 href={href}
-                className="flex items-center justify-between px-5 py-4 hover:bg-muted/20 transition-colors"
+                className="flex items-center justify-between px-5 py-4 hover:bg-white/[0.03] transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-muted/50 border border-border/60 flex items-center justify-center">
-                    <Scale className="h-4 w-4 text-muted-foreground" />
+                  <div className="h-8 w-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">
+                    <Scale className="h-4 w-4 text-white/30" />
                   </div>
                   <div>
-                    <p className="text-[13px] font-medium">{label}</p>
-                    <p className="text-[11px] text-muted-foreground">{desc}</p>
+                    <p className="text-[13px] font-medium text-white/70">{label}</p>
+                    <p className="text-[11px] text-white/25">{desc}</p>
                   </div>
                 </div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/40" />
+                <ExternalLink className="h-3.5 w-3.5 text-white/15" />
               </Link>
             ))}
-          </Card>
+          </div>
         </section>
 
         {/* Regulatory Notice */}
-        <div className="p-4 rounded-xl bg-muted/20 border border-border/40 space-y-1.5">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Regulatory Information</p>
-          <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
+        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1.5">
+          <p className="text-[10px] font-semibold text-white/20 uppercase tracking-wider">Regulatory Information</p>
+          <p className="text-[10px] text-white/15 leading-relaxed">
             Apex Wallet operates under FICA No. 38 of 2001, FSRA No. 9 of 2017, and POPIA No. 4 of 2013. Crypto asset transactions are subject to FATF Travel Rule obligations. This platform does not provide licensed financial advice. FSCA regulated.
           </p>
         </div>
 
-        <p className="text-center text-[11px] text-muted-foreground/40 pb-4">
+        <p className="text-center text-[11px] text-white/10 pb-4">
           Apex Wallet v2.0.0 · Mainnet · Build 2026.03 · FICA Compliant
         </p>
       </div>

@@ -20,7 +20,7 @@ const allKnownCoins = [...staticAssets, ...marketCoins].reduce<Array<{ symbol: s
   return acc;
 }, []);
 
-const CHART_COLORS = ['#3B8EF3', '#16C780', '#9945FF', '#F7931A', '#F0B90B', '#EF4444', '#00AAE4', '#2A5ADA'];
+const CHART_COLORS = ['#7C3AED', '#06B6D4', '#F7931A', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
 
 const chartConfig = {
   value: { label: 'Value' },
@@ -87,7 +87,7 @@ export function PortfolioOverview() {
   if (isLoading) {
     return (
       <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5">
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#3B8EF3] to-[#16C780]" />
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500" />
         <div className="flex items-center justify-between mb-4">
           <Skeleton className="h-5 w-36" />
           <Skeleton className="h-6 w-16 rounded-full" />
@@ -113,7 +113,7 @@ export function PortfolioOverview() {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5 h-full">
       {/* Top accent bar */}
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#3B8EF3] to-[#16C780]" />
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500" />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-5">

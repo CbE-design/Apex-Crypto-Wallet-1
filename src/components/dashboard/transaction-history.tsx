@@ -38,11 +38,11 @@ function generateTxHash(id: string): string {
 const INCOMING_TYPES = new Set(['Buy', 'Internal Transfer']);
 
 const TYPE_CONFIG: Record<string, { icon: React.ReactNode; bg: string; text: string }> = {
-  Buy:               { icon: <ArrowDownLeft className="h-3.5 w-3.5" />, bg: 'bg-emerald-500/15 border-emerald-500/20', text: 'text-emerald-400' },
-  Sell:              { icon: <ArrowUpRight  className="h-3.5 w-3.5" />, bg: 'bg-red-500/15 border-red-500/20',         text: 'text-red-400' },
-  Withdrawal:        { icon: <Building2     className="h-3.5 w-3.5" />, bg: 'bg-orange-500/15 border-orange-500/20',   text: 'text-orange-400' },
-  Swap:              { icon: <ArrowLeftRight className="h-3.5 w-3.5" />, bg: 'bg-violet-500/15 border-violet-500/20',  text: 'text-violet-400' },
-  'Internal Transfer': { icon: <Send        className="h-3.5 w-3.5" />, bg: 'bg-blue-500/15 border-blue-500/20',      text: 'text-blue-400' },
+  Buy:               { icon: <ArrowDownLeft className="h-3.5 w-3.5" />, bg: 'bg-cyan-500/12 border-cyan-500/20',       text: 'text-cyan-400' },
+  Sell:              { icon: <ArrowUpRight  className="h-3.5 w-3.5" />, bg: 'bg-red-500/12 border-red-500/20',         text: 'text-red-400' },
+  Withdrawal:        { icon: <Building2     className="h-3.5 w-3.5" />, bg: 'bg-orange-500/12 border-orange-500/20',   text: 'text-orange-400' },
+  Swap:              { icon: <ArrowLeftRight className="h-3.5 w-3.5" />, bg: 'bg-violet-500/12 border-violet-500/20',  text: 'text-violet-400' },
+  'Internal Transfer': { icon: <Send        className="h-3.5 w-3.5" />, bg: 'bg-violet-500/12 border-violet-500/20',  text: 'text-violet-400' },
 };
 
 const STATUS_CONFIG: Record<string, { dot: string; label: string; text: string }> = {
@@ -89,7 +89,7 @@ export function TransactionHistory() {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm h-full">
       {/* Top accent */}
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#3B8EF3] via-[#16C780] to-[#9945FF]" />
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 via-cyan-400 to-violet-600" />
 
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/[0.06]">

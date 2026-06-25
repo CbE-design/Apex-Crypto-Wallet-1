@@ -121,7 +121,7 @@ export function PinSetupDialog({
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
-        className="sm:max-w-sm rounded-2xl border-border/60 bg-card [&>button:first-of-type]:hidden"
+        className="sm:max-w-sm border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60 [&>button:first-of-type]:hidden"
         onInteractOutside={e => e.preventDefault()}
         onEscapeKeyDown={e => e.preventDefault()}
       >

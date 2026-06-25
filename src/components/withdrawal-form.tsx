@@ -418,22 +418,22 @@ export function WithdrawalForm() {
   );
 
   return (
-    <Card className="bg-card/50 backdrop-blur-sm border-border/60">
-      <CardHeader className="pb-4 border-b border-border/40">
-        <CardTitle className="text-base flex items-center gap-2">
+    <Card className="rounded-[28px] border border-white/[0.08] bg-[#0A0C12]/90 backdrop-blur-xl overflow-hidden">
+      <CardHeader className="pb-4 border-b border-white/[0.06]">
+        <CardTitle className="text-base flex items-center gap-2 text-white">
           Request a Withdrawal
         </CardTitle>
-        <CardDescription className="text-xs mt-1">
+        <CardDescription className="text-xs mt-1 text-white/30">
           Sell crypto and receive ZAR to your bank account
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-5">
         <Tabs value={method} onValueChange={v => setMethod(v as 'EFT' | 'SWIFT')} className="w-full">
-          <TabsList className="grid grid-cols-2 bg-muted/30 rounded-xl p-1 h-11 mb-5">
-            <TabsTrigger value="EFT" className="rounded-lg text-xs font-semibold gap-1.5">
+          <TabsList className="grid grid-cols-2 bg-white/[0.04] rounded-xl p-1 h-11 mb-5 border border-white/[0.06]">
+            <TabsTrigger value="EFT" className="rounded-lg text-xs font-semibold gap-1.5 data-[state=active]:bg-violet-500/15 data-[state=active]:text-violet-300">
               <Building2 className="h-3.5 w-3.5" /> EFT (1.5% + R15)
             </TabsTrigger>
-            <TabsTrigger value="SWIFT" className="rounded-lg text-xs font-semibold gap-1.5">
+            <TabsTrigger value="SWIFT" className="rounded-lg text-xs font-semibold gap-1.5 data-[state=active]:bg-cyan-500/15 data-[state=active]:text-cyan-300">
               <Globe className="h-3.5 w-3.5" /> SWIFT (3.5% + R250)
             </TabsTrigger>
           </TabsList>

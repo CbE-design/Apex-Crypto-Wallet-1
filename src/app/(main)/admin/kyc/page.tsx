@@ -207,53 +207,58 @@ export default function KYCApprovalsPage() {
   }, [activeTab, pendingSubmissions, approvedSubmissions, rejectedSubmissions, searchQuery]);
 
   const SubmissionCard = ({ submission }: { submission: KYCSubmission }) => (
-    <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer"
-      onClick={() => { setSelectedSubmission(submission); setIsDetailOpen(true); }}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              <User className="h-5 w-5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold truncate">{submission.fullName}</p>
-              <p className="text-xs text-muted-foreground truncate">{submission.userEmail}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="text-[9px] bg-muted/30">
-                  {getDocumentTypeLabel(submission.documentType, submission.countryCode)}
-                </Badge>
-                <span className="text-[10px] text-muted-foreground">{getCountryFlag(submission.countryCode)} {submission.nationality}</span>
-              </div>
-            </div>
+    <div
+      className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 hover:border-violet-500/15 transition-all cursor-pointer p-4 group"
+      onClick={() => { setSelectedSubmission(submission); setIsDetailOpen(true); }}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+            <User className="h-5 w-5 text-amber-400" />
           </div>
-          <div className="text-right shrink-0">{getStatusBadge(submission.status)}</div>
-        </div>
-        <div className="mt-3 pt-3 border-t border-border/30 flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" /> {formatDate(submission.submittedAt)}
-          </div>
-          <div className="flex items-center gap-2">
-            {submission.withdrawalIntent && (
-              <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-400 border-amber-500/30 gap-1">
-                <Banknote className="h-2.5 w-2.5" />
-                Blocking {submission.withdrawalIntent.method} {submission.withdrawalIntent.currency} {parseFloat(submission.withdrawalIntent.amount).toLocaleString()}
-              </Badge>
-            )}
-            <Button variant="ghost" size="sm" className="h-7 text-xs"><Eye className="h-3 w-3 mr-1" /> Review</Button>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white/80 truncate">{submission.fullName}</p>
+            <p className="text-xs text-white/35 truncate">{submission.userEmail}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[9px] font-semibold px-2 py-0.5 rounded-lg bg-white/[0.04] text-white/30 border border-white/[0.06]">
+                {getDocumentTypeLabel(submission.documentType, submission.countryCode)}
+              </span>
+              <span className="text-[10px] text-white/25">{getCountryFlag(submission.countryCode)} {submission.nationality}</span>
+            </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+        <div className="shrink-0">{getStatusBadge(submission.status)}</div>
+      </div>
+      <div className="mt-3 pt-3 border-t border-white/[0.05] flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 text-[10px] text-white/25">
+          <Clock className="h-3 w-3" /> {formatDate(submission.submittedAt)}
+        </div>
+        <div className="flex items-center gap-2">
+          {submission.withdrawalIntent && (
+            <span className="text-[9px] font-semibold px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+              <Banknote className="h-2.5 w-2.5" />
+              Blocking {submission.withdrawalIntent.method}
+            </span>
+          )}
+          <span className="text-[10px] font-semibold text-violet-400/60 group-hover:text-violet-400 flex items-center gap-1 transition-colors">
+            <Eye className="h-3 w-3" /> Review
+          </span>
+        </div>
+      </div>
+    </div>
   );
 
   return (
     <div className="space-y-6 pb-20">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold italic tracking-tighter uppercase">KYC Verification</h1>
-          <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400">
-            Identity Document Review & Compliance
-          </p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <UserCheck className="h-5 w-5 text-amber-400" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">KYC Verification</h1>
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/25 ml-1">Identity Document Review · Compliance</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={fetchSubmissions} disabled={isLoading} className="gap-2 h-9 rounded-xl border-white/10 bg-white/5">
@@ -275,51 +280,40 @@ export default function KYCApprovalsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-white/5 rounded-2xl p-1 h-12">
-          <TabsTrigger value="pending" className="rounded-xl font-bold text-xs gap-2">
+        <TabsList className="grid w-full grid-cols-3 bg-white/[0.04] rounded-2xl p-1 h-11 border border-white/[0.06]">
+          <TabsTrigger value="pending" className="rounded-xl text-[10px] font-semibold data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-300 data-[state=active]:border data-[state=active]:border-amber-500/25">
             Pending ({pendingSubmissions.length})
           </TabsTrigger>
-          <TabsTrigger value="approved" className="rounded-xl font-bold text-xs gap-2">
+          <TabsTrigger value="approved" className="rounded-xl text-[10px] font-semibold data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-300 data-[state=active]:border data-[state=active]:border-emerald-500/25">
             Approved ({approvedSubmissions.length})
           </TabsTrigger>
-          <TabsTrigger value="rejected" className="rounded-xl font-bold text-xs gap-2">
+          <TabsTrigger value="rejected" className="rounded-xl text-[10px] font-semibold data-[state=active]:bg-red-500/15 data-[state=active]:text-red-300 data-[state=active]:border data-[state=active]:border-red-500/25">
             Rejected ({rejectedSubmissions.length})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-6">
+        <TabsContent value={activeTab} className="mt-5">
           {error ? (
-            <Card className="border-destructive/20 bg-destructive/5">
-              <CardContent className="py-10 text-center space-y-3">
-                <AlertTriangle className="h-10 w-10 text-destructive mx-auto" />
-                <h3 className="font-bold text-destructive">Connection Errored</h3>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">{error}</p>
-                <Button variant="outline" size="sm" onClick={fetchSubmissions}>Retry Connection</Button>
-              </CardContent>
-            </Card>
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 py-10 text-center space-y-3">
+              <AlertTriangle className="h-10 w-10 text-red-400 mx-auto" />
+              <h3 className="font-bold text-red-300">Connection Error</h3>
+              <p className="text-sm text-white/30 max-w-md mx-auto">{error}</p>
+              <Button variant="outline" size="sm" onClick={fetchSubmissions} className="border-white/10">Retry</Button>
+            </div>
           ) : isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-xs text-muted-foreground animate-pulse font-medium">Establishing Secure Connection...</p>
+              <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+              <p className="text-xs text-white/25 animate-pulse font-semibold">Loading Submissions...</p>
             </div>
           ) : currentList.length > 0 ? (
-            <div className="grid gap-4">
-              {currentList.map((submission) => (
-                <SubmissionCard key={submission.id} submission={submission} />
-              ))}
+            <div className="grid gap-3">
+              {currentList.map((submission) => <SubmissionCard key={submission.id} submission={submission} />)}
             </div>
           ) : (
-            <Card className="border-border/50 bg-card/60">
-              <CardContent className="py-20 text-center">
-                <div className="h-16 w-16 rounded-full bg-muted/30 flex items-center justify-center mx-auto mb-4">
-                  <UserCheck className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">No {activeTab} Submissions</h3>
-                <p className="text-sm text-muted-foreground">
-                  {activeTab === 'pending' ? 'All KYC submissions have been reviewed.' : `No ${activeTab} KYC submissions found.`}
-                </p>
-              </CardContent>
-            </Card>
+            <div className="py-20 text-center">
+              <UserCheck className="h-10 w-10 mx-auto mb-4 text-white/[0.08]" />
+              <p className="text-sm font-semibold text-white/20 uppercase tracking-widest">No {activeTab} Submissions</p>
+            </div>
           )}
         </TabsContent>
       </Tabs>

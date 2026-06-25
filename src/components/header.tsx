@@ -1,6 +1,6 @@
 'use client';
 
-import { LogOut, Settings, User, ChevronDown, Copy } from 'lucide-react';
+import { LogOut, Settings, User, ChevronDown, Copy, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useWallet } from '@/context/wallet-context';
@@ -61,125 +61,103 @@ export function Header() {
     : null;
 
   return (
-    <header className="flex items-center justify-between px-4 h-14 bg-background/80 backdrop-blur-xl border-b border-white/5">
-      {/* Left: sidebar trigger + page title */}
+    <header className="flex items-center justify-between px-4 h-14 border-b border-white/[0.05]">
+      {/* Left */}
       <div className="flex items-center gap-3">
-        <SidebarTrigger className="md:hidden -ml-1 h-8 w-8 rounded-lg hover:bg-muted/60 text-muted-foreground transition-colors" />
-        <div className="flex items-center gap-2">
-          <div className="hidden md:block h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-          <h1 className="text-[15px] font-semibold text-foreground tracking-tight">{pageTitle}</h1>
+        <SidebarTrigger className="md:hidden -ml-1 h-8 w-8 rounded-lg hover:bg-white/[0.05] text-white/40 transition-colors" />
+        <div className="flex items-center gap-2.5">
+          <div className="hidden md:flex h-5 w-5 items-center justify-center rounded-lg bg-violet-500/10 border border-violet-500/20">
+            <div className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />
+          </div>
+          <h1 className="text-[15px] font-semibold text-white/90 tracking-tight">{pageTitle}</h1>
         </div>
       </div>
 
-      {/* Right: controls */}
+      {/* Right */}
       <div className="flex items-center gap-1.5">
 
         {/* Currency picker */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 px-2.5 rounded-lg text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:bg-white/5"
-            >
-              <span className="text-foreground/80">{currency.symbol}</span>
+            <Button variant="ghost" size="sm"
+              className="h-8 gap-1.5 px-2.5 rounded-lg text-[12px] font-semibold text-white/40 hover:text-white/70 hover:bg-white/[0.05]">
+              <span className="text-white/70">{currency.symbol}</span>
               <div className="relative h-3 w-[18px] overflow-hidden rounded-sm border border-white/10 hidden sm:block">
-                <Image
-                  src={currency.flagUrl}
-                  alt={currency.name}
-                  fill
-                  className="object-cover"
-                />
+                <Image src={currency.flagUrl} alt={currency.name} fill className="object-cover" />
               </div>
-              <ChevronDown className="h-3 w-3 opacity-50" />
+              <ChevronDown className="h-3 w-3 opacity-40" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 bg-card/95 backdrop-blur-xl border-border/60">
-            <DropdownMenuLabel className="text-[11px] uppercase tracking-widest text-muted-foreground px-2 py-1.5">
+          <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 bg-[#0A0C12]/95 backdrop-blur-xl border-white/[0.08]">
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.15em] text-white/30 px-2 py-1.5">
               Display Currency
             </DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-border/50" />
+            <DropdownMenuSeparator className="bg-white/[0.05]" />
             <div className="max-h-60 overflow-y-auto space-y-0.5">
               {currencies.map((c) => (
-                <DropdownMenuItem
-                  key={c.symbol}
-                  onClick={() => setCurrency(c.symbol)}
-                  className={cn(
-                    "rounded-lg cursor-pointer text-[13px]",
-                    currency.symbol === c.symbol && "bg-primary/10 text-primary"
-                  )}
-                >
+                <DropdownMenuItem key={c.symbol} onClick={() => setCurrency(c.symbol)}
+                  className={cn("rounded-lg cursor-pointer text-[13px]", currency.symbol === c.symbol && "bg-violet-500/10 text-violet-300")}>
                   <div className="relative h-3 w-[18px] overflow-hidden rounded-sm border border-white/5 mr-2 shrink-0">
-                    <Image
-                      src={c.flagUrl}
-                      alt={c.name}
-                      fill
-                      className="object-cover"
-                    />
+                    <Image src={c.flagUrl} alt={c.name} fill className="object-cover" />
                   </div>
                   <span className="font-medium">{c.symbol}</span>
-                  <span className="ml-auto text-muted-foreground text-[11px]">{c.name}</span>
+                  <span className="ml-auto text-white/30 text-[11px]">{c.name}</span>
                 </DropdownMenuItem>
               ))}
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {/* Notifications placeholder */}
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-white/[0.05] text-white/30 hover:text-white/60 transition-colors relative">
+          <Bell className="h-4 w-4" />
+        </Button>
+
         {/* Profile dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-lg p-0 overflow-hidden border border-white/10 hover:border-primary/40 transition-colors shadow-sm"
-            >
-              <div className="h-full w-full bg-gradient-to-br from-primary/30 to-accent/20 flex items-center justify-center">
-                {initials ? (
-                  <span className="text-[10px] font-bold text-primary">{initials}</span>
-                ) : (
-                  <User className="h-3.5 w-3.5 text-primary/70" />
-                )}
+            <Button variant="ghost" size="icon"
+              className="h-8 w-8 rounded-lg p-0 overflow-hidden border border-violet-500/20 hover:border-violet-500/40 transition-all shadow-sm shadow-violet-500/10">
+              <div className="h-full w-full bg-gradient-to-br from-violet-500/25 to-cyan-500/15 flex items-center justify-center">
+                {initials
+                  ? <span className="text-[10px] font-bold text-violet-300">{initials}</span>
+                  : <User className="h-3.5 w-3.5 text-violet-400/70" />}
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 rounded-xl p-1 bg-card/95 backdrop-blur-xl border-border/60">
+          <DropdownMenuContent align="end" className="w-56 rounded-xl p-1 bg-[#0A0C12]/95 backdrop-blur-xl border-white/[0.08]">
             {user?.email && (
               <>
                 <div className="px-2 py-2">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-0.5">Signed in as</p>
-                  <p className="text-[12px] font-medium text-foreground truncate">{user.email}</p>
+                  <p className="text-[9px] uppercase tracking-[0.15em] text-white/25 mb-0.5">Signed in as</p>
+                  <p className="text-[12px] font-medium text-white/80 truncate">{user.email}</p>
                 </div>
-                <DropdownMenuSeparator className="bg-border/50" />
+                <DropdownMenuSeparator className="bg-white/[0.05]" />
               </>
             )}
             {truncatedAddress && (
               <>
                 <div className="px-2 py-2">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Wallet</p>
+                  <p className="text-[9px] uppercase tracking-[0.15em] text-white/25 mb-1">Wallet</p>
                   <div className="flex items-center gap-2">
-                    <code className="text-[11px] font-mono text-foreground flex-1 truncate">{truncatedAddress}</code>
-                    <button
-                      onClick={copyAddress}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
+                    <code className="text-[11px] font-mono text-white/60 flex-1 truncate">{truncatedAddress}</code>
+                    <button onClick={copyAddress} className="text-white/25 hover:text-violet-400 transition-colors">
                       <Copy className="h-3 w-3" />
                     </button>
                   </div>
                 </div>
-                <DropdownMenuSeparator className="bg-border/50" />
+                <DropdownMenuSeparator className="bg-white/[0.05]" />
               </>
             )}
-            <DropdownMenuItem asChild className="rounded-lg cursor-pointer text-[13px]">
+            <DropdownMenuItem asChild className="rounded-lg cursor-pointer text-[13px] text-white/60 hover:text-white">
               <Link href="/settings">
                 <Settings className="mr-2 h-3.5 w-3.5" />
                 Settings
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-border/50" />
-            <DropdownMenuItem
-              onClick={onDisconnect}
-              className="rounded-lg cursor-pointer text-[13px] text-destructive hover:text-destructive focus:text-destructive"
-            >
+            <DropdownMenuSeparator className="bg-white/[0.05]" />
+            <DropdownMenuItem onClick={onDisconnect}
+              className="rounded-lg cursor-pointer text-[13px] text-red-400 hover:text-red-300 focus:text-red-300">
               <LogOut className="mr-2 h-3.5 w-3.5" />
               Disconnect Wallet
             </DropdownMenuItem>

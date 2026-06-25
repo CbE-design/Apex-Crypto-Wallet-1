@@ -280,12 +280,12 @@ export default function SwapPage() {
   }
   
   const renderSwapForm = () => (
-    <div className="space-y-5">
+    <div className="space-y-4">
         <div className="space-y-2">
-            <Label htmlFor="from-asset" className="text-xs font-medium text-muted-foreground">From</Label>
+            <Label htmlFor="from-asset" className="text-[10px] font-semibold uppercase tracking-widest text-white/30">From</Label>
             <div className="flex gap-2">
                 <Select value={fromAsset} onValueChange={setFromAsset}>
-                    <SelectTrigger id="from-asset" className="w-2/3 h-12 rounded-xl bg-muted/20 border-border/60">
+                    <SelectTrigger id="from-asset" className="w-2/3 h-12 rounded-xl bg-white/[0.04] border-white/[0.08]">
                         <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
                     <SelectContent>
@@ -303,29 +303,29 @@ export default function SwapPage() {
                     id="from-amount" 
                     type="number" 
                     placeholder="0.00" 
-                    className="w-1/3 text-right h-12 rounded-xl bg-muted/20 border-border/60 font-semibold"
+                    className="w-1/3 text-right h-12 rounded-xl bg-white/[0.04] border-white/[0.08] font-semibold"
                     value={fromAmount}
                     onChange={(e) => setFromAmount(e.target.value)}
                 />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-                Balance: <span className="font-medium text-foreground">{(fromAssetBalance ?? 0).toFixed(4)}</span>
+            <p className="text-[10px] text-white/30">
+                Balance: <span className="font-semibold text-white/60">{(fromAssetBalance ?? 0).toFixed(4)}</span>
             </p>
         </div>
         
-        <div className="flex justify-center items-center">
-            <div className="w-full h-px bg-border/40"></div>
-            <Button variant="outline" size="icon" onClick={handleFlipAssets} className="mx-3 flex-shrink-0 h-10 w-10 rounded-xl border-border/60 hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all">
+        <div className="flex justify-center items-center gap-3">
+            <div className="flex-1 h-px bg-white/[0.06]" />
+            <button onClick={handleFlipAssets} className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 text-violet-400 flex items-center justify-center transition-all">
                 <ArrowLeftRight className="h-4 w-4" />
-            </Button>
-            <div className="w-full h-px bg-border/40"></div>
+            </button>
+            <div className="flex-1 h-px bg-white/[0.06]" />
         </div>
 
         <div className="space-y-2">
-            <Label htmlFor="to-asset" className="text-xs font-medium text-muted-foreground">To</Label>
+            <Label htmlFor="to-asset" className="text-[10px] font-semibold uppercase tracking-widest text-white/30">To</Label>
             <div className="flex gap-2">
                 <Select value={toAsset} onValueChange={setToAsset}>
-                    <SelectTrigger id="to-asset" className="w-2/3 h-12 rounded-xl bg-muted/20 border-border/60">
+                    <SelectTrigger id="to-asset" className="w-2/3 h-12 rounded-xl bg-white/[0.04] border-white/[0.08]">
                         <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
                     <SelectContent>
@@ -343,53 +343,54 @@ export default function SwapPage() {
                     id="to-amount" 
                     type="text" 
                     placeholder="0.00"
-                    className="w-1/3 text-right h-12 rounded-xl bg-muted/10 border-border/40 font-semibold text-muted-foreground"
+                    className="w-1/3 text-right h-12 rounded-xl bg-white/[0.02] border-white/[0.05] font-semibold text-white/40 cursor-not-allowed"
                     value={toAmount}
                     readOnly
                 />
             </div>
         </div>
         
-        <div className="text-sm text-muted-foreground text-center h-5 flex items-center justify-center">
-            {isLoadingRate && <Loader2 className="h-4 w-4 animate-spin" />}
+        <div className="h-5 flex items-center justify-center">
+            {isLoadingRate && <Loader2 className="h-4 w-4 animate-spin text-violet-400" />}
             {!isLoadingRate && exchangeRate !== null && exchangeRate > 0 && fromAsset !== toAsset && (
-              <span className="font-medium">1 {fromAsset} ≈ {(exchangeRate ?? 0).toFixed(5)} {toAsset}</span>
+              <span className="text-[11px] font-semibold text-white/30">1 {fromAsset} ≈ <span className="text-cyan-400">{(exchangeRate ?? 0).toFixed(5)} {toAsset}</span></span>
             )}
-            {!isLoadingRate && exchangeRate === 0 && <span className="text-destructive text-xs">Could not fetch rate</span>}
+            {!isLoadingRate && exchangeRate === 0 && <span className="text-red-400 text-[11px] font-semibold">Could not fetch rate</span>}
         </div>
 
         <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button className="w-full h-12 rounded-xl btn-premium font-semibold" disabled={isButtonDisabled}>
-                    <Repeat className="mr-2 h-4 w-4" /> Swap
-                </Button>
+                <button className="w-full h-12 rounded-xl btn-premium font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-40" disabled={isButtonDisabled}>
+                    <Repeat className="h-4 w-4" /> Swap
+                </button>
             </AlertDialogTrigger>
-            <AlertDialogContent className="rounded-2xl">
+            <AlertDialogContent className="border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
+                <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[28px] bg-gradient-to-r from-violet-500 to-cyan-500" />
                 <AlertDialogHeader>
-                    <AlertDialogTitle className="text-lg font-bold">Confirm Swap</AlertDialogTitle>
-                    <AlertDialogDescription className="text-sm">
+                    <AlertDialogTitle className="text-white font-bold">Confirm Swap</AlertDialogTitle>
+                    <AlertDialogDescription className="text-white/30">
                         Review the details below. This action cannot be reversed.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
-                 <div className="space-y-3 py-4">
-                    <div className="flex justify-between items-center p-3 bg-muted/20 rounded-xl">
-                        <span className="text-sm text-muted-foreground">From</span>
-                        <span className="font-semibold flex items-center gap-2">
+                 <div className="space-y-2 py-2">
+                    <div className="flex justify-between items-center p-3 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                        <span className="text-[10px] font-semibold text-white/30 uppercase">From</span>
+                        <span className="font-semibold flex items-center gap-2 text-sm text-white/80">
                             <CryptoIcon name={allAssets.find(a => a.symbol === fromAsset)?.name || ''} className="h-4 w-4" />
                             {fromAmount} {fromAsset}
                         </span>
                     </div>
-                    <div className="flex justify-between items-center p-3 bg-muted/20 rounded-xl">
-                        <span className="text-sm text-muted-foreground">To</span>
-                        <span className="font-semibold flex items-center gap-2">
+                    <div className="flex justify-between items-center p-3 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                        <span className="text-[10px] font-semibold text-white/30 uppercase">To</span>
+                        <span className="font-semibold flex items-center gap-2 text-sm text-cyan-400">
                             <CryptoIcon name={allAssets.find(a => a.symbol === toAsset)?.name || ''} className="h-4 w-4" />
                             {toAmount} {toAsset}
                         </span>
                     </div>
                  </div>
                 <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl" disabled={isSwapping}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleSwap} className="rounded-xl" disabled={isSwapping}>
+                    <AlertDialogCancel className="rounded-xl border-white/10 bg-white/[0.04] text-white/40" disabled={isSwapping}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSwap} className="rounded-xl btn-premium" disabled={isSwapping}>
                         {isSwapping ? <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Swapping...</> : 'Confirm Swap'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
@@ -403,27 +404,28 @@ export default function SwapPage() {
       <div className="flex justify-center items-start pt-4">
         <div className="w-full max-w-md space-y-4">
           <RiskDisclaimer variant="trading" collapsible />
-          <Card className="bg-card/60 backdrop-blur-sm border-border/60">
-            <CardHeader className="border-b border-border/40 pb-5">
+          <div className="rounded-[28px] border border-white/[0.08] bg-[#0A0C12]/90 backdrop-blur-xl overflow-hidden relative">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500" />
+            <div className="px-6 pt-7 pb-5 border-b border-white/[0.06]">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20">
-                  <ArrowLeftRight className="h-5 w-5 text-primary" />
+                <div className="p-2.5 bg-violet-500/10 rounded-xl border border-violet-500/20">
+                  <ArrowLeftRight className="h-5 w-5 text-violet-400" />
                 </div>
                 <div>
-                  <CardTitle className="text-xl font-bold">Swap</CardTitle>
-                  <CardDescription className="text-sm">Exchange one cryptocurrency for another</CardDescription>
+                  <h2 className="text-xl font-bold text-white">Swap</h2>
+                  <p className="text-xs text-white/30">Exchange one cryptocurrency for another</p>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="pt-6">
+            </div>
+            <div className="px-6 py-6">
               {status === 'idle' ? renderSwapForm() : getStatusContent()}
-            </CardContent>
-          </Card>
-          <p className="text-[10px] text-center text-muted-foreground/40 px-2">
+            </div>
+          </div>
+          <p className="text-[10px] text-center text-white/20 px-2">
             By confirming a swap you acknowledge our{' '}
-            <a href="/legal/risk-disclosure" className="underline hover:text-muted-foreground transition-colors">Risk Disclosure</a> and{' '}
-            <a href="/legal/terms" className="underline hover:text-muted-foreground transition-colors">Terms of Service</a>.
-            Swaps are final and irreversible. Not financial advice.
+            <a href="/legal/risk-disclosure" className="underline hover:text-white/40 transition-colors">Risk Disclosure</a> and{' '}
+            <a href="/legal/terms" className="underline hover:text-white/40 transition-colors">Terms of Service</a>.
+            Swaps are final and irreversible.
           </p>
         </div>
       </div>

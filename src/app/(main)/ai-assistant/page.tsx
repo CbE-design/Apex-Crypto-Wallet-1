@@ -120,7 +120,7 @@ export default function AIAssistantPage() {
 
         {/* ── Mode switcher ── */}
         <div className="shrink-0 mb-4">
-          <div className="relative flex p-1 rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 shadow-lg shadow-black/10">
+          <div className="relative flex p-1 rounded-2xl bg-[#0A0C12]/80 backdrop-blur-sm border border-white/[0.07] shadow-lg shadow-black/20">
             {/* Sliding pill */}
             <div
               className={cn(
@@ -220,8 +220,8 @@ export default function AIAssistantPage() {
                       className={cn(
                         "flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-card/80 border transition-all text-left group",
                         mode === 'support'
-                          ? "border-border/60 hover:border-primary/30 hover:bg-primary/5"
-                          : "border-border/60 hover:border-accent/30 hover:bg-accent/5"
+                          ? "border-white/[0.07] hover:border-violet-500/30 hover:bg-violet-500/5"
+                          : "border-white/[0.07] hover:border-cyan-500/30 hover:bg-cyan-500/5"
                       )}
                     >
                       <span className="text-[12px] text-foreground/80 group-hover:text-foreground leading-snug">{q}</span>
@@ -266,7 +266,7 @@ export default function AIAssistantPage() {
                       "px-4 py-3 rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap shadow-sm",
                       msg.role === 'user'
                         ? "bg-gradient-to-br from-primary to-primary/80 text-white rounded-br-sm shadow-primary/20"
-                        : "bg-card/90 border border-border/60 text-foreground rounded-bl-sm backdrop-blur-sm"
+                        : "bg-[#0D0F18]/90 border border-white/[0.07] text-white/70 rounded-bl-sm backdrop-blur-sm"
                     )}>
                       {msg.content}
                     </div>
@@ -276,7 +276,7 @@ export default function AIAssistantPage() {
                   </div>
 
                   {msg.role === 'user' && (
-                    <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary/20 to-accent/10 border border-border/60 flex items-center justify-center shrink-0 mb-0.5">
+                    <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-violet-500/20 to-cyan-500/10 border border-white/[0.08] flex items-center justify-center shrink-0 mb-0.5">
                       <User className="h-3.5 w-3.5 text-foreground/60" />
                     </div>
                   )}
@@ -297,7 +297,7 @@ export default function AIAssistantPage() {
                       : <Sparkles className="h-3.5 w-3.5 text-accent" />
                     }
                   </div>
-                  <div className="bg-card/90 border border-border/60 rounded-2xl rounded-bl-sm px-4 py-3 backdrop-blur-sm">
+                  <div className="bg-[#0D0F18]/90 border border-white/[0.07] rounded-2xl rounded-bl-sm px-4 py-3 backdrop-blur-sm">
                     <div className="flex items-center gap-1.5">
                       <span className={cn("h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:0ms]", mode === 'support' ? "bg-primary/60" : "bg-accent/60")} />
                       <span className={cn("h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:150ms]", mode === 'support' ? "bg-primary/60" : "bg-accent/60")} />
@@ -323,7 +323,7 @@ export default function AIAssistantPage() {
                   key={q}
                   onClick={() => sendMessage(q)}
                   className={cn(
-                    "shrink-0 text-[11px] px-3 py-1.5 rounded-full bg-card/80 border border-border/60 text-muted-foreground transition-all whitespace-nowrap backdrop-blur-sm",
+                    "shrink-0 text-[11px] px-3 py-1.5 rounded-full bg-[#0A0C12]/80 border border-white/[0.07] text-white/30 transition-all whitespace-nowrap backdrop-blur-sm",
                     mode === 'support' ? "hover:border-primary/30 hover:text-primary" : "hover:border-accent/30 hover:text-accent"
                   )}
                 >
@@ -344,7 +344,7 @@ export default function AIAssistantPage() {
                 : 'Ask about crypto prices, markets, blockchain…'}
               disabled={isLoading}
               rows={1}
-              className="flex-1 resize-none min-h-[44px] max-h-32 rounded-xl bg-card/80 border-border/60 focus:border-primary/40 text-[13px] py-3 leading-relaxed backdrop-blur-sm"
+              className="flex-1 resize-none min-h-[44px] max-h-32 rounded-xl bg-white/[0.04] border-white/[0.07] focus:border-violet-500/30 text-[13px] py-3 leading-relaxed backdrop-blur-sm"
             />
             <Button
               onClick={() => sendMessage(input)}
