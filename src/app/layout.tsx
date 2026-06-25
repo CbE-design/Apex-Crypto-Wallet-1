@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Space_Grotesk } from 'next/font/google';
 import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,13 @@ const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
   display: 'swap',
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-space-grotesk',
+  display: 'swap',
+  weight: ['300', '400', '500', '600', '700'],
 });
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://apexwallet.co.za';
@@ -74,9 +81,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn('h-full', inter.variable, GeistSans.variable)} suppressHydrationWarning>
-      <body className={cn('font-body antialiased h-full', inter.className)}>
-        {/* JSON-LD must live in <body>, not <head>, in Next.js App Router */}
+    <html lang="en" className={cn('h-full', inter.variable, GeistSans.variable, spaceGrotesk.variable)} suppressHydrationWarning>
+      <body className={cn('font-body antialiased h-full', spaceGrotesk.className)}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
