@@ -187,7 +187,7 @@ export default function SendReceivePage() {
                 <TabsTrigger value="receive" className="rounded-lg text-sm font-medium data-[state=active]:bg-violet-500/15 data-[state=active]:text-violet-300 data-[state=active]:border data-[state=active]:border-violet-500/25">Receive</TabsTrigger>
               </TabsList>
               <TabsContent value="send" className="pt-6 space-y-5">
-                <form onSubmit={handleSubmit(executeSend)} className="space-y-5">
+                <form onSubmit={e => e.preventDefault()} className="space-y-5">
                     <div className="space-y-2">
                         <Label className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Asset</Label>
                         <Select value={selectedAsset} onValueChange={(val) => { setSelectedAsset(val); setValue('asset', val, { shouldValidate: true }); }}>

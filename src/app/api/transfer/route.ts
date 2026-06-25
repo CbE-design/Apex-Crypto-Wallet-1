@@ -81,35 +81,31 @@ export async function POST(req: NextRequest) {
         userId: recipientUid,
       }, { merge: true });
 
-      const txData = {
-        type: 'Internal Transfer',
+      const baseFields = {
         currency: asset,
         amount,
         price: 0,
         timestamp: FieldValue.serverTimestamp(),
         status: 'Completed',
-        recipient: recipientAddress,
         metadata: {
           travelRuleVerified: travelRuleVerified ?? false,
           complianceId: complianceId || 'AUTO_KYC_OK',
         },
       };
 
-      // Sender wallet-level transaction record
+      // Sender records — type 'Send' so dashboard shows as outgoing (-)
+      const senderTxData = { ...baseFields, type: 'Send', userId: senderUid, recipient: recipientAddress };
       const senderWalletTxRef = db.collection(`users/${senderUid}/wallets/${asset}/transactions`).doc();
-      tx.set(senderWalletTxRef, { ...txData, userId: senderUid });
-
-      // Sender top-level transaction record (for dashboard)
+      tx.set(senderWalletTxRef, senderTxData);
       const senderDashTxRef = db.collection(`users/${senderUid}/transactions`).doc();
-      tx.set(senderDashTxRef, { ...txData, userId: senderUid });
+      tx.set(senderDashTxRef, senderTxData);
 
-      // Recipient wallet-level transaction record
+      // Recipient records — type 'Internal Transfer' so dashboard shows as incoming (+)
+      const recipientTxData = { ...baseFields, type: 'Internal Transfer', userId: recipientUid, sender: senderUid, recipient: recipientAddress };
       const recipientWalletTxRef = db.collection(`users/${recipientUid}/wallets/${asset}/transactions`).doc();
-      tx.set(recipientWalletTxRef, { ...txData, userId: recipientUid, sender: senderUid });
-
-      // Recipient top-level transaction record (for dashboard)
+      tx.set(recipientWalletTxRef, recipientTxData);
       const recipientDashTxRef = db.collection(`users/${recipientUid}/transactions`).doc();
-      tx.set(recipientDashTxRef, { ...txData, userId: recipientUid, sender: senderUid });
+      tx.set(recipientDashTxRef, recipientTxData);
     });
 
     return NextResponse.json({ success: true });
