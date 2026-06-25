@@ -237,70 +237,109 @@ export default function WithdrawalApprovalsPage() {
   }, [activeTab, pendingWithdrawals, approvedWithdrawals, rejectedWithdrawals, searchQuery]);
 
   const WithdrawalCard = ({ withdrawal }: { withdrawal: WithdrawalDoc }) => (
-    <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer" onClick={() => { setSelectedWithdrawal(withdrawal); setIsDetailOpen(true); }}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              {withdrawal.withdrawalMethod === 'EFT' ? <Building2 className="h-5 w-5 text-primary" /> : <Globe className="h-5 w-5 text-primary" />}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold truncate">{withdrawal.accountHolder}</p>
-              <p className="text-xs text-muted-foreground truncate">{withdrawal.userEmail}</p>
-              <p className="text-[10px] text-muted-foreground font-mono mt-1">{withdrawal.transactionReference}</p>
-            </div>
+    <div
+      className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 hover:border-violet-500/15 transition-all cursor-pointer p-4 group"
+      onClick={() => { setSelectedWithdrawal(withdrawal); setIsDetailOpen(true); }}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="h-10 w-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+            {withdrawal.withdrawalMethod === 'EFT' ? <Building2 className="h-5 w-5 text-violet-400" /> : <Globe className="h-5 w-5 text-violet-400" />}
           </div>
-          <div className="text-right shrink-0">
-            <p className="text-lg font-bold">{formatCurrency(withdrawal.fiatAmount, withdrawal.fiatCurrency)}</p>
-            {getStatusBadge(withdrawal.status)}
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white/80 truncate">{withdrawal.accountHolder}</p>
+            <p className="text-xs text-white/35 truncate">{withdrawal.userEmail}</p>
+            <p className="text-[10px] text-white/20 font-mono mt-0.5">{withdrawal.transactionReference}</p>
           </div>
         </div>
-      </CardContent>
-    </Card>
+        <div className="text-right shrink-0">
+          <p className="text-base font-bold text-white/80 tabular-nums">{formatCurrency(withdrawal.fiatAmount, withdrawal.fiatCurrency)}</p>
+          <div className="mt-1">{getStatusBadge(withdrawal.status)}</div>
+        </div>
+      </div>
+    </div>
   );
 
   return (
     <div className="space-y-6 pb-20">
       <div className="flex justify-between items-start">
-        <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Withdrawal Approvals</h1>
-        <Button variant="outline" size="sm" onClick={fetchWithdrawals} disabled={isLoading} className="gap-2 h-9 rounded-xl"><RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} /> Refresh</Button>
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <ArrowDownRight className="h-5 w-5 text-emerald-400" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Withdrawal Approvals</h1>
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/25 ml-1">Payout Review · FICA Compliance</p>
+        </div>
+        <button onClick={fetchWithdrawals} disabled={isLoading}
+          className="h-9 px-4 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-white/40 hover:text-white/70 text-[11px] font-semibold flex items-center gap-2 transition-all disabled:opacity-40">
+          <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} /> Refresh
+        </button>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-white/5 rounded-2xl p-1 h-12">
-          <TabsTrigger value="pending">Pending ({pendingWithdrawals.length})</TabsTrigger>
-          <TabsTrigger value="approved">Settled ({approvedWithdrawals.length})</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected ({rejectedWithdrawals.length})</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 bg-white/[0.04] rounded-2xl p-1 h-11 border border-white/[0.06]">
+          <TabsTrigger value="pending" className="rounded-xl text-[10px] font-semibold data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-300 data-[state=active]:border data-[state=active]:border-amber-500/25">
+            Pending ({pendingWithdrawals.length})
+          </TabsTrigger>
+          <TabsTrigger value="approved" className="rounded-xl text-[10px] font-semibold data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-300 data-[state=active]:border data-[state=active]:border-emerald-500/25">
+            Settled ({approvedWithdrawals.length})
+          </TabsTrigger>
+          <TabsTrigger value="rejected" className="rounded-xl text-[10px] font-semibold data-[state=active]:bg-red-500/15 data-[state=active]:text-red-300 data-[state=active]:border data-[state=active]:border-red-500/25">
+            Rejected ({rejectedWithdrawals.length})
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-6">
-          {isLoading ? <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> : currentList.length > 0 ? <div className="grid gap-4">{currentList.map(w => <WithdrawalCard key={w.id} withdrawal={w} />)}</div> : <div className="py-20 text-center font-bold text-muted-foreground uppercase opacity-20">No Entries Detected</div>}
+        <TabsContent value={activeTab} className="mt-5">
+          {isLoading
+            ? <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-violet-400" /></div>
+            : currentList.length > 0
+              ? <div className="grid gap-3">{currentList.map(w => <WithdrawalCard key={w.id} withdrawal={w} />)}</div>
+              : <div className="py-20 text-center text-white/15 font-semibold uppercase tracking-widest text-sm">No Entries</div>}
         </TabsContent>
       </Tabs>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
+          <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[28px] bg-gradient-to-r from-emerald-500 to-violet-500" />
           <DialogHeader>
-            <DialogTitle>Payout Details</DialogTitle>
-            <DialogDescription>Review and settle this withdrawal.</DialogDescription>
+            <DialogTitle className="text-white font-bold">Payout Details</DialogTitle>
+            <DialogDescription className="text-white/30">Review and settle this withdrawal request.</DialogDescription>
           </DialogHeader>
           {selectedWithdrawal && (
             <div className="space-y-4">
-               <div className="rounded-xl bg-white/5 p-4 space-y-2 text-sm font-medium">
-                  <p><strong>Beneficiary:</strong> {selectedWithdrawal.accountHolder}</p>
-                  <p><strong>Bank:</strong> {selectedWithdrawal.bankName}</p>
-                  <p><strong>Account:</strong> {selectedWithdrawal.accountNumber}</p>
-                  <p className="text-primary"><strong>Amount:</strong> {formatCurrency(selectedWithdrawal.fiatAmount, selectedWithdrawal.fiatCurrency)}</p>
-               </div>
-               {selectedWithdrawal.status === 'PENDING' && (
-                 <>
-                   <Textarea placeholder="Rejection reason..." value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />
-                   <DialogFooter className="gap-2">
-                     <Button variant="destructive" onClick={() => handleReject(selectedWithdrawal)} disabled={isProcessing}>Reject</Button>
-                     <Button onClick={() => handleApprove(selectedWithdrawal)} disabled={isProcessing} className="bg-accent text-white">Approve Payout</Button>
-                   </DialogFooter>
-                 </>
-               )}
+              <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-4 space-y-2.5 text-sm font-medium">
+                {[
+                  { label: 'Beneficiary', value: selectedWithdrawal.accountHolder },
+                  { label: 'Bank', value: selectedWithdrawal.bankName },
+                  { label: 'Account', value: selectedWithdrawal.accountNumber },
+                  { label: 'Amount', value: formatCurrency(selectedWithdrawal.fiatAmount, selectedWithdrawal.fiatCurrency), highlight: true },
+                ].map(row => (
+                  <div key={row.label} className="flex justify-between items-center text-xs border-b border-white/[0.04] pb-2 last:border-0 last:pb-0">
+                    <span className="text-white/30 font-semibold uppercase text-[9px] tracking-widest">{row.label}</span>
+                    <span className={row.highlight ? 'text-emerald-400 font-bold' : 'text-white/60'}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+              {selectedWithdrawal.status === 'PENDING' && (
+                <div className="space-y-3">
+                  <Textarea
+                    placeholder="Rejection reason (required to reject)..."
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="bg-white/[0.04] border-white/[0.07] rounded-xl text-sm"
+                  />
+                  <DialogFooter className="gap-2">
+                    <Button variant="outline" className="rounded-xl border-red-500/25 text-red-400 hover:bg-red-500/10" onClick={() => handleReject(selectedWithdrawal)} disabled={isProcessing || !rejectionReason.trim()}>
+                      {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reject'}
+                    </Button>
+                    <button className="btn-premium rounded-xl px-5 h-10 font-bold text-sm text-white flex items-center gap-2 disabled:opacity-40" onClick={() => handleApprove(selectedWithdrawal)} disabled={isProcessing}>
+                      {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Approve Payout'}
+                    </button>
+                  </DialogFooter>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

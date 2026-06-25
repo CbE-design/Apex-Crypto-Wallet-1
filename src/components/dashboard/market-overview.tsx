@@ -20,7 +20,7 @@ function MiniSparkline({ positive }: { positive: boolean }) {
   const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join(' ');
   return (
     <svg width={56} height={24} viewBox="0 0 56 24" className="opacity-80">
-      <path d={path} fill="none" stroke={positive ? '#16C780' : '#EF4444'} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={path} fill="none" stroke={positive ? '#06B6D4' : '#EF4444'} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -46,7 +46,7 @@ export function MarketOverview() {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5 h-full">
       {/* Top accent */}
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#9945FF] to-[#3B8EF3]" />
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-cyan-500 to-violet-500" />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-4">

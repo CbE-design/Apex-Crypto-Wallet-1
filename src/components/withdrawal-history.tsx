@@ -102,8 +102,8 @@ export function WithdrawalHistory() {
 
   return (
     <>
-      <Card className="bg-card/50 backdrop-blur-sm overflow-hidden border-border/60">
-        <CardHeader className="pb-3 border-b border-border/40">
+      <Card className="rounded-2xl border border-white/[0.08] bg-[#0A0C12]/80 backdrop-blur-xl overflow-hidden">
+        <CardHeader className="pb-3 border-b border-white/[0.06]">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
@@ -191,7 +191,7 @@ export function WithdrawalHistory() {
 
       {/* Withdrawal Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-md rounded-[32px] glass-module border-white/10">
+        <DialogContent className="max-w-md border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="h-4 w-4 text-primary" />

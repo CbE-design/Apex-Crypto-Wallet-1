@@ -191,11 +191,12 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
         <div className="w-full max-w-sm relative z-10">
           {!showAdminLogin && (
             <>
-              <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl shadow-2xl overflow-hidden">
-                <div className="px-6 pt-6 pb-5 border-b border-border/40">
+              <div className="rounded-[28px] border border-white/[0.08] bg-[#0A0C12]/90 backdrop-blur-xl shadow-2xl shadow-black/60 overflow-hidden relative">
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-cyan-500 to-violet-500" />
+                <div className="px-6 pt-7 pb-5 border-b border-white/[0.06]">
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-                    <span className="text-[11px] uppercase tracking-widest font-semibold text-accent">Secure Connection</span>
+                    <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                    <span className="text-[11px] uppercase tracking-widest font-semibold text-cyan-400">Secure Connection</span>
                   </div>
                   <h2 className="text-[17px] font-semibold text-foreground">
                     {isImporting ? 'Import Wallet' : 'Access Your Wallet'}
@@ -220,7 +221,7 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
                           onChange={e => setMnemonic(e.target.value)}
                           rows={4}
                           disabled={loading}
-                          className="bg-muted/30 border-border/60 resize-none text-sm font-mono placeholder:text-muted-foreground/40 focus:border-primary/60 rounded-xl"
+                          className="bg-white/[0.04] border-white/[0.08] resize-none text-sm font-mono placeholder:text-white/20 focus:border-violet-500/40 rounded-xl"
                         />
                       </div>
                       <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
@@ -266,7 +267,7 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
                       <Button
                         variant="outline"
                         onClick={() => setIsImporting(true)}
-                        className="w-full h-12 rounded-xl font-semibold border-border/60 hover:border-primary/40 hover:bg-primary/5 text-[14px]"
+                        className="w-full h-12 rounded-xl font-semibold border-white/[0.08] bg-white/[0.03] hover:border-violet-500/30 hover:bg-violet-500/5 text-white/50 hover:text-white/80 text-[14px]"
                         disabled={loading}
                       >
                         <Key className="h-4 w-4 mr-2" />
@@ -319,12 +320,12 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
                 Developer Portal
               </button>
             ) : (
-              <div className="rounded-2xl border border-border/40 bg-card/60 backdrop-blur-xl overflow-hidden">
-                <div className="px-5 pt-5 pb-4 border-b border-border/30">
+              <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 backdrop-blur-xl overflow-hidden">
+                <div className="px-5 pt-5 pb-4 border-b border-white/[0.05]">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                      <span className="text-[10px] uppercase tracking-widest font-semibold text-primary">Developer Portal</span>
+                      <div className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />
+                      <span className="text-[10px] uppercase tracking-widest font-semibold text-violet-400">Developer Portal</span>
                     </div>
                     <button
                       onClick={() => setShowAdminLogin(false)}
@@ -348,7 +349,7 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
                         value={adminEmail}
                         onChange={e => setAdminEmail(e.target.value)}
                         disabled={adminLoading}
-                        className="pl-9 h-10 rounded-xl bg-muted/30 border-border/50 text-sm placeholder:text-muted-foreground/30 focus:border-primary/50"
+                        className="pl-9 h-10 rounded-xl bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/20 focus:border-violet-500/40"
                         autoComplete="email"
                       />
                     </div>
@@ -365,7 +366,7 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
                         value={adminPassword}
                         onChange={e => setAdminPassword(e.target.value)}
                         disabled={adminLoading}
-                        className="pl-9 pr-10 h-10 rounded-xl bg-muted/30 border-border/50 text-sm placeholder:text-muted-foreground/30 focus:border-primary/50"
+                        className="pl-9 pr-10 h-10 rounded-xl bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/20 focus:border-violet-500/40"
                         autoComplete="current-password"
                       />
                       <button
@@ -394,63 +395,63 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
       </div>
 
       <Dialog open={isNewWalletDialogOpen} onOpenChange={setIsNewWalletDialogOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl border-border/60 bg-card">
+        <DialogContent className="sm:max-w-md border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-500 to-violet-500" />
           <DialogHeader>
             <div className="flex items-center gap-2 mb-1">
               <AlertTriangle className="h-4 w-4 text-amber-400" />
-              <Badge variant="outline" className="text-amber-400 border-amber-400/30 text-[10px] uppercase tracking-widest">
+              <Badge variant="outline" className="text-amber-400 border-amber-400/30 bg-amber-500/5 text-[10px] uppercase tracking-widest">
                 Critical Step
               </Badge>
             </div>
-            <DialogTitle className="text-[17px] font-semibold">Save Your Seed Phrase</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+            <DialogTitle className="text-[17px] font-semibold text-white">Save Your Seed Phrase</DialogTitle>
+            <DialogDescription className="text-sm text-white/30 leading-relaxed">
               Write these words down in order and store them somewhere safe and offline.{' '}
-              <strong className="text-destructive">This is the only way to recover your wallet.</strong>
+              <strong className="text-red-400">This is the only way to recover your wallet.</strong>
             </DialogDescription>
           </DialogHeader>
 
           <div className="my-2">
             <div
               className={cn(
-                'relative rounded-xl border border-border/60 bg-muted/30 p-4 transition-all cursor-pointer',
+                'relative rounded-xl border border-white/[0.07] bg-white/[0.03] p-4 transition-all cursor-pointer',
                 !mnemonicVisible && 'select-none',
               )}
               onClick={() => setMnemonicVisible(v => !v)}
             >
               {!mnemonicVisible && (
-                <div className="absolute inset-0 rounded-xl bg-card/80 backdrop-blur-md flex flex-col items-center justify-center z-10 gap-2 pointer-events-none">
-                  <EyeOff className="h-5 w-5 text-muted-foreground" />
-                  <p className="text-[12px] text-muted-foreground">Click to reveal</p>
+                <div className="absolute inset-0 rounded-xl bg-[#07090F]/90 backdrop-blur-md flex flex-col items-center justify-center z-10 gap-2 pointer-events-none">
+                  <EyeOff className="h-5 w-5 text-white/25" />
+                  <p className="text-[12px] text-white/25">Click to reveal</p>
                 </div>
               )}
               <div className="grid grid-cols-3 gap-2">
                 {words.map((word, i) => (
-                  <div key={i} className="flex items-center gap-1.5 bg-background/60 rounded-lg px-2 py-1.5 border border-border/40">
-                    <span className="text-[10px] text-muted-foreground w-4 text-right flex-shrink-0">{i + 1}.</span>
-                    <span className="text-[12px] font-mono font-medium text-foreground truncate">{word}</span>
+                  <div key={i} className="flex items-center gap-1.5 bg-white/[0.04] rounded-lg px-2 py-1.5 border border-white/[0.06]">
+                    <span className="text-[10px] text-white/20 w-4 text-right flex-shrink-0">{i + 1}.</span>
+                    <span className="text-[12px] font-mono font-medium text-white/70 truncate">{word}</span>
                   </div>
                 ))}
               </div>
             </div>
-            <Button
-              variant="ghost" size="sm"
-              className="w-full mt-2 h-8 text-[12px] text-muted-foreground hover:text-foreground rounded-lg"
+            <button
+              className="w-full mt-2 h-8 text-[12px] text-white/20 hover:text-white/50 rounded-lg flex items-center justify-center gap-1.5 transition-all"
               onClick={copyMnemonic}
             >
               {copied
-                ? <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-accent" />Copied!</>
-                : <><Copy className="h-3.5 w-3.5 mr-1.5" />Copy to clipboard</>}
-            </Button>
+                ? <><CheckCircle2 className="h-3.5 w-3.5 text-cyan-400" />Copied!</>
+                : <><Copy className="h-3.5 w-3.5" />Copy to clipboard</>}
+            </button>
           </div>
 
           <DialogFooter>
-            <Button
+            <button
               onClick={handleConfirmNewWallet}
               disabled={loading}
-              className="w-full h-11 rounded-xl font-semibold btn-premium text-white"
+              className="w-full h-11 rounded-xl btn-premium font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
             >
               {loading ? <Loader2 className="animate-spin h-4 w-4" /> : "I've Saved My Seed Phrase"}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

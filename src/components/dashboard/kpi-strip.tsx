@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { useLivePrices } from '@/hooks/use-live-prices';
 import { useCurrency } from '@/context/currency-context';
-import { TrendingUp, TrendingDown, BarChart2, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const KPI_SYMBOLS = ['BTC', 'ETH', 'SOL'];
@@ -14,21 +14,31 @@ interface KpiCardProps {
   sub: string;
   positive: boolean | null;
   icon: ReactNode;
-  topColor: string;
+  accentColor: string;
+  glowColor: string;
 }
 
-function KpiCard({ label, value, sub, positive, icon, topColor }: KpiCardProps) {
+function KpiCard({ label, value, sub, positive, icon, accentColor, glowColor }: KpiCardProps) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-4">
-      <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: topColor }} />
-      <div className="flex items-start justify-between mb-2">
-        <span className="text-xs text-muted-foreground font-medium tracking-wide">{label}</span>
-        <span className="text-muted-foreground/60">{icon}</span>
+    <div className={cn(
+      "relative overflow-hidden rounded-2xl border bg-[#0A0C12]/80 backdrop-blur-sm p-4 transition-all duration-200",
+      "hover:border-opacity-60 group"
+    )} style={{ borderColor: `${accentColor}20` }}>
+      {/* Top gradient line */}
+      <div className="absolute top-0 left-0 right-0 h-[1.5px] rounded-t-2xl"
+        style={{ background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)` }} />
+      {/* Corner glow */}
+      <div className="absolute top-0 right-0 w-20 h-20 rounded-full pointer-events-none"
+        style={{ background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`, opacity: 0.15 }} />
+
+      <div className="flex items-start justify-between mb-3">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30">{label}</span>
+        <span style={{ color: accentColor }} className="opacity-60 group-hover:opacity-100 transition-opacity">{icon}</span>
       </div>
-      <div className="text-2xl font-bold tracking-tight text-foreground mb-1">{value}</div>
+      <div className="text-[22px] font-bold tracking-tight text-white mb-1.5 font-mono">{value}</div>
       <div className={cn(
-        'text-[11px] font-medium flex items-center gap-1',
-        positive === true ? 'text-emerald-400' : positive === false ? 'text-red-400' : 'text-muted-foreground/70'
+        'text-[11px] font-semibold flex items-center gap-1',
+        positive === true ? 'text-emerald-400' : positive === false ? 'text-red-400' : 'text-white/25'
       )}>
         {positive === true && <TrendingUp className="h-3 w-3" />}
         {positive === false && <TrendingDown className="h-3 w-3" />}
@@ -50,25 +60,31 @@ export function KpiStrip() {
   const solChange = changes['SOL'] ?? 0;
 
   const fmt = (usd: number) => isLoading && usd === 0 ? '—' : formatCurrency(usd * currency.rate);
-  const pct = (c: number) => `${c >= 0 ? '+' : ''}${c.toFixed(2)}% today`;
+  const pct = (c: number) => `${c >= 0 ? '+' : ''}${c.toFixed(2)}% 24h`;
+
+  const allChanges = Object.values(changes);
+  const bullishCount = allChanges.filter(c => c >= 0).length;
+  const isBullish = bullishCount >= allChanges.length / 2;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <KpiCard
         label="Bitcoin"
         value={fmt(btcPrice)}
         sub={pct(btcChange)}
         positive={btcChange >= 0}
-        icon={<BarChart2 className="h-4 w-4" />}
-        topColor="linear-gradient(90deg, #F7931A, #FFB74D)"
+        icon={<Activity className="h-4 w-4" />}
+        accentColor="#F7931A"
+        glowColor="#F7931A"
       />
       <KpiCard
         label="Ethereum"
         value={fmt(ethPrice)}
         sub={pct(ethChange)}
         positive={ethChange >= 0}
-        icon={<BarChart2 className="h-4 w-4" />}
-        topColor="linear-gradient(90deg, #627EEA, #A78BFA)"
+        icon={<Activity className="h-4 w-4" />}
+        accentColor="#627EEA"
+        glowColor="#627EEA"
       />
       <KpiCard
         label="Solana"
@@ -76,15 +92,17 @@ export function KpiStrip() {
         sub={pct(solChange)}
         positive={solChange >= 0}
         icon={<Zap className="h-4 w-4" />}
-        topColor="linear-gradient(90deg, #9945FF, #14F195)"
+        accentColor="#9945FF"
+        glowColor="#9945FF"
       />
       <KpiCard
         label="Market Trend"
-        value={Object.values(changes).filter(c => c >= 0).length > Object.values(changes).filter(c => c < 0).length ? 'Bullish' : 'Bearish'}
-        sub={`${Object.values(changes).filter(c => c >= 0).length}/${Object.keys(changes).length} assets up`}
-        positive={Object.values(changes).filter(c => c >= 0).length >= Object.values(changes).filter(c => c < 0).length}
+        value={isBullish ? 'Bullish' : 'Bearish'}
+        sub={`${bullishCount}/${allChanges.length || '—'} assets up`}
+        positive={allChanges.length > 0 ? isBullish : null}
         icon={<TrendingUp className="h-4 w-4" />}
-        topColor="linear-gradient(90deg, #3B8EF3, #16C780)"
+        accentColor="#7C3AED"
+        glowColor="#7C3AED"
       />
     </div>
   );

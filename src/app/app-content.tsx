@@ -17,19 +17,13 @@ import { doc } from 'firebase/firestore';
 import { type ProtocolStatus } from '@/lib/types';
 import { useState, useEffect } from 'react';
 
-export default function AppContent({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AppContent({ children }: { children: React.ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);
   const pathname = usePathname();
-  const { isAdmin, loading, user } = useWallet();
+  const { isAdmin, loading } = useWallet();
   const firestore = useFirestore();
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  useEffect(() => { setIsMounted(true); }, []);
 
   const protocolSettingsRef = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -40,10 +34,10 @@ export default function AppContent({
   const isProtocolHalted = protocolStatus && protocolStatus.isActive === false;
 
   const isPublicPage = !pathname ||
-                       pathname === '/login' ||
-                       pathname.startsWith('/login/') ||
-                       pathname.startsWith('/legal') ||
-                       pathname === '/coming-soon';
+    pathname === '/login' ||
+    pathname.startsWith('/login/') ||
+    pathname.startsWith('/legal') ||
+    pathname === '/coming-soon';
 
   if (loading && !isPublicPage) {
     return (
@@ -53,18 +47,21 @@ export default function AppContent({
             <svg className="animate-spin absolute inset-0 w-20 h-20" viewBox="0 0 80 80" fill="none">
               <defs>
                 <linearGradient id="auth-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#3B8EF3" />
-                  <stop offset="75%" stopColor="#16C780" />
-                  <stop offset="100%" stopColor="#3B8EF3" stopOpacity="0" />
+                  <stop offset="0%" stopColor="#7C3AED" />
+                  <stop offset="60%" stopColor="#06B6D4" />
+                  <stop offset="100%" stopColor="#7C3AED" stopOpacity="0" />
                 </linearGradient>
               </defs>
-              <circle cx="40" cy="40" r="36" stroke="url(#auth-ring-grad)" strokeWidth="3" strokeLinecap="round" strokeDasharray="188" strokeDashoffset="47" />
+              <circle cx="40" cy="40" r="36" stroke="url(#auth-ring-grad)" strokeWidth="2.5"
+                strokeLinecap="round" strokeDasharray="188" strokeDashoffset="47" />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <AllSeeingEye size={44} className="animate-pulse" />
+              <AllSeeingEye size={40} className="animate-pulse text-violet-400" />
             </div>
           </div>
-          <p className="text-xs font-medium text-muted-foreground animate-pulse uppercase tracking-[0.2em]">Authenticating Identity...</p>
+          <p className="text-[11px] font-semibold text-white/30 animate-pulse uppercase tracking-[0.25em]">
+            Authenticating...
+          </p>
         </div>
       </div>
     );
@@ -74,31 +71,24 @@ export default function AppContent({
     return (
       <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-background text-center p-6">
         <div className="relative mb-8">
-          <div className="absolute inset-0 bg-destructive/20 blur-3xl rounded-full animate-pulse" />
-          <div className="relative p-6 bg-destructive/10 rounded-full border-4 border-destructive/30">
-            <ShieldAlert className="h-20 w-20 text-destructive" />
+          <div className="absolute inset-0 bg-red-500/10 blur-3xl rounded-full animate-pulse" />
+          <div className="relative p-6 bg-red-500/5 rounded-full border border-red-500/20">
+            <ShieldAlert className="h-16 w-16 text-red-400" />
           </div>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight mb-3">Scheduled Maintenance</h1>
-        <p className="text-base text-muted-foreground mb-2 max-w-md">
-          Apex Wallet is temporarily offline while we perform scheduled maintenance.
+        <h1 className="text-2xl font-bold tracking-tight mb-3 text-white">Scheduled Maintenance</h1>
+        <p className="text-sm text-white/40 mb-8 max-w-sm leading-relaxed">
+          Apex Wallet is temporarily offline. Your funds are safe. Please check back shortly.
         </p>
-        <p className="text-sm text-muted-foreground mb-8 max-w-md">
-          Your funds and account are safe. Please check back shortly — we apologise for the inconvenience.
-        </p>
-        <div className="flex items-center gap-2 px-4 py-2 mb-8 bg-destructive/5 border border-destructive/20 rounded-xl">
-          <Power className="h-4 w-4 text-destructive animate-pulse" />
-          <span className="text-xs font-semibold text-destructive uppercase tracking-widest">System Status: Maintenance Mode</span>
+        <div className="flex items-center gap-2 px-4 py-2 mb-8 bg-red-500/5 border border-red-500/15 rounded-xl">
+          <Power className="h-3.5 w-3.5 text-red-400 animate-pulse" />
+          <span className="text-[11px] font-semibold text-red-400 uppercase tracking-widest">Maintenance Mode</span>
         </div>
-        <Button asChild variant="outline" size="lg" className="gap-2">
+        <Button asChild variant="outline" size="sm" className="gap-2 border-violet-500/20 text-violet-400 hover:bg-violet-500/5">
           <Link href="/login?admin=true">
-            <Code className="h-4 w-4" />
-            Developer Login
+            <Code className="h-3.5 w-3.5" />Developer Login
           </Link>
         </Button>
-        <p className="text-xs text-muted-foreground mt-4 max-w-xs">
-          Authorised developers can sign in to continue maintenance work.
-        </p>
       </div>
     );
   }
@@ -112,25 +102,25 @@ export default function AppContent({
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="locked-viewport bg-background">
-        <div className="fixed-border border-b shadow-sm">
+        <div className="fixed-border border-b border-white/[0.05] shadow-sm">
           <Header />
         </div>
 
         <div className="flex flex-1 overflow-hidden relative">
           <div className="hidden md:block">
-            <Sidebar collapsible="icon" className="border-r border-white/5">
+            <Sidebar collapsible="icon" className="border-r border-white/[0.05]">
               {isAdminPage ? <AdminSidebar /> : <AppSidebar />}
             </Sidebar>
           </div>
 
           <SidebarInset className="min-h-0 flex-1 flex flex-col overflow-hidden bg-transparent">
-            <main className="flex-1 overflow-y-auto overflow-x-hidden aurora-bg p-4 md:p-6 lg:p-8 scroll-smooth flex flex-col relative">
-              {/* All-seeing eye — centered, more present */}
+            <main className="flex-1 overflow-y-auto overflow-x-hidden aurora-bg p-4 md:p-5 lg:p-6 scroll-smooth flex flex-col relative">
+              {/* Eye watermark — faint centered */}
               <EyeWatermark
-                className="absolute inset-0 m-auto w-[640px] h-[640px] text-primary pointer-events-none"
-                opacity={0.048}
+                className="absolute inset-0 m-auto w-[600px] h-[600px] text-violet-500 pointer-events-none"
+                opacity={0.025}
               />
-              <div className="max-w-7xl mx-auto w-full pb-28 md:pb-10 flex-1 flex flex-col relative z-10">
+              <div className="max-w-7xl mx-auto w-full pb-28 md:pb-8 flex-1 flex flex-col relative z-10">
                 {children}
               </div>
             </main>
@@ -138,7 +128,7 @@ export default function AppContent({
         </div>
 
         {!isAdminPage && (
-          <div className="fixed-border border-t md:hidden shadow-sm safe-bottom">
+          <div className="fixed-border border-t border-white/[0.05] md:hidden shadow-sm safe-bottom">
             <MobileNav />
           </div>
         )}

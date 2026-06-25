@@ -215,14 +215,17 @@ export default function AdminSettingsPage() {
   return (
     <div className="space-y-8 pb-24">
       <div>
-        <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Platform Settings</h1>
-        <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400 mt-1">
-          Apex Wallet — Admin Configuration
-        </p>
+        <div className="flex items-center gap-3 mb-1">
+          <div className="p-2 rounded-xl bg-violet-500/10 border border-violet-500/20">
+            <Shield className="h-5 w-5 text-violet-400" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Platform Settings</h1>
+        </div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/25 ml-1">Apex Wallet · Admin Configuration</p>
       </div>
 
       {/* ── PLATFORM STATUS ─────────────────────────────── */}
-      <Card className="glass-module border-primary/20">
+      <Card className="rounded-2xl border border-violet-500/15 bg-[#0A0C12]/80">
         <CardHeader>
           <SectionHeader icon={Power} title="Platform Status" description="Global on/off controls for the Apex Wallet platform." />
         </CardHeader>
@@ -261,7 +264,7 @@ export default function AdminSettingsPage() {
       </Card>
 
       {/* ── COMPLIANCE & REGULATORY ────────────────────── */}
-      <Card className="glass-module border-amber-500/20">
+      <Card className="rounded-2xl border border-amber-500/15 bg-[#0A0C12]/80">
         <CardHeader>
           <SectionHeader
             icon={ShieldCheck}
@@ -316,7 +319,7 @@ export default function AdminSettingsPage() {
       </Card>
 
       {/* ── FEE CONFIGURATION ─────────────────────────── */}
-      <Card className="glass-module border-green-500/20">
+      <Card className="rounded-2xl border border-emerald-500/15 bg-[#0A0C12]/80">
         <CardHeader>
           <SectionHeader icon={Banknote} title="Fee Configuration" description="Platform fees applied on withdrawals and transactions." />
         </CardHeader>
@@ -401,7 +404,7 @@ export default function AdminSettingsPage() {
       </Card>
 
       {/* ── SECURITY SETTINGS ──────────────────────────── */}
-      <Card className="glass-module border-red-500/20">
+      <Card className="rounded-2xl border border-red-500/15 bg-[#0A0C12]/80">
         <CardHeader>
           <SectionHeader icon={Lock} title="Security & Access" description="Authentication, session, and fraud prevention settings." />
         </CardHeader>
@@ -466,7 +469,7 @@ export default function AdminSettingsPage() {
       </Card>
 
       {/* ── ADMIN ACCOUNTS INFO ────────────────────────── */}
-      <Card className="glass-module border-blue-500/20">
+      <Card className="rounded-2xl border border-cyan-500/15 bg-[#0A0C12]/80">
         <CardHeader>
           <SectionHeader icon={Shield} title="Admin Accounts" description="Accounts with full administrative access to this control centre." />
         </CardHeader>
@@ -498,7 +501,7 @@ export default function AdminSettingsPage() {
       </Card>
 
       {/* ── FIRESTORE RULES REMINDER ──────────────────── */}
-      <Card className="glass-module border-yellow-500/20">
+      <Card className="rounded-2xl border border-amber-500/15 bg-[#0A0C12]/80">
         <CardHeader>
           <SectionHeader icon={Globe} title="Security Rules Status" description="Current Firestore security rules configuration for this project." />
         </CardHeader>
@@ -549,20 +552,20 @@ export default function AdminSettingsPage() {
         open={pendingMaintenanceState !== null}
         onOpenChange={(open) => { if (!open) setPendingMaintenanceState(null); }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[28px] bg-gradient-to-r from-amber-500 to-violet-500" />
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
+            <AlertDialogTitle className="flex items-center gap-2 text-white font-bold">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
               {pendingMaintenanceState === false
                 ? 'Enable Maintenance Mode?'
                 : 'Bring Platform Back Online?'}
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="text-white/30">
               {pendingMaintenanceState === false ? (
                 <>
-                  This will take <strong>the entire Apex Wallet platform offline</strong> immediately.
+                  This will take <strong className="text-white/50">the entire Apex Wallet platform offline</strong> immediately.
                   All users will be locked out and unable to log in or transact until you re-enable it.
-                  Are you sure you want to continue?
                 </>
               ) : (
                 <>
@@ -572,9 +575,9 @@ export default function AdminSettingsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingMaintenanceState(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-xl border-white/10 bg-white/[0.04] text-white/40" onClick={() => setPendingMaintenanceState(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className={pendingMaintenanceState === false ? 'bg-destructive hover:bg-destructive/90' : ''}
+              className={pendingMaintenanceState === false ? 'rounded-xl bg-red-500/80 hover:bg-red-500' : 'rounded-xl btn-premium'}
               onClick={async () => {
                 const next = pendingMaintenanceState!;
                 setPendingMaintenanceState(null);

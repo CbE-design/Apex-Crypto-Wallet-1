@@ -65,7 +65,7 @@ export function PriceAlerts() {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5 flex flex-col h-full">
       {/* Top accent */}
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#F7931A] to-[#EF4444]" />
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500" />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
@@ -83,16 +83,16 @@ export function PriceAlerts() {
               <BellPlus className="h-3.5 w-3.5" /> Add
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-sm rounded-2xl border-border/60">
+          <DialogContent className="sm:max-w-sm border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
             <DialogHeader>
-              <DialogTitle>Create Price Alert</DialogTitle>
-              <DialogDescription>Get notified when your crypto hits a target price.</DialogDescription>
+              <DialogTitle className="text-white font-bold">Create Price Alert</DialogTitle>
+              <DialogDescription className="text-white/30">Get notified when your crypto hits a target price.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground">Asset</Label>
+                <Label className="text-xs font-medium text-white/30">Asset</Label>
                 <Select value={newAlertAsset} onValueChange={setNewAlertAsset}>
-                  <SelectTrigger className="h-10 rounded-xl bg-muted/30 border-border/60 text-sm">
+                  <SelectTrigger className="h-10 rounded-xl bg-white/[0.04] border-white/[0.08] text-sm">
                     <SelectValue placeholder="Select cryptocurrency" />
                   </SelectTrigger>
                   <SelectContent>
@@ -117,7 +117,7 @@ export function PriceAlerts() {
                         "h-10 rounded-xl border text-sm font-medium flex items-center justify-center gap-2 transition-all",
                         newAlertType === type
                           ? type === 'Above' ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-red-500/10 border-red-500/30 text-red-400"
-                          : "bg-muted/20 border-border/50 text-muted-foreground hover:border-border"
+                          : "bg-white/[0.03] border-white/[0.08] text-white/30 hover:border-white/20"
                       )}>
                       {type === 'Above' ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
                       {type}
@@ -126,11 +126,11 @@ export function PriceAlerts() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground">Target Price (USD)</Label>
+                <Label className="text-xs font-medium text-white/30">Target Price (USD)</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">$</span>
                   <Input type="number" placeholder="0.00" value={newAlertPrice} onChange={e => setNewAlertPrice(e.target.value)}
-                    className="h-10 pl-7 rounded-xl bg-muted/30 border-border/60 text-sm" />
+                    className="h-10 pl-7 rounded-xl bg-white/[0.04] border-white/[0.08] text-sm" />
                 </div>
               </div>
             </div>
@@ -199,14 +199,14 @@ export function PriceAlerts() {
       {/* Quick action buttons */}
       <div className="mt-4 pt-4 border-t border-white/[0.06] grid grid-cols-2 gap-2">
         {[
-          { label: '↔ Swap', href: '/swap', grad: 'from-[#3B8EF3] to-[#8B5CF6]' },
-          { label: '↑ Send', href: '/send-receive', grad: 'from-[#16C780] to-[#3B8EF3]' },
-          { label: '↓ Receive', href: '/send-receive', grad: 'from-[#F59E0B] to-[#EF4444]' },
-          { label: '💳 Cash Out', href: '/cash-out', grad: 'from-[#8B5CF6] to-[#EC4899]' },
+          { label: '↔ Swap',     href: '/swap',         grad: 'from-violet-600 to-violet-400' },
+          { label: '↑ Send',     href: '/send-receive', grad: 'from-violet-500 to-cyan-500' },
+          { label: '↓ Receive',  href: '/send-receive', grad: 'from-cyan-600 to-cyan-400' },
+          { label: '💳 Cash Out', href: '/cash-out',     grad: 'from-violet-700 to-cyan-600' },
         ].map(btn => (
           <Link key={btn.label} href={btn.href}>
             <button className={cn(
-              'w-full bg-gradient-to-r rounded-xl py-2.5 text-white text-xs font-bold tracking-wide hover:opacity-90 transition-opacity',
+              'w-full bg-gradient-to-r rounded-xl py-2.5 text-white text-xs font-bold tracking-wide hover:opacity-90 hover:-translate-y-px transition-all',
               btn.grad
             )}>
               {btn.label}

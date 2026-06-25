@@ -45,7 +45,7 @@ export default function MyWalletsPage() {
             {!isLoading && wallets?.length === 0 && <p>You don't have any wallets yet.</p>}
             {wallets?.map(wallet => (
               <Card key={wallet.id} className="overflow-hidden">
-                <CardHeader className="bg-muted/30">
+                <CardHeader className="bg-white/[0.04]">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <span>{wallet.name}</span>
                   </CardTitle>

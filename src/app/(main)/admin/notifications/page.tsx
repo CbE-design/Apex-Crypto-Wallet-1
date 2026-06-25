@@ -174,16 +174,15 @@ export default function AdminNotificationsPage() {
     const isDeleting = deletingId === notification.id;
 
     return (
-      <Card
+      <div
         className={cn(
-          'border-border/50 transition-all',
+          'rounded-2xl border p-4 transition-all',
           notification.read
-            ? 'bg-card/40 opacity-70'
-            : 'bg-card/80 border-l-2 border-l-primary cursor-pointer hover:bg-card/90'
+            ? 'border-white/[0.05] bg-white/[0.01] opacity-60'
+            : 'border-violet-500/15 bg-[#0A0C12]/80 cursor-pointer hover:border-violet-500/25 hover:bg-violet-500/[0.03]'
         )}
         onClick={() => !notification.read && handleMarkAsRead(notification)}
       >
-        <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center shrink-0', className)}>
               <Icon className="h-5 w-5" />
@@ -191,78 +190,60 @@ export default function AdminNotificationsPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className={cn('text-sm truncate', notification.read ? 'font-medium' : 'font-semibold')}>
+                  <p className={cn('text-sm truncate', notification.read ? 'text-white/40 font-medium' : 'text-white/80 font-semibold')}>
                     {notification.title}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                  <p className="text-xs text-white/30 mt-0.5 line-clamp-2">
                     {notification.message}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {!notification.read && (
-                    <div className="h-2 w-2 rounded-full bg-primary mt-1.5" />
+                    <div className="h-2 w-2 rounded-full bg-violet-400 mt-1.5" />
                   )}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/30">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/[0.04]">
+                <div className="flex items-center gap-2 text-[10px] text-white/25">
                   <Clock className="h-3 w-3" />
                   {formatDate(notification.createdAt)}
                   {notification.userEmail && (
                     <>
-                      <span className="text-border">|</span>
+                      <span className="text-white/10">|</span>
                       <span className="truncate max-w-[150px]">{notification.userEmail}</span>
                     </>
                   )}
                 </div>
                 <div className="flex items-center gap-1">
                   {link && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      asChild
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Link href={link}>
+                    <Link href={link} onClick={(e) => e.stopPropagation()}
+                      className="h-7 px-2 rounded-lg text-[10px] font-semibold text-violet-400/60 hover:text-violet-400 hover:bg-violet-500/10 flex items-center gap-1 transition-all">
                         View <ExternalLink className="h-3 w-3 ml-1" />
                       </Link>
-                    </Button>
                   )}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      <button
+                        className="h-7 w-7 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all disabled:opacity-40"
                         disabled={isDeleting}
                         onClick={(e) => e.stopPropagation()}
                         title="Dismiss notification"
                       >
-                        {isDeleting ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-3 w-3" />
-                        )}
-                      </Button>
+                        {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                      </button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent>
+                    <AlertDialogContent className="border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
+                      <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[28px] bg-gradient-to-r from-red-500 to-violet-500" />
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Dismiss Notification</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently remove <strong>"{notification.title}"</strong> from the notification feed.
-                          This action cannot be undone.
+                        <AlertDialogTitle className="text-white font-bold">Dismiss Notification</AlertDialogTitle>
+                        <AlertDialogDescription className="text-white/30">
+                          This will permanently remove <strong className="text-white/50">"{notification.title}"</strong> from the feed.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Keep</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive hover:bg-destructive/90"
-                          onClick={() => handleDelete(notification.id)}
-                        >
-                          Dismiss
-                        </AlertDialogAction>
+                        <AlertDialogCancel className="rounded-xl border-white/10 bg-white/[0.04] text-white/40">Keep</AlertDialogCancel>
+                        <AlertDialogAction className="rounded-xl bg-red-500/80 hover:bg-red-500" onClick={() => handleDelete(notification.id)}>Dismiss</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -270,8 +251,7 @@ export default function AdminNotificationsPage() {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </div>
     );
   };
 
@@ -279,124 +259,105 @@ export default function AdminNotificationsPage() {
     <div className="space-y-6 pb-20">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Notifications</h1>
-          <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400">
-            Admin Activity Feed & Alerts
-          </p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2 rounded-xl bg-violet-500/10 border border-violet-500/20">
+              <Bell className="h-5 w-5 text-violet-400" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Notifications</h1>
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/25 ml-1">Admin Activity Feed · Alerts</p>
         </div>
         <div className="flex items-center gap-2">
           {unreadCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={handleMarkAllAsRead}
               disabled={isMarkingAll}
-              className="text-xs"
+              className="h-9 px-4 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-white/40 hover:text-white/70 text-[11px] font-semibold flex items-center gap-1.5 transition-all disabled:opacity-40"
             >
-              {isMarkingAll ? (
-                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-              ) : (
-                <Check className="h-3 w-3 mr-1" />
-              )}
+              {isMarkingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
               Mark All Read ({unreadCount})
-            </Button>
+            </button>
           )}
         </div>
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-border/50 bg-card/60">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Bell className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{notifications?.length || 0}</p>
-                <p className="text-xs text-muted-foreground">Total</p>
-              </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="rounded-2xl border border-violet-500/15 bg-violet-500/5 p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+              <Bell className="h-4 w-4 text-violet-400" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-2xl font-bold text-white">{notifications?.length || 0}</p>
+              <p className="text-[10px] font-semibold text-white/25 uppercase">Total</p>
+            </div>
+          </div>
+        </div>
 
-        <Card className="border-border/50 bg-card/60">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                <Clock className="h-5 w-5 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{unreadCount}</p>
-                <p className="text-xs text-muted-foreground">Unread</p>
-              </div>
+        <div className={cn("rounded-2xl border p-4", unreadCount > 0 ? "border-amber-500/20 bg-amber-500/5" : "border-white/[0.06] bg-white/[0.02]")}>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <Clock className="h-4 w-4 text-amber-400" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-2xl font-bold text-white">{unreadCount}</p>
+              <p className="text-[10px] font-semibold text-white/25 uppercase">Unread</p>
+            </div>
+          </div>
+        </div>
 
-        <Card className="border-border/50 bg-card/60">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                <ArrowDownRight className="h-5 w-5 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {notifications?.filter((n) => n.type === 'WITHDRAWAL_REQUEST').length || 0}
-                </p>
-                <p className="text-xs text-muted-foreground">Withdrawals</p>
-              </div>
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <ArrowDownRight className="h-4 w-4 text-emerald-400" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-2xl font-bold text-white">
+                {notifications?.filter((n) => n.type === 'WITHDRAWAL_REQUEST').length || 0}
+              </p>
+              <p className="text-[10px] font-semibold text-white/25 uppercase">Withdrawals</p>
+            </div>
+          </div>
+        </div>
 
-        <Card className="border-border/50 bg-card/60">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <UserCheck className="h-5 w-5 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {notifications?.filter((n) => n.type === 'KYC_VERIFICATION').length || 0}
-                </p>
-                <p className="text-xs text-muted-foreground">KYC Requests</p>
-              </div>
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+              <UserCheck className="h-4 w-4 text-cyan-400" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-2xl font-bold text-white">
+                {notifications?.filter((n) => n.type === 'KYC_VERIFICATION').length || 0}
+              </p>
+              <p className="text-[10px] font-semibold text-white/25 uppercase">KYC</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Notifications List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
         </div>
       ) : notificationsError ? (
-        <Card className="border-destructive/50 bg-card/60">
-          <CardContent className="py-20 text-center">
-            <h3 className="text-lg font-semibold mb-2 text-destructive">Failed to Load Notifications</h3>
-            <p className="text-sm text-muted-foreground">{notificationsError.message}</p>
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 py-20 text-center">
+          <h3 className="text-lg font-semibold mb-2 text-red-300">Failed to Load</h3>
+          <p className="text-sm text-white/30">{notificationsError.message}</p>
+        </div>
       ) : notifications && notifications.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {notifications.map((notification) => (
             <NotificationCard key={notification.id} notification={notification} />
           ))}
         </div>
       ) : (
-        <Card className="border-border/50 bg-card/60">
-          <CardContent className="py-20 text-center">
-            <div className="h-16 w-16 rounded-full bg-muted/30 flex items-center justify-center mx-auto mb-4">
-              <Bell className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">No Notifications</h3>
-            <p className="text-sm text-muted-foreground">
-              You&apos;ll see alerts here when users submit KYC or withdrawal requests.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] py-20 text-center">
+          <Bell className="h-10 w-10 mx-auto mb-4 text-white/[0.08]" />
+          <h3 className="text-sm font-semibold text-white/20 uppercase tracking-widest">No Notifications</h3>
+          <p className="text-xs text-white/15 mt-1">Alerts will appear when users submit KYC or withdrawal requests.</p>
+        </div>
       )}
     </div>
   );

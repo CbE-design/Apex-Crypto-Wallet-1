@@ -122,7 +122,7 @@ function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string
         const fiatAmountUSD = tx.amount * (tx.price ?? 0);
         const isOut = tx.type === 'Withdrawal' || tx.type === 'Sell' || tx.type === 'Send';
         return (
-          <div key={tx.id} className="flex items-center justify-between px-3 py-3 rounded-xl glass-module border border-white/[0.06]">
+          <div key={tx.id} className="flex items-center justify-between px-3 py-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <Badge variant="outline" className={cn('text-[9px] font-black uppercase', isOut ? 'text-red-400 border-red-400/20' : 'text-green-400 border-green-400/20')}>
@@ -270,16 +270,18 @@ export default function MyWalletsPage() {
   return (
     <PrivateRoute>
       <div className="space-y-6 pb-20 md:pb-6">
-        <div className="glass-module rounded-3xl p-6 md:p-8 relative overflow-hidden">
+        <div className="relative overflow-hidden rounded-3xl border border-violet-500/15 bg-violet-500/5 p-6 md:p-8">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500 rounded-t-3xl" />
+          <div className="absolute top-4 right-4 w-32 h-32 rounded-full bg-violet-500/5 blur-3xl pointer-events-none" />
           <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-1">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
-                  <Wallet className="h-5 w-5 text-primary" />
+                <div className="h-10 w-10 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                  <Wallet className="h-5 w-5 text-violet-400" />
                 </div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight uppercase italic">Secure Vaults</h1>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Secure Vaults</h1>
               </div>
-              <p className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground/40 ml-1">On-Chain Asset Management</p>
+              <p className="text-[10px] uppercase font-semibold tracking-[0.2em] text-white/25 ml-1">On-Chain Asset Management</p>
             </div>
 
             <div className="flex flex-col md:items-end gap-2">
@@ -299,9 +301,9 @@ export default function MyWalletsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {isLoading ? (
-            [...Array(6)].map((_, i) => <Skeleton key={i} className="h-64 rounded-[32px] bg-white/5 border border-white/5" />)
+            [...Array(6)].map((_, i) => <Skeleton key={i} className="h-64 rounded-3xl bg-white/[0.03] border border-white/[0.05]" />)
           ) : wallets.map((w) => {
             const priceUSD = livePrices[w.currency] || 0;
             const valueUSD = w.balance * priceUSD;
@@ -310,31 +312,34 @@ export default function MyWalletsPage() {
             const isTxExpanded = expandedTx.has(w.currency);
 
             return (
-              <Card key={w.id} className="relative overflow-hidden glass-module border-white/5 hover:border-primary/20 transition-all duration-500 rounded-[32px]">
-                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+              <div key={w.id} className="relative overflow-hidden rounded-3xl border border-white/[0.07] bg-[#0A0C12]/80 hover:border-violet-500/20 transition-all duration-300 group">
+                <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-violet-500/50 via-cyan-500/30 to-transparent" />
+                <div className="absolute top-3 right-3 w-16 h-16 bg-violet-500/5 rounded-full blur-2xl pointer-events-none" />
+
+                <div className="flex items-start justify-between p-5 pb-4">
                   <div className="flex items-center gap-3.5">
-                    <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center ring-1 ring-white/10">
+                    <div className="h-11 w-11 rounded-2xl bg-white/[0.04] flex items-center justify-center ring-1 ring-white/[0.08]">
                       <CryptoIcon name={coinName} className="h-7 w-7" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg font-bold">{coinName}</CardTitle>
+                      <p className="text-base font-bold text-white">{coinName}</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[10px] text-muted-foreground/60 font-black uppercase">{w.currency}</span>
-                        <span className="text-[9px] text-muted-foreground/30 font-bold">{getChainType(w.currency)}</span>
+                        <span className="text-[10px] text-white/30 font-semibold uppercase">{w.currency}</span>
+                        <span className="text-[9px] text-white/15">{getChainType(w.currency)}</span>
                       </div>
                     </div>
                   </div>
                   {change !== undefined && (
-                    <div className={cn("text-[10px] font-black px-2 py-1 rounded-full border", change >= 0 ? "text-green-400 bg-green-400/10 border-green-500/20" : "text-red-400 bg-red-400/10 border-red-500/20")}>
+                    <div className={cn("text-[10px] font-bold px-2 py-1 rounded-xl border", change >= 0 ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : "text-red-400 bg-red-500/10 border-red-500/20")}>
                       {change >= 0 ? '+' : ''}{change.toFixed(2)}%
                     </div>
                   )}
-                </CardHeader>
+                </div>
 
-                <CardContent className="space-y-5 pt-0">
+                <div className="px-5 pb-5 space-y-4">
                   <div>
-                    <p className="text-3xl font-black tracking-tight tabular-nums">{(w.balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 4 })}</p>
-                    <p className="text-sm text-muted-foreground/40 font-bold">{formatCurrency(valueUSD * fiat.rate)}</p>
+                    <p className="text-2xl font-bold tracking-tight tabular-nums text-white">{(w.balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 4 })}</p>
+                    <p className="text-sm text-white/30 font-medium">{formatCurrency(valueUSD * fiat.rate)}</p>
                   </div>
 
                   <div className="grid grid-cols-4 gap-2">
@@ -344,30 +349,34 @@ export default function MyWalletsPage() {
                       { icon: ArrowLeftRight, label: 'Swap', href: `/swap?from=${w.currency}` },
                       { icon: Banknote, label: 'Out', href: `/cash-out?currency=${w.currency}` }
                     ].map((act, i) => (
-                      <Link key={i} href={act.href} className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-primary/10 hover:border-primary/20 transition-all group">
-                         <act.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                         <span className="text-[9px] font-black uppercase text-muted-foreground/60">{act.label}</span>
+                      <Link key={i} href={act.href} className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/[0.04] border border-white/[0.06] hover:bg-violet-500/10 hover:border-violet-500/20 transition-all group/act">
+                        <act.icon className="h-4 w-4 text-white/25 group-hover/act:text-violet-400 transition-colors" />
+                        <span className="text-[9px] font-semibold uppercase text-white/25 group-hover/act:text-violet-400 transition-colors">{act.label}</span>
                       </Link>
                     ))}
                   </div>
-                </CardContent>
+                </div>
 
-                <div className="border-t border-white/5">
-                  <button onClick={() => toggleTx(w.currency)} className="w-full flex items-center justify-between px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 hover:text-white transition-all">
+                <div className="border-t border-white/[0.05]">
+                  <button onClick={() => toggleTx(w.currency)} className="w-full flex items-center justify-between px-5 py-3.5 text-[10px] font-semibold uppercase tracking-widest text-white/25 hover:text-white/50 transition-all">
                     <span>History</span>
-                    {isTxExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    {isTxExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                   </button>
                   {isTxExpanded && <TransactionHistory walletCurrency={w.currency} userId={user!.uid} />}
                 </div>
 
-                <CardFooter className="flex gap-2 border-t border-white/5 p-4 bg-black/20">
-                   <Button variant="ghost" size="sm" className="flex-1 rounded-xl bg-white/5 text-[9px] font-black uppercase gap-2" onClick={() => handleSync(w.currency)}>
-                     <RefreshCw className={cn("h-3 w-3", syncingId === w.currency && "animate-spin")} /> {syncingId === w.currency ? 'Syncing' : 'Sync Ledger'}
-                   </Button>
-                   <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-white/10" onClick={() => { setSelectedQrAddress({ address: w.address, currency: w.currency }); setIsQrOpen(true); }}><QrCode className="h-4 w-4" /></Button>
-                   <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-white/10" onClick={() => openExplorer(w.address, w.currency)}><ExternalLink className="h-4 w-4" /></Button>
-                </CardFooter>
-              </Card>
+                <div className="flex gap-2 border-t border-white/[0.05] p-4 bg-black/20">
+                  <Button variant="ghost" size="sm" className="flex-1 rounded-xl bg-white/[0.04] text-[9px] font-bold uppercase gap-2 text-white/40 hover:text-white/70" onClick={() => handleSync(w.currency)}>
+                    <RefreshCw className={cn("h-3 w-3", syncingId === w.currency && "animate-spin")} /> {syncingId === w.currency ? 'Syncing' : 'Sync'}
+                  </Button>
+                  <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-white/[0.08] hover:border-violet-500/30 text-white/30 hover:text-violet-400" onClick={() => { setSelectedQrAddress({ address: w.address, currency: w.currency }); setIsQrOpen(true); }}>
+                    <QrCode className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-white/[0.08] hover:border-cyan-500/30 text-white/30 hover:text-cyan-400" onClick={() => openExplorer(w.address, w.currency)}>
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             );
           })}
         </div>
@@ -376,9 +385,9 @@ export default function MyWalletsPage() {
 
         {/* QR Code Dialog */}
         <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
-          <DialogContent className="max-w-xs rounded-2xl bg-card border-border/60">
+          <DialogContent className="max-w-xs border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
             <DialogHeader>
-              <DialogTitle className="text-center text-base font-bold">
+              <DialogTitle className="text-center text-base font-bold text-white">
                 {selectedQrAddress?.currency} Wallet QR
               </DialogTitle>
               <DialogDescription className="sr-only">Scan to send crypto to this wallet address.</DialogDescription>
@@ -387,15 +396,14 @@ export default function MyWalletsPage() {
               <div className="p-4 bg-white rounded-2xl shadow-lg">
                 {qrDataUrl
                   ? <Image src={qrDataUrl} alt="Wallet QR Code" width={200} height={200} className="rounded-lg" />
-                  : <div className="w-[200px] h-[200px] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                  : <div className="w-[200px] h-[200px] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white/30" /></div>
                 }
               </div>
-              <div className="w-full p-3 bg-muted/20 border border-border/40 rounded-xl">
-                <code className="text-[10px] font-mono break-all block text-center text-muted-foreground">{selectedQrAddress?.address}</code>
+              <div className="w-full p-3 bg-white/[0.04] border border-white/[0.07] rounded-xl">
+                <code className="text-[10px] font-mono break-all block text-center text-white/50">{selectedQrAddress?.address}</code>
               </div>
-              <Button
-                variant="outline"
-                className="w-full rounded-xl gap-2 text-sm font-medium"
+              <button
+                className="w-full h-11 rounded-xl border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07] text-white/50 hover:text-white/70 flex items-center justify-center gap-2 text-sm font-medium transition-all"
                 onClick={() => {
                   if (selectedQrAddress?.address) {
                     navigator.clipboard.writeText(selectedQrAddress.address);
@@ -404,51 +412,50 @@ export default function MyWalletsPage() {
                 }}
               >
                 <Copy className="h-4 w-4" /> Copy Address
-              </Button>
+              </button>
             </div>
           </DialogContent>
         </Dialog>
 
         {/* Block Explorer Dialog */}
         <Dialog open={explorerOpen} onOpenChange={setExplorerOpen}>
-          <DialogContent className="max-w-sm rounded-2xl bg-card border-border/60">
+          <DialogContent className="max-w-sm border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
             <DialogHeader>
-              <DialogTitle className="text-base font-bold flex items-center gap-2">
-                <Globe className="h-4 w-4 text-primary" /> Block Explorer
+              <DialogTitle className="text-base font-bold flex items-center gap-2 text-white">
+                <Globe className="h-4 w-4 text-violet-400" /> Block Explorer
               </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
+              <DialogDescription className="text-xs text-white/30">
                 View on-chain data for this {explorerCurrency} address on the Apex ledger.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              <div className="p-3 bg-muted/20 border border-border/40 rounded-xl">
-                <code className="text-[10px] font-mono break-all block text-muted-foreground">{explorerAddress}</code>
+              <div className="p-3 bg-white/[0.04] border border-white/[0.07] rounded-xl">
+                <code className="text-[10px] font-mono break-all block text-white/40">{explorerAddress}</code>
               </div>
 
               <Link
                 href={`/explorer/${explorerAddress}?currency=${explorerCurrency}`}
                 onClick={() => setExplorerOpen(false)}
-                className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors group"
+                className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-violet-500/5 border border-violet-500/20 hover:bg-violet-500/10 transition-colors group"
               >
                 <div className="flex items-center gap-2.5">
-                  <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Globe className="h-3.5 w-3.5 text-primary" />
+                  <div className="h-7 w-7 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                    <Globe className="h-3.5 w-3.5 text-violet-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-primary">Apex Block Explorer</p>
-                    <p className="text-[10px] text-muted-foreground">Live transactions · balance · network stats</p>
+                    <p className="text-sm font-semibold text-violet-300">Apex Block Explorer</p>
+                    <p className="text-[10px] text-white/25">Live transactions · balance · network stats</p>
                   </div>
                 </div>
-                <ExternalLink className="h-4 w-4 text-primary/60 group-hover:text-primary transition-colors shrink-0" />
+                <ExternalLink className="h-4 w-4 text-violet-400/40 group-hover:text-violet-400 transition-colors shrink-0" />
               </Link>
 
-              <Button
-                variant="ghost"
-                className="w-full rounded-xl text-xs text-muted-foreground gap-2"
+              <button
+                className="w-full h-10 rounded-xl text-xs text-white/25 hover:text-white/50 flex items-center justify-center gap-2 transition-all"
                 onClick={() => { if (explorerAddress) { navigator.clipboard.writeText(explorerAddress); toast({ title: 'Address Copied' }); } }}
               >
                 <Copy className="h-3 w-3" /> Copy Address
-              </Button>
+              </button>
             </div>
           </DialogContent>
         </Dialog>

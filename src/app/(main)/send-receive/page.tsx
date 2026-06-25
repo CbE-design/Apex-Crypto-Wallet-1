@@ -167,30 +167,31 @@ export default function SendReceivePage() {
       <div className="flex justify-center items-start pt-2">
         <div className="w-full max-w-lg space-y-4">
         <RiskDisclaimer variant="transfer" collapsible />
-        <Card className="bg-card/60 backdrop-blur-sm border-border/60">
-          <CardHeader className="border-b border-border/40 pb-5">
+        <div className="rounded-[28px] border border-white/[0.08] bg-[#0A0C12]/90 backdrop-blur-xl overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-cyan-500 to-violet-500" />
+          <div className="px-6 pt-7 pb-5 border-b border-white/[0.06]">
             <div className="flex items-center gap-3">
-                 <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20">
-                  <Send className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl font-bold tracking-tight">Send & Receive</CardTitle>
-                  <CardDescription className="text-sm text-muted-foreground">Transfer crypto to any Apex wallet</CardDescription>
-                </div>
+              <div className="p-2.5 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                <Send className="h-5 w-5 text-cyan-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Send & Receive</h2>
+                <p className="text-xs text-white/30">Transfer crypto to any Apex wallet</p>
+              </div>
             </div>
-          </CardHeader>
-          <CardContent className="pt-6">
+          </div>
+          <div className="px-6 py-6">
             <Tabs defaultValue={initialTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-muted/30 rounded-xl p-1 h-11">
-                <TabsTrigger value="send" className="rounded-lg text-sm font-medium">Send</TabsTrigger>
-                <TabsTrigger value="receive" className="rounded-lg text-sm font-medium">Receive</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-white/[0.04] rounded-xl p-1 h-11 border border-white/[0.06]">
+                <TabsTrigger value="send" className="rounded-lg text-sm font-medium data-[state=active]:bg-cyan-500/15 data-[state=active]:text-cyan-300 data-[state=active]:border data-[state=active]:border-cyan-500/25">Send</TabsTrigger>
+                <TabsTrigger value="receive" className="rounded-lg text-sm font-medium data-[state=active]:bg-violet-500/15 data-[state=active]:text-violet-300 data-[state=active]:border data-[state=active]:border-violet-500/25">Receive</TabsTrigger>
               </TabsList>
               <TabsContent value="send" className="pt-6 space-y-5">
                 <form onSubmit={handleSubmit(executeSend)} className="space-y-5">
                     <div className="space-y-2">
-                        <Label className="text-xs font-medium text-muted-foreground">Asset</Label>
+                        <Label className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Asset</Label>
                         <Select value={selectedAsset} onValueChange={(val) => { setSelectedAsset(val); setValue('asset', val, { shouldValidate: true }); }}>
-                            <SelectTrigger className="h-12 bg-muted/20 border-border/60 rounded-xl">
+                            <SelectTrigger className="h-12 bg-white/[0.04] border-white/[0.08] rounded-xl">
                                 <SelectValue placeholder="Select cryptocurrency" />
                             </SelectTrigger>
                             <SelectContent>
@@ -207,61 +208,62 @@ export default function SendReceivePage() {
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-xs font-medium text-muted-foreground">Recipient Address</Label>
-                        <Input className="h-12 bg-muted/20 border-border/60 rounded-xl font-mono text-sm" placeholder="0x..." {...register('recipientAddress')} />
-                        {errors.recipientAddress && <p className="text-xs text-destructive">{errors.recipientAddress.message}</p>}
+                        <Label className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Recipient Address</Label>
+                        <Input className="h-12 bg-white/[0.04] border-white/[0.08] rounded-xl font-mono text-sm" placeholder="0x..." {...register('recipientAddress')} />
+                        {errors.recipientAddress && <p className="text-xs text-red-400">{errors.recipientAddress.message}</p>}
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-xs font-medium text-muted-foreground">Amount</Label>
+                        <Label className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Amount</Label>
                         <div className="relative">
-                            <Input className="h-14 bg-muted/20 border-border/60 rounded-xl text-lg font-semibold pr-16" type="number" step="any" placeholder="0.00" {...register('amount')} />
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-primary">{selectedAsset}</div>
+                            <Input className="h-14 bg-white/[0.04] border-white/[0.08] rounded-xl text-lg font-semibold pr-16" type="number" step="any" placeholder="0.00" {...register('amount')} />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-cyan-400">{selectedAsset}</div>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Available: <span className="text-foreground font-medium">{(selectedAssetBalance ?? 0).toFixed(6)} {selectedAsset}</span>
+                        <p className="text-[10px] text-white/30">
+                            Available: <span className="text-white/60 font-semibold">{(selectedAssetBalance ?? 0).toFixed(6)} {selectedAsset}</span>
                         </p>
-                        {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
+                        {errors.amount && <p className="text-xs text-red-400">{errors.amount.message}</p>}
                     </div>
 
                     {isComplianceRequired && (
-                        <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-3 animate-in fade-in zoom-in-95">
-                            <div className="flex items-center gap-2 text-primary">
+                        <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3 animate-in fade-in zoom-in-95">
+                            <div className="flex items-center gap-2 text-amber-400">
                                 <ShieldCheck className="h-4 w-4" />
                                 <span className="text-xs font-semibold">Additional Verification Required</span>
                             </div>
-                            <p className="text-xs text-muted-foreground">This transfer exceeds the threshold for additional verification. A compliance reference will be generated automatically.</p>
-                            <Input className="h-10 bg-muted/20 border-border/40 rounded-lg text-xs font-mono" placeholder="Compliance ID (optional)" {...register('complianceId')} />
+                            <p className="text-xs text-white/30">This transfer exceeds the threshold for additional verification. A compliance reference will be generated automatically.</p>
+                            <Input className="h-10 bg-white/[0.04] border-white/[0.07] rounded-lg text-xs font-mono" placeholder="Compliance ID (optional)" {...register('complianceId')} />
                         </div>
                     )}
 
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button type="button" className="w-full h-12 rounded-xl font-semibold text-sm btn-premium" disabled={!isValid || isSubmitting}>
-                                {isSubmitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+                            <button type="button" className="w-full h-12 rounded-xl btn-premium font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-40" disabled={!isValid || isSubmitting}>
+                                {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
                                 {isSubmitting ? "Sending..." : "Send"}
-                            </Button>
+                            </button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent className="rounded-2xl bg-card border-border/60">
+                        <AlertDialogContent className="border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
+                            <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[28px] bg-gradient-to-r from-cyan-500 to-violet-500" />
                             <AlertDialogHeader>
-                                <AlertDialogTitle className="text-lg font-bold">Confirm Transfer</AlertDialogTitle>
-                                <AlertDialogDescription className="text-sm">
+                                <AlertDialogTitle className="text-white font-bold">Confirm Transfer</AlertDialogTitle>
+                                <AlertDialogDescription className="text-white/30">
                                     Please review the details below. This transfer cannot be reversed.
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
-                            <div className="py-4 space-y-3">
-                                <div className="flex justify-between items-center bg-muted/20 p-4 rounded-xl">
-                                    <span className="text-sm text-muted-foreground">Amount</span>
-                                    <span className="font-bold text-lg">{formValues.amount} {selectedAsset}</span>
+                            <div className="py-2 space-y-2">
+                                <div className="flex justify-between items-center bg-white/[0.03] p-4 rounded-xl border border-white/[0.06]">
+                                    <span className="text-[10px] font-semibold text-white/30 uppercase">Amount</span>
+                                    <span className="font-bold text-lg text-cyan-400">{formValues.amount} {selectedAsset}</span>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <p className="text-xs text-muted-foreground">Recipient</p>
-                                    <p className="text-xs font-mono break-all bg-muted/20 p-3 rounded-lg border border-border/40">{formValues.recipientAddress}</p>
+                                    <p className="text-[10px] font-semibold text-white/25 uppercase">Recipient</p>
+                                    <p className="text-xs font-mono break-all bg-white/[0.03] p-3 rounded-xl border border-white/[0.06] text-white/50">{formValues.recipientAddress}</p>
                                 </div>
                             </div>
                             <AlertDialogFooter>
-                                <AlertDialogCancel className="rounded-xl" disabled={isSending}>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleSubmit(executeSend)} className="rounded-xl bg-primary" disabled={isSending}>
+                                <AlertDialogCancel className="rounded-xl border-white/10 bg-white/[0.04] text-white/40" disabled={isSending}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleSubmit(executeSend)} className="rounded-xl btn-cyan" disabled={isSending}>
                                     {isSending ? <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Sending...</> : 'Confirm'}
                                 </AlertDialogAction>
                             </AlertDialogFooter>
@@ -271,51 +273,51 @@ export default function SendReceivePage() {
               </TabsContent>
               <TabsContent value="receive" className="pt-6 space-y-5">
                     <div className="flex flex-col items-center gap-2">
-                        <p className="text-xs font-medium text-muted-foreground">Your Wallet Address</p>
-                        <div className="w-full p-3 bg-muted/20 border border-border/40 rounded-xl flex items-center gap-3">
-                            <code className="text-xs font-mono break-all flex-1 text-center">{userAddress}</code>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg flex-shrink-0" onClick={() => { navigator.clipboard.writeText(userAddress); toast({ title: 'Address Copied' }); }}>
-                                <Copy className="h-4 w-4" />
-                            </Button>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Your Wallet Address</p>
+                        <div className="w-full p-3 bg-white/[0.04] border border-white/[0.07] rounded-xl flex items-center gap-3">
+                            <code className="text-xs font-mono break-all flex-1 text-center text-white/50">{userAddress}</code>
+                            <button className="h-8 w-8 rounded-lg bg-white/[0.05] hover:bg-white/10 flex items-center justify-center flex-shrink-0 transition-all" onClick={() => { navigator.clipboard.writeText(userAddress); toast({ title: 'Address Copied' }); }}>
+                                <Copy className="h-4 w-4 text-white/30" />
+                            </button>
                         </div>
                     </div>
                     <Dialog>
                         <DialogTrigger asChild>
-                            <Button variant="outline" className="w-full h-12 rounded-xl border-border/60 font-semibold text-sm gap-2">
+                            <button className="w-full h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07] text-white/50 hover:text-white/70 font-semibold text-sm flex items-center justify-center gap-2 transition-all">
                                 <QrCode className="h-4 w-4" />
                                 Show QR Code
-                            </Button>
+                            </button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-xs rounded-2xl">
+                        <DialogContent className="max-w-xs border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px]">
                             <DialogHeader>
-                                <DialogTitle className="text-center text-lg font-bold">Receive Crypto</DialogTitle>
+                                <DialogTitle className="text-center text-lg font-bold text-white">Receive Crypto</DialogTitle>
                                 <DialogDescription className="sr-only">Scan the QR code to send crypto to this wallet.</DialogDescription>
                             </DialogHeader>
                             <div className="flex flex-col items-center gap-4 py-4">
                                 <div className="p-4 bg-white rounded-2xl shadow-lg">
-                                    {qrCodeDataUrl ? <Image src={qrCodeDataUrl} alt="Deposit QR Code" width={200} height={200} className="rounded-lg" /> : <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />}
+                                    {qrCodeDataUrl ? <Image src={qrCodeDataUrl} alt="Deposit QR Code" width={200} height={200} className="rounded-lg" /> : <Loader2 className="animate-spin h-8 w-8 text-gray-400" />}
                                 </div>
-                                <div className="w-full p-3 bg-muted/20 border border-border/40 rounded-xl">
-                                    <code className="text-[11px] font-mono break-all block text-center">{userAddress}</code>
+                                <div className="w-full p-3 bg-white/[0.04] border border-white/[0.07] rounded-xl">
+                                    <code className="text-[11px] font-mono break-all block text-center text-white/50">{userAddress}</code>
                                 </div>
-                                <Button variant="outline" className="w-full rounded-xl gap-2" onClick={() => { navigator.clipboard.writeText(userAddress); toast({ title: 'Address Copied' }); }}>
+                                <button className="w-full h-11 rounded-xl border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07] text-white/50 font-semibold flex items-center justify-center gap-2 transition-all" onClick={() => { navigator.clipboard.writeText(userAddress); toast({ title: 'Address Copied' }); }}>
                                     <Copy className="h-4 w-4" /> Copy Address
-                                </Button>
+                                </button>
                             </div>
                         </DialogContent>
                     </Dialog>
-                    <p className="text-xs text-muted-foreground text-center">
+                    <p className="text-xs text-white/25 text-center">
                         Share your address or QR code to receive crypto from other Apex wallets.
                     </p>
               </TabsContent>
             </Tabs>
-          </CardContent>
-        </Card>
-        <p className="text-[10px] text-center text-muted-foreground/40 px-2">
-          Transfers above <strong className="text-muted-foreground/60">R3,000</strong> are subject to FATF Travel Rule reporting.
-          All transactions are final and irreversible. By transacting you accept our{' '}
-          <a href="/legal/terms" className="underline hover:text-muted-foreground transition-colors">Terms</a> and{' '}
-          <a href="/legal/aml-policy" className="underline hover:text-muted-foreground transition-colors">AML Policy</a>.
+          </div>
+        </div>
+        <p className="text-[10px] text-center text-white/15 px-2">
+          Transfers above <strong className="text-white/25">R3,000</strong> are subject to FATF Travel Rule reporting.
+          By transacting you accept our{' '}
+          <a href="/legal/terms" className="underline hover:text-white/30 transition-colors">Terms</a> and{' '}
+          <a href="/legal/aml-policy" className="underline hover:text-white/30 transition-colors">AML Policy</a>.
         </p>
         </div>
       </div>

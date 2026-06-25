@@ -177,280 +177,242 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold italic tracking-tighter uppercase">Admin Dashboard</h1>
-          <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.3em] text-blue-400 mt-1">Apex Wallet Control Centre</p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+              <ShieldCheck className="h-5 w-5 text-cyan-400" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Admin Dashboard</h1>
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/25 ml-1">Apex Wallet Control Centre</p>
         </div>
-        <Button variant="outline" size="sm" className="gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10 rounded-xl" asChild>
-          <Link href="/admin/settings">
-            <Settings className="h-3.5 w-3.5" />
-            Settings
-          </Link>
+        <Button variant="outline" size="sm" className="gap-2 border-white/10 text-white/40 hover:text-white/70 hover:bg-white/5 rounded-xl" asChild>
+          <Link href="/admin/settings"><Settings className="h-3.5 w-3.5" />Settings</Link>
         </Button>
       </div>
 
       {/* Pending actions banner */}
       {pendingTotal > 0 && (
-        <Card className="border-amber-500/30 bg-amber-500/5 rounded-2xl overflow-hidden">
-          <CardContent className="p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
-                <ClipboardCheck className="h-6 w-6 text-amber-500" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-amber-500">{pendingTotal} Item{pendingTotal !== 1 ? 's' : ''} Need Your Attention</h3>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Pending approvals in the queue</p>
-              </div>
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 rounded-xl bg-amber-500/15 flex items-center justify-center border border-amber-500/20">
+              <ClipboardCheck className="h-5 w-5 text-amber-400" />
             </div>
-            <div className="flex gap-2 flex-wrap justify-end">
-              {!!pendingWithdrawals?.length && (
-                <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 text-amber-500 text-[10px] font-black uppercase" asChild>
-                  <Link href="/admin/withdrawals"><ArrowDownRight className="h-3.5 w-3.5" />{pendingWithdrawals.length} Withdrawals</Link>
-                </Button>
-              )}
-              {!!pendingKyc?.length && (
-                <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20 text-blue-400 text-[10px] font-black uppercase" asChild>
-                  <Link href="/admin/kyc"><UserCheck className="h-3.5 w-3.5" />{pendingKyc.length} KYC</Link>
-                </Button>
-              )}
+            <div>
+              <h3 className="text-sm font-bold text-amber-300">{pendingTotal} Item{pendingTotal !== 1 ? 's' : ''} Need Attention</h3>
+              <p className="text-[10px] text-white/30">Pending approvals in queue</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex gap-2 flex-wrap justify-end">
+            {!!pendingWithdrawals?.length && (
+              <Link href="/admin/withdrawals" className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold hover:bg-amber-500/15 transition-colors">
+                <ArrowDownRight className="h-3 w-3" />{pendingWithdrawals.length} Withdrawals
+              </Link>
+            )}
+            {!!pendingKyc?.length && (
+              <Link href="/admin/kyc" className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-bold hover:bg-violet-500/15 transition-colors">
+                <UserCheck className="h-3 w-3" />{pendingKyc.length} KYC
+              </Link>
+            )}
+          </div>
+        </div>
       )}
 
       {/* KPI grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { href: '/admin/users', icon: Users, color: 'primary', value: allUsers?.length ?? '—', label: 'Total Users' },
-          { href: '/admin/kyc', icon: ClipboardCheck, color: 'amber-500', value: pendingTotal, label: 'Pending Actions' },
-          { href: '/admin/withdrawals', icon: ShieldCheck, color: 'green-500', value: processedWithdrawals?.length || 0, label: 'Processed' },
-          { href: '/admin/notifications', icon: Bell, color: 'blue-500', value: unreadNotifications?.length || 0, label: 'Unread Alerts' },
-        ].map(({ href, icon: Icon, color, value, label }) => (
+          { href: '/admin/users', icon: Users, accent: 'violet', value: allUsers?.length ?? '—', label: 'Total Users', border: 'border-violet-500/15 bg-violet-500/5', iconBg: 'bg-violet-500/10 border-violet-500/20', iconColor: 'text-violet-400' },
+          { href: '/admin/kyc', icon: ClipboardCheck, accent: 'amber', value: pendingTotal, label: 'Pending Actions', border: pendingTotal > 0 ? 'border-amber-500/20 bg-amber-500/5' : 'border-white/[0.06] bg-white/[0.02]', iconBg: 'bg-amber-500/10 border-amber-500/20', iconColor: 'text-amber-400' },
+          { href: '/admin/withdrawals', icon: ShieldCheck, accent: 'emerald', value: processedWithdrawals?.length || 0, label: 'Processed', border: 'border-white/[0.06] bg-white/[0.02]', iconBg: 'bg-emerald-500/10 border-emerald-500/20', iconColor: 'text-emerald-400' },
+          { href: '/admin/notifications', icon: Bell, accent: 'cyan', value: unreadNotifications?.length || 0, label: 'Unread Alerts', border: 'border-cyan-500/15 bg-cyan-500/5', iconBg: 'bg-cyan-500/10 border-cyan-500/20', iconColor: 'text-cyan-400' },
+        ].map(({ href, icon: Icon, value, label, border, iconBg, iconColor }) => (
           <Link href={href} key={label}>
-            <Card className="border-border/50 bg-card/60 hover:bg-card/80 transition-colors cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-xl bg-${color}/10 flex items-center justify-center`}>
-                    <Icon className={`h-5 w-5 text-${color}`} />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{value}</p>
-                    <p className="text-xs text-muted-foreground">{label}</p>
-                  </div>
+            <div className={cn("rounded-2xl border p-4 hover:border-opacity-60 transition-all cursor-pointer", border)}>
+              <div className="flex items-center gap-3">
+                <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center border shrink-0", iconBg)}>
+                  <Icon className={cn("h-4 w-4", iconColor)} />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <p className="text-xl font-bold text-white tabular-nums">{value}</p>
+                  <p className="text-[10px] text-white/30">{label}</p>
+                </div>
+              </div>
+            </div>
           </Link>
         ))}
       </div>
 
-      {/* Platform overview stats */}
+      {/* Platform stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="glass-module border-border/30">
-          <CardContent className="p-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">KYC Overview</p>
+        {[
+          {
+            title: 'KYC Overview',
+            rows: [
+              { label: 'Approved', value: approvedKyc?.length || 0, color: 'text-emerald-400 bg-emerald-500/10' },
+              { label: 'Pending', value: pendingKyc?.length || 0, color: 'text-amber-400 bg-amber-500/10' },
+              { label: 'Approval Rate', value: approvedKyc && (approvedKyc.length + (pendingKyc?.length || 0)) > 0 ? `${Math.round(approvedKyc.length / (approvedKyc.length + (pendingKyc?.length || 0)) * 100)}%` : '—', color: 'text-white/60 bg-white/5' },
+            ],
+          },
+          {
+            title: 'Withdrawal Overview',
+            rows: [
+              { label: 'Processed', value: processedWithdrawals?.length || 0, color: 'text-emerald-400 bg-emerald-500/10' },
+              { label: 'Pending', value: pendingWithdrawals?.length || 0, color: 'text-amber-400 bg-amber-500/10' },
+              { label: 'Rejected', value: rejectedWithdrawals?.length || 0, color: 'text-red-400 bg-red-500/10' },
+            ],
+          },
+          {
+            title: 'Platform Controls',
+            rows: [
+              { label: 'Trading', value: platformControls?.tradingEnabled ?? true ? 'On' : 'Off', color: (platformControls?.tradingEnabled ?? true) ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' },
+              { label: 'Withdrawals', value: platformControls?.withdrawalsEnabled ?? true ? 'On' : 'Off', color: (platformControls?.withdrawalsEnabled ?? true) ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' },
+              { label: 'Registrations', value: platformControls?.allowNewRegistrations ?? true ? 'On' : 'Off', color: (platformControls?.allowNewRegistrations ?? true) ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' },
+            ],
+          },
+        ].map(({ title, rows }) => (
+          <div key={title} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <div className="absolute top-0 left-0 right-0 h-[1.5px] rounded-t-2xl bg-gradient-to-r from-violet-500/40 to-transparent" />
+            <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3">{title}</p>
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">Approved</span>
-                <Badge className="bg-green-500/20 text-green-400 border-none text-[10px]">{approvedKyc?.length || 0}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">Pending Review</span>
-                <Badge className="bg-amber-500/20 text-amber-400 border-none text-[10px]">{pendingKyc?.length || 0}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">Approval Rate</span>
-                <span className="text-xs font-bold text-white">
-                  {approvedKyc && (approvedKyc.length + (pendingKyc?.length || 0)) > 0
-                    ? `${Math.round(approvedKyc.length / (approvedKyc.length + (pendingKyc?.length || 0)) * 100)}%`
-                    : '—'}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-module border-border/30">
-          <CardContent className="p-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">Withdrawal Overview</p>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">Processed</span>
-                <Badge className="bg-green-500/20 text-green-400 border-none text-[10px]">{processedWithdrawals?.length || 0}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">Pending</span>
-                <Badge className="bg-amber-500/20 text-amber-400 border-none text-[10px]">{pendingWithdrawals?.length || 0}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">Rejected</span>
-                <Badge className="bg-red-500/20 text-red-400 border-none text-[10px]">{rejectedWithdrawals?.length || 0}</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-module border-border/30">
-          <CardContent className="p-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">Platform Controls</p>
-            <div className="space-y-2">
-              {[
-                { label: 'Trading', value: platformControls?.tradingEnabled ?? true },
-                { label: 'Withdrawals', value: platformControls?.withdrawalsEnabled ?? true },
-                { label: 'Registrations', value: platformControls?.allowNewRegistrations ?? true },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">{label}</span>
-                  <Badge className={cn('border-none text-[10px]', value ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400')}>
-                    {value ? 'Enabled' : 'Disabled'}
-                  </Badge>
+              {rows.map(row => (
+                <div key={row.label} className="flex items-center justify-between">
+                  <span className="text-[11px] text-white/40">{row.label}</span>
+                  <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-lg', row.color)}>{row.value}</span>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        ))}
       </div>
 
       {/* Protocol Gate */}
-      <Card className={cn('relative overflow-hidden border-2 transition-colors', isNetworkActive ? 'border-green-500/30 bg-green-500/5' : 'border-destructive/40 bg-destructive/5')}>
-        <CardContent className="p-5 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className={cn('h-14 w-14 rounded-2xl flex items-center justify-center border', isNetworkActive ? 'bg-green-500/20 border-green-500/30' : 'bg-destructive/20 border-destructive/30')}>
-              <Power className={cn('h-7 w-7', isNetworkActive ? 'text-green-400' : 'text-destructive')} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className={cn('text-lg font-black uppercase italic', isNetworkActive ? 'text-green-400' : 'text-destructive')}>
-                  Platform {isNetworkActive ? 'Live' : 'Suspended'}
-                </h3>
-                <div className={cn('h-2 w-2 rounded-full animate-pulse', isNetworkActive ? 'bg-green-400' : 'bg-destructive')} />
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                {isNetworkActive
-                  ? 'All systems operational. Users can register, trade, deposit, and withdraw.'
-                  : 'Platform is in maintenance mode. All user transactions are blocked.'}
-              </p>
-            </div>
+      <div className={cn('relative overflow-hidden rounded-2xl border-2 transition-all p-5 flex flex-col md:flex-row items-center justify-between gap-4', isNetworkActive ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5')}>
+        <div className="flex items-center gap-4">
+          <div className={cn('h-12 w-12 rounded-2xl flex items-center justify-center border', isNetworkActive ? 'bg-emerald-500/15 border-emerald-500/25' : 'bg-red-500/15 border-red-500/25')}>
+            <Power className={cn('h-6 w-6', isNetworkActive ? 'text-emerald-400' : 'text-red-400')} />
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
-              {isNetworkActive ? 'TAKE OFFLINE' : 'BRING ONLINE'}
-            </Label>
-            <Switch
-              checked={isNetworkActive}
-              onCheckedChange={handleToggleGate}
-              className="scale-110 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-destructive"
-            />
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className={cn('text-base font-bold uppercase tracking-wide', isNetworkActive ? 'text-emerald-300' : 'text-red-300')}>
+                Platform {isNetworkActive ? 'Live' : 'Suspended'}
+              </h3>
+              <div className={cn('h-2 w-2 rounded-full animate-pulse', isNetworkActive ? 'bg-emerald-400' : 'bg-red-400')} />
+            </div>
+            <p className="text-[11px] text-white/35">
+              {isNetworkActive ? 'All systems operational — users can transact.' : 'Maintenance mode — all user transactions blocked.'}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <Label className="text-[9px] font-bold uppercase tracking-widest text-white/25">
+            {isNetworkActive ? 'TAKE OFFLINE' : 'BRING ONLINE'}
+          </Label>
+          <Switch
+            checked={isNetworkActive}
+            onCheckedChange={handleToggleGate}
+            className="scale-110 data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-red-500"
+          />
+        </div>
+      </div>
 
       {/* Quick links */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { href: '/admin/withdrawals', icon: ArrowDownRight, label: 'Review Withdrawals', badge: pendingWithdrawals?.length || 0 },
+          { href: '/admin/withdrawals', icon: ArrowDownRight, label: 'Withdrawals', badge: pendingWithdrawals?.length || 0 },
           { href: '/admin/kyc', icon: UserCheck, label: 'KYC Queue', badge: pendingKyc?.length || 0 },
           { href: '/admin/users', icon: Users, label: 'User Registry', badge: 0 },
-          { href: '/admin/settings', icon: Settings, label: 'Platform Settings', badge: 0 },
+          { href: '/admin/settings', icon: Settings, label: 'Settings', badge: 0 },
         ].map(({ href, icon: Icon, label, badge }) => (
           <Link href={href} key={label}>
-            <Card className="border-border/30 bg-card/40 hover:bg-card/70 transition-all cursor-pointer group">
-              <CardContent className="p-3 flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors flex items-center justify-center flex-shrink-0">
-                  <Icon className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-bold truncate">{label}</p>
-                  {badge > 0 && <p className="text-[10px] text-amber-400 font-bold">{badge} pending</p>}
-                </div>
-              </CardContent>
-            </Card>
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:border-violet-500/15 hover:bg-violet-500/[0.03] transition-all cursor-pointer group p-3 flex items-center gap-3">
+              <div className="h-8 w-8 rounded-xl bg-violet-500/8 group-hover:bg-violet-500/15 transition-colors border border-violet-500/10 flex items-center justify-center shrink-0">
+                <Icon className="h-4 w-4 text-violet-400/60 group-hover:text-violet-400 transition-colors" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-semibold text-white/60 group-hover:text-white/80 truncate transition-colors">{label}</p>
+                {badge > 0 && <p className="text-[9px] text-amber-400 font-bold">{badge} pending</p>}
+              </div>
+            </div>
           </Link>
         ))}
       </div>
 
       {/* Communications */}
       <Tabs defaultValue="broadcast" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-white/5 rounded-2xl p-1 h-14">
-          <TabsTrigger value="broadcast" className="rounded-xl font-black uppercase tracking-widest text-[10px] gap-2">
-            <Bell className="h-3 w-3" /> Push Notification
+        <TabsList className="grid w-full grid-cols-2 bg-white/[0.04] rounded-2xl p-1 h-12 border border-white/[0.06]">
+          <TabsTrigger value="broadcast" className="rounded-xl font-bold uppercase tracking-[0.12em] text-[10px] gap-2 data-[state=active]:bg-violet-500/15 data-[state=active]:text-violet-300 data-[state=active]:border data-[state=active]:border-violet-500/20">
+            <Bell className="h-3 w-3" /> Push
           </TabsTrigger>
-          <TabsTrigger value="email" className="rounded-xl font-black uppercase tracking-widest text-[10px] gap-2">
-            <Mail className="h-3 w-3" /> Email All Users
+          <TabsTrigger value="email" className="rounded-xl font-bold uppercase tracking-[0.12em] text-[10px] gap-2 data-[state=active]:bg-cyan-500/15 data-[state=active]:text-cyan-300 data-[state=active]:border data-[state=active]:border-cyan-500/20">
+            <Mail className="h-3 w-3" /> Email All
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="broadcast" className="mt-4">
-          <Card className="glass-module">
-            <CardHeader>
-              <CardTitle className="italic uppercase tracking-tighter text-base">Push Notification</CardTitle>
-              <CardDescription className="text-[10px] uppercase font-bold">Send an in-app push notification to all users.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {broadcastStatus === 'processing' ? (
-                <div className="py-14 flex flex-col items-center gap-4">
-                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                  <p className="text-xs font-black uppercase tracking-widest">Sending to all users...</p>
+          <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 p-5">
+            <div className="absolute top-0 left-0 right-0 h-[1.5px] rounded-t-2xl bg-gradient-to-r from-violet-500 to-transparent" />
+            <h3 className="text-sm font-bold text-white mb-1">Push Notification</h3>
+            <p className="text-[10px] text-white/30 mb-4">Send an in-app notification to all users.</p>
+            {broadcastStatus === 'processing' ? (
+              <div className="py-14 flex flex-col items-center gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-violet-400" />
+                <p className="text-xs font-bold uppercase tracking-widest text-white/40">Sending to all users...</p>
+              </div>
+            ) : broadcastStatus === 'success' ? (
+              <div className="py-14 flex flex-col items-center gap-4 text-center">
+                <CheckCircle className="h-10 w-10 text-emerald-400" />
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">Notification Sent</p>
+                <Button onClick={() => setBroadcastStatus('idle')} variant="outline" className="rounded-xl border-white/10">Send Another</Button>
+              </div>
+            ) : (
+              <form onSubmit={broadcastForm.handleSubmit(handleBroadcast)} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/30">Title</Label>
+                  <Input className="bg-white/5 rounded-xl border-white/8" placeholder="e.g. Important Security Update" {...broadcastForm.register('title')} />
                 </div>
-              ) : broadcastStatus === 'success' ? (
-                <div className="py-14 flex flex-col items-center gap-4 text-center">
-                  <CheckCircle className="h-10 w-10 text-green-400" />
-                  <p className="text-xs font-black uppercase tracking-widest text-green-400">Notification Sent</p>
-                  <Button onClick={() => setBroadcastStatus('idle')} variant="outline" className="rounded-xl">Send Another</Button>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/30">Message</Label>
+                  <Textarea className="bg-white/5 rounded-xl border-white/8" rows={4} placeholder="Enter your notification message..." {...broadcastForm.register('body')} />
                 </div>
-              ) : (
-                <form onSubmit={broadcastForm.handleSubmit(handleBroadcast)} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Title</Label>
-                    <Input className="bg-white/5 rounded-xl border-white/10" placeholder="e.g. Important Security Update" {...broadcastForm.register('title')} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Message</Label>
-                    <Textarea className="bg-white/5 rounded-xl border-white/10" rows={4} placeholder="Enter your notification message..." {...broadcastForm.register('body')} />
-                  </div>
-                  <Button type="submit" className="w-full btn-premium py-6 rounded-2xl font-black uppercase italic tracking-widest" disabled={!broadcastForm.formState.isValid}>
-                    Send Notification to All Users
-                  </Button>
-                </form>
-              )}
-            </CardContent>
-          </Card>
+                <button type="submit" disabled={!broadcastForm.formState.isValid} className="w-full h-12 btn-premium rounded-2xl font-bold uppercase tracking-widest text-sm text-white disabled:opacity-40">
+                  Send to All Users
+                </button>
+              </form>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="email" className="mt-4">
-          <Card className="glass-module">
-            <CardHeader>
-              <CardTitle className="italic uppercase tracking-tighter text-base">Email All Users</CardTitle>
-              <CardDescription className="text-[10px] uppercase font-bold">Send an email to all registered users via the system mailer.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {emailStatus === 'processing' ? (
-                <div className="py-14 flex flex-col items-center gap-4">
-                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                  <p className="text-xs font-black uppercase tracking-widest">Sending emails...</p>
+          <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 p-5">
+            <div className="absolute top-0 left-0 right-0 h-[1.5px] rounded-t-2xl bg-gradient-to-r from-cyan-500 to-transparent" />
+            <h3 className="text-sm font-bold text-white mb-1">Email All Users</h3>
+            <p className="text-[10px] text-white/30 mb-4">Send an email to all registered users via the system mailer.</p>
+            {emailStatus === 'processing' ? (
+              <div className="py-14 flex flex-col items-center gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-cyan-400" />
+                <p className="text-xs font-bold uppercase tracking-widest text-white/40">Sending emails...</p>
+              </div>
+            ) : emailStatus === 'success' ? (
+              <div className="py-14 flex flex-col items-center gap-4 text-center">
+                <CheckCircle className="h-10 w-10 text-emerald-400" />
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">Emails Sent Successfully</p>
+                <Button onClick={() => setEmailStatus('idle')} variant="outline" className="rounded-xl border-white/10">Send Another</Button>
+              </div>
+            ) : (
+              <form onSubmit={emailForm.handleSubmit(handleSendEmail)} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/30">Subject</Label>
+                  <Input className="bg-white/5 rounded-xl border-white/8" placeholder="e.g. Apex Wallet — Important Update" {...emailForm.register('subject')} />
                 </div>
-              ) : emailStatus === 'success' ? (
-                <div className="py-14 flex flex-col items-center gap-4 text-center">
-                  <CheckCircle className="h-10 w-10 text-green-400" />
-                  <p className="text-xs font-black uppercase tracking-widest text-green-400">Emails Sent Successfully</p>
-                  <Button onClick={() => setEmailStatus('idle')} variant="outline" className="rounded-xl">Send Another</Button>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/30">HTML Body</Label>
+                  <Textarea className="bg-white/5 rounded-xl font-mono text-[11px] border-white/8" rows={8} placeholder="<h1>Hello from Apex Wallet</h1>..." {...emailForm.register('body')} />
                 </div>
-              ) : (
-                <form onSubmit={emailForm.handleSubmit(handleSendEmail)} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Subject</Label>
-                    <Input className="bg-white/5 rounded-xl border-white/10" placeholder="e.g. Apex Wallet — Important Update" {...emailForm.register('subject')} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase tracking-widest ml-1">HTML Body</Label>
-                    <Textarea className="bg-white/5 rounded-xl font-mono text-[11px] border-white/10" rows={8} placeholder="<h1>Hello from Apex Wallet</h1>..." {...emailForm.register('body')} />
-                  </div>
-                  <Button type="submit" className="w-full bg-blue-600 text-white py-6 rounded-2xl font-black uppercase italic hover:bg-blue-500 tracking-widest" disabled={!emailForm.formState.isValid}>
-                    Send Email to All Users
-                  </Button>
-                </form>
-              )}
-            </CardContent>
-          </Card>
+                <button type="submit" disabled={!emailForm.formState.isValid} className="w-full h-12 btn-cyan rounded-2xl font-bold uppercase tracking-widest text-sm text-white disabled:opacity-40">
+                  Send Email to All Users
+                </button>
+              </form>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>
