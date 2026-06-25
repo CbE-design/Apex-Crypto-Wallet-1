@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "gcp-build": "next build"
+    "gcp-build": "next build",
+    "deploy:rules": "node scripts/deploy-rules.js"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.33.0-rc.1",
