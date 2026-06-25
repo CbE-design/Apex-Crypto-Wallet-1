@@ -134,10 +134,10 @@ export function PortfolioOverview() {
 
       <div className="flex flex-col md:flex-row items-center gap-6">
         {/* Donut chart */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0" style={{ width: 192, height: 192 }}>
           {totalBalance > 0 ? (
-            <ChartContainer config={chartConfig} className="h-48 w-48">
-              <PieChart>
+            <ChartContainer config={chartConfig} style={{ width: 192, height: 192 }}>
+              <PieChart width={192} height={192}>
                 <ChartTooltip
                   cursor={false}
                   content={<ChartTooltipContent
@@ -154,7 +154,7 @@ export function PortfolioOverview() {
                     }}
                   />}
                 />
-                <Pie data={chartData} dataKey="value" nameKey="name" innerRadius="72%" outerRadius="88%" strokeWidth={0} paddingAngle={3}>
+                <Pie data={chartData} dataKey="value" nameKey="name" cx={96} cy={96} innerRadius={66} outerRadius={88} strokeWidth={0} paddingAngle={3}>
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} className="hover:opacity-75 transition-opacity" />
                   ))}
@@ -162,7 +162,7 @@ export function PortfolioOverview() {
               </PieChart>
             </ChartContainer>
           ) : (
-            <div className="h-48 w-48 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
+            <div className="w-full h-full rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
               <span className="text-xs text-muted-foreground text-center px-4">Awaiting deposit</span>
             </div>
           )}
