@@ -82,7 +82,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn('h-full', inter.variable, GeistSans.variable, spaceGrotesk.variable)} suppressHydrationWarning>
-      <body className={cn('font-body antialiased h-full', spaceGrotesk.className)}>
+      <body className={cn('font-body antialiased h-full')}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}

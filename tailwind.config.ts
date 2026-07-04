@@ -1,4 +1,4 @@
-import type {Config} from 'tailwindcss';
+import type { Config } from 'tailwindcss';
 
 export default {
   darkMode: ['class'],
@@ -11,7 +11,7 @@ export default {
     extend: {
       fontFamily: {
         body: ['var(--font-inter)', 'var(--font-geist-sans)', 'sans-serif'],
-        headline: ['var(--font-inter)', 'var(--font-geist-sans)', 'sans-serif'],
+        headline: ['var(--font-space-grotesk)', 'var(--font-geist-sans)', 'sans-serif'],
         code: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       colors: {

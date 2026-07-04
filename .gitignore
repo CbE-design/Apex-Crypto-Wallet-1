@@ -30,12 +30,9 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
-# firebase
-.firebase
-
 # vercel
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# firebase
+.firebase/
+firebase-service-account.json
