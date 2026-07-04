@@ -14,8 +14,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { CurrencySwitcher } from '@/components/currency-switcher';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const CurrencySwitcher = dynamic(
+  () => import('@/components/currency-switcher').then((mod) => mod.CurrencySwitcher),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-8 w-24" />,
+  }
+);
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
