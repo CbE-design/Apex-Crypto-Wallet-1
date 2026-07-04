@@ -36,3 +36,9 @@ yarn-error.log*
 # firebase
 .firebase/
 firebase-service-account.json
+
+# IDE & build artifacts
+.idx/
+artifacts/
+*.tsbuildinfo
+*.save

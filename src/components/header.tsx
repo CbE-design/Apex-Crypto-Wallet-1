@@ -1,6 +1,6 @@
 'use client';
 
-import { LogOut, Settings, User, ChevronDown, Copy, Bell } from 'lucide-react';
+import { LogOut, Settings, User, Copy, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useWallet } from '@/context/wallet-context';
@@ -14,25 +14,21 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { useCurrency } from '@/context/currency-context';
-import { currencies } from '@/lib/currencies';
-import { cn } from '@/lib/utils';
+import { CurrencySwitcher } from '@/components/currency-switcher';
 import Link from 'next/link';
-import Image from 'next/image';
 
 const PAGE_TITLES: Record<string, string> = {
-  '/':              'Dashboard',
-  '/wallets':       'My Wallets',
-  '/swap':          'Swap',
-  '/send-receive':  'Send & Receive',
-  '/cash-out':      'Withdrawal',
-  '/ai-assistant':  'AI Assistant',
-  '/settings':      'Settings',
+  '/': 'Dashboard',
+  '/wallets': 'My Wallets',
+  '/swap': 'Swap',
+  '/send-receive': 'Send & Receive',
+  '/cash-out': 'Withdrawal',
+  '/ai-assistant': 'AI Assistant',
+  '/settings': 'Settings',
 };
 
 export function Header() {
   const { wallet, disconnectWallet, user } = useWallet();
-  const { currency, setCurrency } = useCurrency();
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -56,9 +52,7 @@ export function Header() {
     }
   };
 
-  const initials = user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : null;
+  const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : null;
 
   return (
     <header className="flex items-center justify-between px-4 h-14 border-b border-white/[0.05]">
@@ -75,53 +69,31 @@ export function Header() {
 
       {/* Right */}
       <div className="flex items-center gap-1.5">
-
-        {/* Currency picker */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm"
-              className="h-8 gap-1.5 px-2.5 rounded-lg text-[12px] font-semibold text-white/40 hover:text-white/70 hover:bg-white/[0.05]">
-              <span className="text-white/70">{currency.symbol}</span>
-              <div className="relative h-3 w-[18px] overflow-hidden rounded-sm border border-white/10 hidden sm:block">
-                <Image src={currency.flagUrl} alt={currency.name} fill className="object-cover" />
-              </div>
-              <ChevronDown className="h-3 w-3 opacity-40" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 bg-[#0A0C12]/95 backdrop-blur-xl border-white/[0.08]">
-            <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.15em] text-white/30 px-2 py-1.5">
-              Display Currency
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-white/[0.05]" />
-            <div className="max-h-60 overflow-y-auto space-y-0.5">
-              {currencies.map((c) => (
-                <DropdownMenuItem key={c.symbol} onClick={() => setCurrency(c.symbol)}
-                  className={cn("rounded-lg cursor-pointer text-[13px]", currency.symbol === c.symbol && "bg-violet-500/10 text-violet-300")}>
-                  <div className="relative h-3 w-[18px] overflow-hidden rounded-sm border border-white/5 mr-2 shrink-0">
-                    <Image src={c.flagUrl} alt={c.name} fill className="object-cover" />
-                  </div>
-                  <span className="font-medium">{c.symbol}</span>
-                  <span className="ml-auto text-white/30 text-[11px]">{c.name}</span>
-                </DropdownMenuItem>
-              ))}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <CurrencySwitcher />
 
         {/* Notifications placeholder */}
-        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-white/[0.05] text-white/30 hover:text-white/60 transition-colors relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-lg hover:bg-white/[0.05] text-white/30 hover:text-white/60 transition-colors relative"
+        >
           <Bell className="h-4 w-4" />
         </Button>
 
         {/* Profile dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon"
-              className="h-8 w-8 rounded-lg p-0 overflow-hidden border border-violet-500/20 hover:border-violet-500/40 transition-all shadow-sm shadow-violet-500/10">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-lg p-0 overflow-hidden border border-violet-500/20 hover:border-violet-500/40 transition-all shadow-sm shadow-violet-500/10"
+            >
               <div className="h-full w-full bg-gradient-to-br from-violet-500/25 to-cyan-500/15 flex items-center justify-center">
-                {initials
-                  ? <span className="text-[10px] font-bold text-violet-300">{initials}</span>
-                  : <User className="h-3.5 w-3.5 text-violet-400/70" />}
+                {initials ? (
+                  <span className="text-[10px] font-bold text-violet-300">{initials}</span>
+                ) : (
+                  <User className="h-3.5 w-3.5 text-violet-400/70" />
+                )}
               </div>
             </Button>
           </DropdownMenuTrigger>
@@ -156,14 +128,15 @@ export function Header() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-white/[0.05]" />
-            <DropdownMenuItem onClick={onDisconnect}
-              className="rounded-lg cursor-pointer text-[13px] text-red-400 hover:text-red-300 focus:text-red-300">
+            <DropdownMenuItem
+              onClick={onDisconnect}
+              className="rounded-lg cursor-pointer text-[13px] text-red-400 hover:text-red-300 focus:text-red-300"
+            >
               <LogOut className="mr-2 h-3.5 w-3.5" />
               Disconnect Wallet
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
       </div>
     </header>
   );

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -38,25 +37,25 @@ function generateTxHash(id: string): string {
 const INCOMING_TYPES = new Set(['Buy', 'Internal Transfer']);
 
 const TYPE_CONFIG: Record<string, { icon: React.ReactNode; bg: string; text: string }> = {
-  Buy:               { icon: <ArrowDownLeft className="h-3.5 w-3.5" />, bg: 'bg-cyan-500/12 border-cyan-500/20',       text: 'text-cyan-400' },
-  Sell:              { icon: <ArrowUpRight  className="h-3.5 w-3.5" />, bg: 'bg-red-500/12 border-red-500/20',         text: 'text-red-400' },
-  Send:              { icon: <Send          className="h-3.5 w-3.5" />, bg: 'bg-red-500/12 border-red-500/20',         text: 'text-red-400' },
-  Withdrawal:        { icon: <Building2     className="h-3.5 w-3.5" />, bg: 'bg-orange-500/12 border-orange-500/20',   text: 'text-orange-400' },
-  Swap:              { icon: <ArrowLeftRight className="h-3.5 w-3.5" />, bg: 'bg-violet-500/12 border-violet-500/20',  text: 'text-violet-400' },
-  'Internal Transfer': { icon: <ArrowDownLeft className="h-3.5 w-3.5" />, bg: 'bg-cyan-500/12 border-cyan-500/20',   text: 'text-cyan-400' },
+  Buy: { icon: <ArrowDownLeft className="h-3.5 w-3.5" />, bg: 'bg-cyan-500/12 border-cyan-500/20', text: 'text-cyan-400' },
+  Sell: { icon: <ArrowUpRight className="h-3.5 w-3.5" />, bg: 'bg-red-500/12 border-red-500/20', text: 'text-red-400' },
+  Send: { icon: <Send className="h-3.5 w-3.5" />, bg: 'bg-red-500/12 border-red-500/20', text: 'text-red-400' },
+  Withdrawal: { icon: <Building2 className="h-3.5 w-3.5" />, bg: 'bg-orange-500/12 border-orange-500/20', text: 'text-orange-400' },
+  Swap: { icon: <ArrowLeftRight className="h-3.5 w-3.5" />, bg: 'bg-violet-500/12 border-violet-500/20', text: 'text-violet-400' },
+  'Internal Transfer': { icon: <ArrowDownLeft className="h-3.5 w-3.5" />, bg: 'bg-cyan-500/12 border-cyan-500/20', text: 'text-cyan-400' },
 };
 
 const STATUS_CONFIG: Record<string, { dot: string; label: string; text: string }> = {
-  Completed:   { dot: 'bg-emerald-400', label: 'Confirmed', text: 'text-emerald-400' },
-  Pending:     { dot: 'bg-orange-400 animate-pulse', label: 'Pending', text: 'text-orange-400' },
-  Failed:      { dot: 'bg-red-400', label: 'Failed', text: 'text-red-400' },
+  Completed: { dot: 'bg-emerald-400', label: 'Confirmed', text: 'text-emerald-400' },
+  Pending: { dot: 'bg-orange-400 animate-pulse', label: 'Pending', text: 'text-orange-400' },
+  Failed: { dot: 'bg-red-400', label: 'Failed', text: 'text-red-400' },
   Reconciling: { dot: 'bg-blue-400 animate-pulse', label: 'Reconciling', text: 'text-blue-400' },
 };
 
 export function TransactionHistory() {
   const { user } = useUser();
   const firestore = useFirestore();
-  const { currency, formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrency();
 
   const transactionsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -123,7 +122,7 @@ export function TransactionHistory() {
             const sym = tx.currency;
             const coinName = marketCoins.find(c => c.symbol === sym)?.name || sym;
             const priceUSD = tx.price > 0 ? tx.price : (livePrices[sym] || 0);
-            const valueInCurrency = tx.amount * priceUSD * currency.rate;
+            const valueUSD = tx.amount * priceUSD;
             const txHash = tx.txHash || generateTxHash(tx.id);
             const isIncoming = INCOMING_TYPES.has(tx.type);
             const typeConf = TYPE_CONFIG[tx.type] ?? TYPE_CONFIG['Swap'];
@@ -156,7 +155,7 @@ export function TransactionHistory() {
                     {isIncoming ? '+' : '-'}{(tx.amount ?? 0).toFixed(sym === 'BTC' ? 6 : 4)} {sym}
                   </p>
                   <p className="text-[10px] font-mono text-muted-foreground/60">
-                    {priceError ? 'N/A' : valueInCurrency > 0 ? formatCurrency(valueInCurrency) : '—'}
+                    {priceError ? 'N/A' : valueUSD > 0 ? formatCurrency(valueUSD) : '—'}
                   </p>
                 </div>
 

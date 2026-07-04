@@ -4,7 +4,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useMemo } from 'react';
 import { currencies } from '@/lib/currencies';
 import type { Currency } from '@/lib/types';
-import { getLivePrices } from '@/services/crypto-service';
 
 interface CurrencyContextType {
   currency: Currency & { rate: number };
@@ -32,73 +31,66 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     async function fetchRates() {
-      if (selectedCurrencySymbol === 'USD') {
-        setRates({ USD: 1 });
-        setLoading(false);
-        return;
-      }
-
       setLoading(true);
       try {
-        // getLivePrices now uses Frankfurter API for real fiat rates.
-        // Fetching BTC in target currency lets us back-calculate the USD→target rate.
-        const [btcInTarget, btcInUsd] = await Promise.all([
-          getLivePrices(['BTC'], selectedCurrencySymbol),
-          getLivePrices(['BTC'], 'USD'),
-        ]);
-
-        const targetPrice = btcInTarget['BTC'];
-        const usdPrice = btcInUsd['BTC'];
-
-        if (targetPrice && usdPrice && usdPrice > 0) {
-          const derivedRate = targetPrice / usdPrice;
-          setRates({ [selectedCurrencySymbol]: derivedRate, USD: 1 });
-        } else {
-          setRates({ [selectedCurrencySymbol]: 1, USD: 1 });
-        }
-      } catch {
-        setRates({ [selectedCurrencySymbol]: 1, USD: 1 });
+        const response = await fetch('https://api.frankfurter.app/latest?from=USD');
+        const data = await response.json();
+        setRates({ ...data.rates, USD: 1 });
+      } catch (error) {
+        console.error("Failed to fetch currency rates:", error);
+        // Fallback to USD if API fails
+        setRates({ USD: 1 });
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
-
     fetchRates();
-  }, [selectedCurrencySymbol]);
+  }, []);
 
-  const setCurrency = (symbol: string) => {
-    const found = currencies.find(c => c.symbol === symbol);
-    if (found) {
+  const setCurrency = useCallback((symbol: string) => {
+    if (currencies.some(c => c.symbol === symbol)) {
       setSelectedCurrencySymbol(symbol);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(CURRENCY_STORAGE_KEY, symbol);
-      }
+      localStorage.setItem(CURRENCY_STORAGE_KEY, symbol);
     }
-  };
+  }, []);
 
   const formatCurrency = useCallback((value: number) => {
+    const rate = rates[selectedCurrencySymbol] || 1;
+    const convertedValue = value * rate;
+    
+    const selectedCurrency = currencies.find(c => c.symbol === selectedCurrencySymbol) || currencies.find(c => c.symbol === 'USD');
+
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: selectedCurrencySymbol,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  }, [selectedCurrencySymbol]);
-
-  const currency = useMemo(() => {
-    const current = currencies.find(c => c.symbol === selectedCurrencySymbol) || currencies[0];
-    const rate = rates[selectedCurrencySymbol] ?? (selectedCurrencySymbol === 'USD' ? 1 : 1);
-    return { ...current, rate };
+      minimumFractionDigits: selectedCurrency?.digits,
+      maximumFractionDigits: selectedCurrency?.digits,
+    }).format(convertedValue);
   }, [selectedCurrencySymbol, rates]);
 
-  return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, formatCurrency, rates, loading }}>
-      {children}
-    </CurrencyContext.Provider>
-  );
+  const currency = useMemo(() => {
+    const base = currencies.find(c => c.symbol === selectedCurrencySymbol) || currencies.find(c => c.symbol === 'USD')!;
+    return {
+      ...base,
+      rate: rates[selectedCurrencySymbol] || 1,
+    };
+  }, [selectedCurrencySymbol, rates]);
+
+  const value = {
+    currency,
+    setCurrency,
+    formatCurrency,
+    rates,
+    loading
+  };
+
+  return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
 };
 
 export const useCurrency = () => {
   const context = useContext(CurrencyContext);
-  if (!context) throw new Error('useCurrency must be used within a CurrencyProvider');
+  if (context === undefined) {
+    throw new Error('useCurrency must be used within a CurrencyProvider');
+  }
   return context;
 };

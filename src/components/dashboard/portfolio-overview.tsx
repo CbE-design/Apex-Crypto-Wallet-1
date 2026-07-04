@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -35,7 +34,7 @@ const chartConfig = {
 export function PortfolioOverview() {
   const { user } = useUser();
   const firestore = useFirestore();
-  const { currency, formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrency();
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -72,7 +71,6 @@ export function PortfolioOverview() {
   }, [walletData, prices, changes]);
 
   const totalBalance = portfolioAssets.reduce((acc, asset) => acc + asset.valueUSD, 0);
-  const totalBalanceInSelectedCurrency = totalBalance * currency.rate;
 
   const chartData = portfolioAssets
     .filter(asset => asset.valueUSD > 0.01)
@@ -148,7 +146,7 @@ export function PortfolioOverview() {
                       return (
                         <div className="flex items-center justify-between gap-4 w-full">
                           <span className="font-semibold">{asset.name}</span>
-                          <span className="font-bold text-emerald-400">{formatCurrency(asset.valueUSD * currency.rate)}</span>
+                          <span className="font-bold text-emerald-400">{formatCurrency(asset.valueUSD)}</span>
                         </div>
                       );
                     }}
@@ -170,10 +168,10 @@ export function PortfolioOverview() {
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <p className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase mb-1">Net Worth</p>
               <p className={cn('text-xl font-bold tracking-tight', priceError ? 'text-muted-foreground' : 'text-foreground')}>
-                {formatCurrency(totalBalanceInSelectedCurrency).split('.')[0]}
+                {formatCurrency(totalBalance).split('.')[0]}
               </p>
               <p className="text-[10px] text-muted-foreground">
-                .{formatCurrency(totalBalanceInSelectedCurrency).split('.')[1] ?? '00'}
+                .{formatCurrency(totalBalance).split('.')[1] ?? '00'}
               </p>
             </div>
           )}
@@ -198,7 +196,7 @@ export function PortfolioOverview() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className={cn('text-sm font-semibold', priceError && 'text-muted-foreground/70')}>
-                        {formatCurrency(asset.valueUSD * currency.rate)}
+                        {formatCurrency(asset.valueUSD)}
                       </p>
                       <div className={cn(
                         'flex items-center justify-end gap-0.5 text-[11px] font-medium',
