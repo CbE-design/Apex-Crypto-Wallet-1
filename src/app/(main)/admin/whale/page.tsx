@@ -1,3 +1,86 @@
+tsx
+'use client';
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useFirestore } from '@/firebase';
+import { doc, getDoc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
+import { AdminRoute } from '@/components/admin/admin-route';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { CryptoIcon } from '@/components/crypto-icon';
+import { marketCoins } from '@/lib/data';
+import { useToast } from '@/hooks/use-toast';
+import { Waves, Plus, Minus, RefreshCw, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useLivePrices } from '@/hooks/use-live-prices';
+import { useCurrency } from '@/context/currency-context';
+
+interface WhaleBalances { [symbol: string]: number }
+
+tsx
+function BalanceRow({
+  symbol, balance, priceUSD, change, formatCurrency, fiatRate,
+  onTopUp, onDeduct
+}: {
+  symbol: string; balance: number; priceUSD: number; change: number;
+  formatCurrency: (n: number) => string; fiatRate: number;
+  onTopUp: (sym: string) => void; onDeduct: (sym: string) => void;
+}) {
+  const coinName = marketCoins.find(c => c.symbol === symbol)?.name || symbol;
+  const valueUSD = balance * priceUSD;
+  const isLow = balance < 1 && balance > 0;
+  const isEmpty = balance === 0;
+
+  return (
+    <div className={cn(
+      "flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-2xl border transition-all group",
+      isEmpty ? "border-red-500/15 bg-red-500/5" :
+      isLow ? "border-amber-500/15 bg-amber-500/5" :
+      "border-white/[0.06] bg-white/[0.02] hover:border-violet-500/15 hover:bg-violet-500/[0.03]"
+    )}>
+      <div className="flex items-center gap-3 flex-1 min-w-0 w-full">
+        <div className="relative">
+          <CryptoIcon name={coinName} className="h-9 w-9 shrink-0" />
+          {isEmpty && <div className="absolute -top-0.5 -
+
+          <button onClick={() => onDeduct(symbol)} disabled={
+
+
+tsx
+'use client';
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCurrency } from '@/context/currency-context';
+// ... other imports
+
+export default function WhalePage() {
+  const { formatCurrency, rates, loading } = useCurrency();
+  const [treasuryAssets, setTreasuryAssets] = useState([]); // Assuming this is your state
+
+  // 🟢 PLACE THE MATH LOGIC HERE (Inside the component)
+  const totalPortfolioUSD = useMemo(() => {
+    return treasuryAssets.reduce((acc, asset) => {
+      // Use the raw USD rate/price here
+      const price = asset.priceUSD || 0; 
+      return acc + (asset.balance * price);
+    }, 0);
+  }, [treasuryAssets]);
+
+  return (
+    <div className="p-6">
+      {/* 🟢 PLACE THE UI STATS HERE */}
+      <div className="mb-8">
+        <h2 className="text-gray-400 text-sm font-medium">Total Portfolio Value</h2>
+        <div className="text-3xl font-bold text-white">
+          {formatCurrency(totalPortfolioUSD)}
+        </div>
+      </div>
+
+      {/* Rest of your dashboard UI (Asset Rows, etc.) */}
+    </div>
+  );
+}
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -283,52 +366,5 @@ export default function WhaleAdminPage() {
                     : <Minus className="h-4 w-4 text-red-400" />}
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white uppercase tracking-widest">
-                    {modalMode === 'topup' ? 'Top Up' : 'Deduct'} {modalSymbol}
-                  </h3>
-                  <p className="text-[10px] text-white/30">
-                    Current: {(balances[modalSymbol] ?? 0).toFixed(6)} {modalSymbol}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/30">Amount</Label>
-                <Input
-                  type="number" placeholder="0.00" step="any" autoFocus
-                  value={modalAmount} onChange={e => setModalAmount(e.target.value)}
-                  className="h-11 rounded-xl bg-white/5 border-white/8 font-mono"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/30">Note (optional)</Label>
-                <Input
-                  placeholder="Reason for adjustment..."
-                  value={modalNote} onChange={e => setModalNote(e.target.value)}
-                  className="h-11 rounded-xl bg-white/5 border-white/8"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-1">
-                <Button variant="outline" className="flex-1 rounded-xl h-11 border-white/10 text-white/50" onClick={closeModal}>
-                  Cancel
-                </Button>
-                <button
-                  onClick={executeAdjustment}
-                  disabled={!modalAmount || parseFloat(modalAmount) <= 0 || adjusting}
-                  className={cn(
-                    "flex-1 h-11 rounded-xl font-bold uppercase tracking-widest text-sm text-white flex items-center justify-center gap-2 transition-all disabled:opacity-40",
-                    modalMode === 'topup' ? "bg-emerald-600 hover:bg-emerald-500" : "bg-red-600 hover:bg-red-500"
-                  )}
-                >
-                  {adjusting ? <Loader2 className="h-4 w-4 animate-spin" /> : (modalMode === 'topup' ? 'Top Up' : 'Deduct')}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </AdminRoute>
-  );
+                  <h3 className="text-sm 
 }

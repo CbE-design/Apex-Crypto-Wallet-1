@@ -67,6 +67,7 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
     );
   }
 
+  /*
   if (isMounted && isProtocolHalted && !isAdmin && !isPublicPage) {
     return (
       <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-background text-center p-6">
@@ -92,6 +93,7 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
       </div>
     );
   }
+  */
 
   if (isPublicPage) {
     return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;

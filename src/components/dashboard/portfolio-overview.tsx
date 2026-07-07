@@ -50,6 +50,8 @@ export function PortfolioOverview() {
 
   const { prices, changes, isLoading: isPriceLoading, error: priceError } = useLivePrices(portfolioSymbols);
 
+  const isLoading = isWalletLoading || (isPriceLoading && portfolioSymbols.length > 0);
+
   const portfolioAssets: PortfolioAsset[] = React.useMemo(() => {
     if (!walletData) return [];
     return walletData.map(walletDoc => {
@@ -80,12 +82,10 @@ export function PortfolioOverview() {
       fill: CHART_COLORS[i % CHART_COLORS.length],
     }));
 
-  const isLoading = isWalletLoading || (isPriceLoading && Object.keys(prices).length === 0);
-
   if (isLoading) {
     return (
       <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5">
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500" />
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500 animate-pulse" />
         <div className="flex items-center justify-between mb-4">
           <Skeleton className="h-5 w-36" />
           <Skeleton className="h-6 w-16 rounded-full" />
