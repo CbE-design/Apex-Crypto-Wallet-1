@@ -1,8 +1,8 @@
-import { onRequest } from "firebase-functions/v2/https";
-import * as admin from "firebase-admin";
-import { logger } from "firebase-functions";
-import * as crypto from 'crypto';
-import { ethers } from 'ethers';
+const functions = require("firebase-functions/v1");
+const admin = require("firebase-admin");
+const { getFirestore } = require("firebase-admin/firestore");
+const crypto = require("crypto");
+const { ethers } = require("ethers");
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -10,13 +10,13 @@ const db = admin.firestore();
 
 // Placeholder for secure private key retrieval.
 // In a real application, this would be a secure lookup, not a hardcoded env variable.
-function getGatewayPrivateKey(depositAddress: string): string | null {
+function getGatewayPrivateKey(depositAddress) {
     // For this example, we'll use a single private key for all gateways.
     // In a real system, you might have different private keys for different deposit addresses
     // or a more sophisticated key management system.
     const privateKey = process.env.GATEWAY_PRIVATE_KEY;
     if (!privateKey) {
-        logger.error("GATEWAY_PRIVATE_KEY environment variable is not set.");
+        functions.logger.error("GATEWAY_PRIVATE_KEY environment variable is not set.");
         return null;
     }
     return privateKey;
@@ -31,38 +31,47 @@ const MASTER_VAULT_ADDRESS = "0xbBb97f6facf78271a2Cd9f481c6B5F8796B17F58"; // Yo
  * @param {object} request - The HTTP request object, containing the deposit details in the body.
  * @param {object} response - The HTTP response object used to send back a status.
  */
-export const handleOnChainDeposit = onRequest(
+exports.handleOnChainDeposit = functions.runWith({
+    secrets: ["GATEWAY_PRIVATE_KEY", "ALCHEMY_RPC_URL", "ALCHEMY_SIGNING_KEY"]
+}).https.onRequest(
   // We can add runtime options, e.g., { region: 'us-central1' }
   async (request, response) => {
     // 1. Validate Request Method
     if (request.method !== "POST") {
-      logger.warn("Received non-POST request to webhook endpoint.");
+      functions.logger.warn("Received non-POST request to webhook endpoint.");
       response.status(405).json({ success: false, error: "Method Not Allowed" });
       return;
     }
 
-    let txHash: string;
-    let depositAddress: string;
-    let amount: number;
-    let asset: string; // e.g., "ETH", "USDT"
+    let txHash;
+    let depositAddress;
+    let amount;
+    let asset;
 
     try {
-      // 2. Parse and Validate Incoming JSON Payload
-      const { txHash: bodyTxHash, depositAddress: bodyDepositAddress, amount: bodyAmount, asset: bodyAsset } = request.body;
+      // 2. Parse Incoming Alchemy JSON Payload
+      const activity = request.body.event?.activity?.[0];
 
-      txHash = bodyTxHash;
-      depositAddress = bodyDepositAddress;
-      amount = bodyAmount;
-      asset = bodyAsset;
-
-      if (!txHash || !depositAddress || !amount || !asset) {
-        logger.error("Validation Failed: Missing one or more required fields in webhook payload.", request.body);
-        response.status(400).json({ success: false, error: "Invalid payload. 'txHash', 'depositAddress', 'amount', and 'asset' are required." });
-        return;
+      if (!activity) {
+          functions.logger.warn("No activity found in Alchemy webhook payload.", request.body);
+          response.status(200).send("No activity"); // Acknowledge without processing
+          return;
       }
 
+      txHash = activity.hash;
+      depositAddress = activity.toAddress;
+      amount = activity.value; // Assuming Alchemy provides amount as a number or string convertible to number
+      asset = activity.asset || "ETH"; // Default to ETH if not specified by Alchemy
+
+      if (!txHash || !depositAddress || typeof amount === 'undefined' || amount === null || !asset) {
+          functions.logger.error("Validation Failed: Missing required fields in Alchemy payload.", activity);
+          response.status(400).json({ success: false, error: "Invalid payload from Alchemy. 'hash', 'toAddress', 'value', and 'asset' are required." });
+          return;
+      }
+
+      // Additional validation for amount type and value
       if (typeof amount !== 'number' || amount <= 0) {
-        logger.error("Validation Failed: Invalid amount provided.", { amount });
+        functions.logger.error("Validation Failed: Invalid amount provided in Alchemy payload.", { amount, txHash });
         response.status(400).json({ success: false, error: "The 'amount' must be a positive number." });
         return;
       }
@@ -71,18 +80,18 @@ export const handleOnChainDeposit = onRequest(
       const processedDepositRef = db.collection("processed_deposits").doc(txHash);
 
       // 3. Start Atomic Firestore Transaction
-      logger.info(`Starting transaction for deposit txHash: ${txHash}`);
+      functions.logger.info(`Starting transaction for deposit txHash: ${txHash}`);
       await db.runTransaction(async (transaction) => {
         // Step 1: Idempotency Check - Prevent Double-Crediting
         const depositDoc = await transaction.get(processedDepositRef);
         if (depositDoc.exists) {
-          logger.info(`Idempotency check failed: Deposit ${txHash} has already been processed. Aborting transaction.`);
+          functions.logger.info(`Idempotency check failed: Deposit ${txHash} has already been processed. Aborting transaction.`);
           // Exit transaction gracefully. The function will return a 200 OK status below.
           return;
         }
 
         // Step 2: Identify the User
-        logger.info(`Searching for user with deposit address: ${depositAddress} for asset: ${asset}`);
+        functions.logger.info(`Searching for user with deposit address: ${depositAddress} for asset: ${asset}`);
         const usersRef = db.collection("users");
         // The path `deposit_gateways.${asset}` is dynamically queried.
         const userQuery = usersRef.where(`deposit_gateways.${asset}`, "==", depositAddress).limit(1);
@@ -96,7 +105,7 @@ export const handleOnChainDeposit = onRequest(
 
         const userDoc = userSnapshot.docs[0];
         const userId = userDoc.id;
-        logger.info(`User ${userId} identified for the deposit.`);
+        functions.logger.info(`User ${userId} identified for the deposit.`);
 
         // Step 3: Credit User's Balance
         // Based on provided codebase snippets, user balances are stored in a 'wallets' subcollection.
@@ -106,12 +115,12 @@ export const handleOnChainDeposit = onRequest(
         const currentBalance = walletDoc.exists ? (walletDoc.data()?.balance || 0) : 0;
         const newBalance = currentBalance + amount;
 
-        logger.info(`Updating balance for user ${userId}, asset ${asset}. Old: ${currentBalance}, New: ${newBalance}`);
+        functions.logger.info(`Updating balance for user ${userId}, asset ${asset}. Old: ${currentBalance}, New: ${newBalance}`);
         // Atomically update the user's wallet balance.
         transaction.update(userWalletRef, { balance: newBalance });
 
         // Step 4: Log the Event to ensure Idempotency
-        logger.info(`Locking transaction by creating document at processed_deposits/${txHash}`);
+        functions.logger.info(`Locking transaction by creating document at processed_deposits/${txHash}`);
         transaction.set(processedDepositRef, {
           txHash,
           depositAddress,
@@ -124,18 +133,18 @@ export const handleOnChainDeposit = onRequest(
       });
 
       // If the transaction completes successfully (or was already processed)
-      logger.info(`Firestore transaction for ${txHash} completed successfully.`);
+      functions.logger.info(`Firestore transaction for ${txHash} completed successfully.`);
 
       // 4. Implement On-Chain Wallet Sweeping (Independent of Firestore transaction)
       // This block needs to be outside the Firestore transaction
       // so that if it fails, the Firestore credit is NOT reverted.
       try {
-        logger.info(`Attempting to sweep funds from depositAddress: ${depositAddress} for asset: ${asset}`);
+        functions.logger.info(`Attempting to sweep funds from depositAddress: ${depositAddress} for asset: ${asset}`);
         const providerUrl = process.env.ALCHEMY_RPC_URL;
         const gatewayPrivateKey = getGatewayPrivateKey(depositAddress);
 
         if (!providerUrl || !gatewayPrivateKey) {
-          logger.error("Sweeping Failed: Missing ALCHEMY_RPC_URL or GATEWAY_PRIVATE_KEY environment variables. Skipping sweep.");
+          functions.logger.error("Sweeping Failed: Missing ALCHEMY_RPC_URL or GATEWAY_PRIVATE_KEY environment variables. Skipping sweep.");
           // Even if sweep config is missing, Firestore credit was successful, so return 200.
           return response.status(200).json({ success: true, message: "Deposit processed. Sweep skipped due to missing config." });
         }
@@ -147,10 +156,10 @@ export const handleOnChainDeposit = onRequest(
         const onChainBalanceWei = await provider.getBalance(depositAddress);
         const onChainBalanceEth = parseFloat(ethers.formatEther(onChainBalanceWei));
 
-        logger.info(`On-chain balance for ${depositAddress}: ${onChainBalanceEth} ETH`);
+        functions.logger.info(`On-chain balance for ${depositAddress}: ${onChainBalanceEth} ETH`);
 
         if (onChainBalanceEth <= 0) {
-            logger.info(`No balance to sweep from ${depositAddress}. Skipping sweep.`);
+            functions.logger.info(`No balance to sweep from ${depositAddress}. Skipping sweep.`);
             return response.status(200).json({ success: true, message: "Deposit processed. No funds to sweep." });
         }
         
@@ -160,20 +169,20 @@ export const handleOnChainDeposit = onRequest(
         const estimatedGasCostWei = gasPrice * gasLimit;
         const estimatedGasCostEth = parseFloat(ethers.formatEther(estimatedGasCostWei));
 
-        logger.info(`Estimated gas price: ${ethers.formatUnits(gasPrice, 'gwei')} Gwei`);
-        logger.info(`Estimated gas cost: ${estimatedGasCostEth} ETH`);
+        functions.logger.info(`Estimated gas price: ${ethers.formatUnits(gasPrice, 'gwei')} Gwei`);
+        functions.logger.info(`Estimated gas cost: ${estimatedGasCostEth} ETH`);
 
         // Calculate sweep amount (on-chain balance - gas cost)
         let sweepAmountWei = onChainBalanceWei - estimatedGasCostWei;
 
         // Ensure sweepAmount is not negative
         if (sweepAmountWei <= 0n) {
-            logger.warn(`Sweep amount is zero or negative after deducting gas for ${depositAddress}. Skipping sweep.`, { onChainBalanceEth, estimatedGasCostEth });
+            functions.logger.warn(`Sweep amount is zero or negative after deducting gas for ${depositAddress}. Skipping sweep.`, { onChainBalanceEth, estimatedGasCostEth });
             return response.status(200).json({ success: true, message: "Deposit processed. Sweep skipped due to insufficient funds for gas." });
         }
 
         // Send the remaining funds to the master vault wallet
-        logger.info(`Sweeping ${ethers.formatEther(sweepAmountWei)} ETH from ${depositAddress} to ${MASTER_VAULT_ADDRESS}`);
+        functions.logger.info(`Sweeping ${ethers.formatEther(sweepAmountWei)} ETH from ${depositAddress} to ${MASTER_VAULT_ADDRESS}`);
         const tx = await wallet.sendTransaction({
           to: MASTER_VAULT_ADDRESS,
           value: sweepAmountWei,
@@ -181,21 +190,21 @@ export const handleOnChainDeposit = onRequest(
           gasLimit: gasLimit,
         });
 
-        logger.info(`Sweep transaction sent. TxHash: ${tx.hash}`);
+        functions.logger.info(`Sweep transaction sent. TxHash: ${tx.hash}`);
         await tx.wait(); // Wait for the transaction to be mined
-        logger.info(`Sweep transaction confirmed. TxHash: ${tx.hash}`);
+        functions.logger.info(`Sweep transaction confirmed. TxHash: ${tx.hash}`);
 
         response.status(200).json({ success: true, message: "Deposit processed and funds swept successfully." });
 
       } catch (sweepError) {
-        logger.error(`On-chain sweeping failed for txHash: ${txHash}. Firestore credit was successful.`, sweepError);
+        functions.logger.error(`On-chain sweeping failed for txHash: ${txHash}. Firestore credit was successful.`, sweepError);
         // Do NOT return a 500 here, as the Firestore credit was successful.
         // Log the error but return a 200 for the webhook sender.
         response.status(200).json({ success: true, message: "Deposit processed. Funds sweeping encountered an error, check logs." });
       }
 
     } catch (error) {
-      logger.error("Error processing deposit webhook:", error);
+      functions.logger.error("Error processing deposit webhook:", error);
 
       // Return appropriate error code based on the failure
       if (error.message.startsWith("User not found")) {
@@ -208,3 +217,41 @@ export const handleOnChainDeposit = onRequest(
     }
   }
 );
+
+// Add the getCustomToken function back as an export
+exports.getCustomToken = functions.https.onCall(async (data, context) => {
+  const { walletAddress } = data;
+
+  if (!walletAddress) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "The function must be called with one argument 'walletAddress'.",
+    );
+  }
+
+  const db = admin.firestore();
+  const usersRef = db.collection("users");
+  const q = usersRef.where("walletAddressLowercase", "==", walletAddress.toLowerCase()).limit(1);
+  const userSnap = await q.get();
+
+  if (userSnap.empty) {
+     throw new functions.https.HttpsError(
+      "not-found",
+      "No user found with this wallet address.",
+    );
+  }
+
+  const userDoc = userSnap.docs[0];
+  const uid = userDoc.id;
+
+  try {
+    const customToken = await admin.auth().createCustomToken(uid);
+    return { token: customToken };
+  } catch (error) {
+    console.error("Error creating custom token:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Could not create custom token.",
+    );
+  }
+});
