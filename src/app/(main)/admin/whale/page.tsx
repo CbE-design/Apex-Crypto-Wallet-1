@@ -1,4 +1,3 @@
-tsx
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -12,91 +11,6 @@ import { CryptoIcon } from '@/components/crypto-icon';
 import { marketCoins } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Waves, Plus, Minus, RefreshCw, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useLivePrices } from '@/hooks/use-live-prices';
-import { useCurrency } from '@/context/currency-context';
-
-interface WhaleBalances { [symbol: string]: number }
-
-tsx
-function BalanceRow({
-  symbol, balance, priceUSD, change, formatCurrency, fiatRate,
-  onTopUp, onDeduct
-}: {
-  symbol: string; balance: number; priceUSD: number; change: number;
-  formatCurrency: (n: number) => string; fiatRate: number;
-  onTopUp: (sym: string) => void; onDeduct: (sym: string) => void;
-}) {
-  const coinName = marketCoins.find(c => c.symbol === symbol)?.name || symbol;
-  const valueUSD = balance * priceUSD;
-  const isLow = balance < 1 && balance > 0;
-  const isEmpty = balance === 0;
-
-  return (
-    <div className={cn(
-      "flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-2xl border transition-all group",
-      isEmpty ? "border-red-500/15 bg-red-500/5" :
-      isLow ? "border-amber-500/15 bg-amber-500/5" :
-      "border-white/[0.06] bg-white/[0.02] hover:border-violet-500/15 hover:bg-violet-500/[0.03]"
-    )}>
-      <div className="flex items-center gap-3 flex-1 min-w-0 w-full">
-        <div className="relative">
-          <CryptoIcon name={coinName} className="h-9 w-9 shrink-0" />
-          {isEmpty && <div className="absolute -top-0.5 -
-
-          <button onClick={() => onDeduct(symbol)} disabled={
-
-
-tsx
-'use client';
-
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useCurrency } from '@/context/currency-context';
-// ... other imports
-
-export default function WhalePage() {
-  const { formatCurrency, rates, loading } = useCurrency();
-  const [treasuryAssets, setTreasuryAssets] = useState([]); // Assuming this is your state
-
-  // 🟢 PLACE THE MATH LOGIC HERE (Inside the component)
-  const totalPortfolioUSD = useMemo(() => {
-    return treasuryAssets.reduce((acc, asset) => {
-      // Use the raw USD rate/price here
-      const price = asset.priceUSD || 0; 
-      return acc + (asset.balance * price);
-    }, 0);
-  }, [treasuryAssets]);
-
-  return (
-    <div className="p-6">
-      {/* 🟢 PLACE THE UI STATS HERE */}
-      <div className="mb-8">
-        <h2 className="text-gray-400 text-sm font-medium">Total Portfolio Value</h2>
-        <div className="text-3xl font-bold text-white">
-          {formatCurrency(totalPortfolioUSD)}
-        </div>
-      </div>
-
-      {/* Rest of your dashboard UI (Asset Rows, etc.) */}
-    </div>
-  );
-}
-'use client';
-
-import { useState, useEffect, useCallback } from 'react';
-import { useFirestore } from '@/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
-import { AdminRoute } from '@/components/admin/admin-route';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CryptoIcon } from '@/components/crypto-icon';
-import { marketCoins } from '@/lib/data';
-import { useToast } from '@/hooks/use-toast';
-import {
-  Waves, Plus, Minus, RefreshCw, Loader2, TrendingUp, AlertTriangle, History,
-} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLivePrices } from '@/hooks/use-live-prices';
 import { useCurrency } from '@/context/currency-context';
@@ -147,10 +61,10 @@ function BalanceRow({
 
       <div className="text-right shrink-0 hidden sm:block">
         <p className={cn("text-sm font-bold tabular-nums", isEmpty ? "text-red-400" : isLow ? "text-amber-400" : "text-white/80")}>
-          {formatCurrency(valueUSD * fiatRate)}
+          {formatCurrency(valueUSD)}
         </p>
         <p className="text-[10px] text-white/25">
-          {priceUSD > 0 ? `@ ${formatCurrency(priceUSD * fiatRate)}` : 'No price'}
+          {priceUSD > 0 ? `@ ${formatCurrency(priceUSD)}` : 'No price'}
         </p>
       </div>
 
@@ -299,7 +213,7 @@ export default function WhaleAdminPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             {
-              label: 'Total Value', value: isLoading ? '—' : formatCurrency(totalUSD * currency.rate),
+              label: 'Total Value', value: isLoading ? '—' : formatCurrency(totalUSD),
               color: 'text-violet-300', accent: 'border-violet-500/15 bg-violet-500/5',
             },
             {
@@ -366,5 +280,50 @@ export default function WhaleAdminPage() {
                     : <Minus className="h-4 w-4 text-red-400" />}
                 </div>
                 <div>
-                  <h3 className="text-sm 
+                  <h3 className="text-sm font-bold text-white">{modalMode === 'topup' ? 'Top up' : 'Deduct'} {modalSymbol}</h3>
+                  <p className="text-xs text-white/40">Current balance: {balances[modalSymbol]?.toFixed(6) || 0}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="modal-amount" className="text-xs font-medium text-white/50 mb-1.5 block pl-1">Amount</Label>
+                  <Input
+                    id="modal-amount"
+                    type="number"
+                    value={modalAmount}
+                    onChange={(e) => setModalAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="bg-white/[0.04] border-white/[0.08]"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="modal-note" className="text-xs font-medium text-white/50 mb-1.5 block pl-1">Note (optional)</Label>
+                  <Input
+                    id="modal-note"
+                    type="text"
+                    value={modalNote}
+                    onChange={(e) => setModalNote(e.target.value)}
+                    placeholder="e.g. Initial seed, weekly top-up"
+                    className="bg-white/[0.04] border-white/[0.08]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <Button variant="outline" onClick={closeModal}>Cancel</Button>
+                <Button
+                  onClick={executeAdjustment}
+                  disabled={adjusting || !modalAmount || parseFloat(modalAmount) <= 0}
+                  className={cn(modalMode === 'topup' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600')}
+                >
+                  {adjusting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </AdminRoute>
+  );
 }

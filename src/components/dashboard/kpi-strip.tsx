@@ -5,8 +5,9 @@ import { useLivePrices } from '@/hooks/use-live-prices';
 import { useCurrency } from '@/context/currency-context';
 import { TrendingUp, TrendingDown, Activity, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { marketCoins } from '@/lib/data';
 
-const KPI_SYMBOLS = ['BTC', 'ETH', 'SOL'];
+const marketSymbols = marketCoins.map(c => c.symbol);
 
 interface KpiCardProps {
   label: string;
@@ -49,8 +50,8 @@ function KpiCard({ label, value, sub, positive, icon, accentColor, glowColor }: 
 }
 
 export function KpiStrip() {
-  const { currency, formatCurrency } = useCurrency();
-  const { prices, changes, isLoading } = useLivePrices(KPI_SYMBOLS);
+  const { formatCurrency } = useCurrency();
+  const { prices, changes, isLoading } = useLivePrices(marketSymbols);
 
   const btcPrice = prices['BTC'] ?? 0;
   const ethPrice = prices['ETH'] ?? 0;
@@ -59,12 +60,13 @@ export function KpiStrip() {
   const ethChange = changes['ETH'] ?? 0;
   const solChange = changes['SOL'] ?? 0;
 
-  const fmt = (usd: number) => isLoading && usd === 0 ? '—' : formatCurrency(usd * currency.rate);
+  const fmt = (usd: number) => isLoading && usd === 0 ? '—' : formatCurrency(usd);
   const pct = (c: number) => `${c >= 0 ? '+' : ''}${c.toFixed(2)}% 24h`;
 
   const allChanges = Object.values(changes);
   const bullishCount = allChanges.filter(c => c >= 0).length;
-  const isBullish = bullishCount >= allChanges.length / 2;
+  const isBullish = allChanges.length > 0 ? bullishCount >= allChanges.length / 2 : null;
+  const totalTracked = allChanges.length;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -97,9 +99,9 @@ export function KpiStrip() {
       />
       <KpiCard
         label="Market Trend"
-        value={isBullish ? 'Bullish' : 'Bearish'}
-        sub={`${bullishCount}/${allChanges.length || '—'} assets up`}
-        positive={allChanges.length > 0 ? isBullish : null}
+        value={isBullish === null ? '...' : isBullish ? 'Bullish' : 'Bearish'}
+        sub={isLoading ? '...' : `${bullishCount}/${totalTracked} assets up`}
+        positive={isBullish}
         icon={<TrendingUp className="h-4 w-4" />}
         accentColor="#7C3AED"
         glowColor="#7C3AED"

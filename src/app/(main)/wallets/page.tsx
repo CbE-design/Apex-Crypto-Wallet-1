@@ -71,11 +71,8 @@ function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string
     if (!firestore || !userId) return;
     setLoading(true);
     try {
-      // Naked query to bypass indexing issues
       const snap = await getDocs(collection(firestore, 'users', userId, 'wallets', walletCurrency, 'transactions'));
       const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as TransactionDoc));
-      
-      // Sort in frontend
       const sorted = data.sort((a, b) => {
         const t1 = a.timestamp?.toMillis?.() ?? (a.timestamp?.seconds ?? 0) * 1000 ?? 0;
         const t2 = b.timestamp?.toMillis?.() ?? (b.timestamp?.seconds ?? 0) * 1000 ?? 0;
@@ -193,7 +190,6 @@ export default function MyWalletsPage() {
   const symbols = useMemo(() => wallets.map(w => w.currency), [wallets]);
   const { prices: livePrices, changes: liveChanges, isRefreshing: isPricePolling, lastUpdated, refresh: refreshPrices } = useLivePrices(symbols, 'USD');
 
-  // Provisioning if missing
   useEffect(() => {
     if (!isLoading && user && wallets.length === 0 && !isProvisioning && firestore) {
       const provision = async () => {
@@ -285,18 +281,10 @@ export default function MyWalletsPage() {
             </div>
 
             <div className="flex flex-col md:items-end gap-2">
-              <div className="flex items-center gap-2">
-                <Select value={fiat.symbol} onValueChange={setCurrency}>
-                  <SelectTrigger className="h-7 w-[80px] text-[11px] bg-white/5 rounded-lg border-white/10 px-2 font-bold"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-popover border-white/10">
-                    {currencies.map(c => <SelectItem key={c.symbol} value={c.symbol} className="text-xs">{c.flag} {c.symbol}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-white/5" onClick={fetchWallets}>
-                  <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin text-primary")} />
-                </Button>
-              </div>
               <p className="text-3xl md:text-4xl font-black tracking-tighter tabular-nums">{formatCurrency(totalPortfolioUSD * fiat.rate)}</p>
+              <Button variant="ghost" size="icon" className="absolute top-4 right-4 h-8 w-8 rounded-lg hover:bg-white/5" onClick={fetchWallets}>
+                <RefreshCw className={cn("h-4 w-4 text-white/40", isLoading && "animate-spin text-primary")} />
+              </Button>
             </div>
           </div>
         </div>
@@ -310,6 +298,7 @@ export default function MyWalletsPage() {
             const change = liveChanges[w.currency];
             const coinName = marketCoins.find(c => c.symbol === w.currency)?.name || w.currency;
             const isTxExpanded = expandedTx.has(w.currency);
+            const hasBalance = w.balance > 0;
 
             return (
               <div key={w.id} className="relative overflow-hidden rounded-3xl border border-white/[0.07] bg-[#0A0C12]/80 hover:border-violet-500/20 transition-all duration-300 group">
@@ -344,21 +333,43 @@ export default function MyWalletsPage() {
 
                   <div className="grid grid-cols-4 gap-2">
                     {[
-                      { icon: Send, label: 'Send', href: `/send-receive?currency=${w.currency}&action=send` },
-                      { icon: ArrowDownToLine, label: 'Receive', href: `/send-receive?currency=${w.currency}&action=receive` },
-                      { icon: ArrowLeftRight, label: 'Swap', href: `/swap?from=${w.currency}` },
-                      { icon: Banknote, label: 'Out', href: `/cash-out?currency=${w.currency}` }
-                    ].map((act, i) => (
-                      <Link key={i} href={act.href} className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/[0.04] border border-white/[0.06] hover:bg-violet-500/10 hover:border-violet-500/20 transition-all group/act">
-                        <act.icon className="h-4 w-4 text-white/25 group-hover/act:text-violet-400 transition-colors" />
-                        <span className="text-[9px] font-semibold uppercase text-white/25 group-hover/act:text-violet-400 transition-colors">{act.label}</span>
-                      </Link>
-                    ))}
+                      { icon: Send, label: 'Send', action: 'send', href: `/send-receive?currency=${w.currency}&action=send` },
+                      { icon: ArrowDownToLine, label: 'Receive', action: 'receive', href: `/send-receive?currency=${w.currency}&action=receive` },
+                      { icon: ArrowLeftRight, label: 'Swap', action: 'swap', href: `/swap?from=${w.currency}` },
+                      { icon: Banknote, label: 'Out', action: 'out', href: `/cash-out?currency=${w.currency}` }
+                    ].map((act) => {
+                      const isClickable = hasBalance || act.action === 'receive';
+                      const isHighlighted = !hasBalance && act.action === 'receive';
+
+                      return (
+                        <Link
+                          key={act.label}
+                          href={isClickable ? act.href : '#'}
+                          onClick={(e) => { if (!isClickable) e.preventDefault(); }}
+                          className={cn(
+                            "flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/[0.04] border border-white/[0.06] transition-all group/act",
+                            isClickable ? "hover:bg-violet-500/10 hover:border-violet-500/20" : "opacity-40 pointer-events-none",
+                            isHighlighted && "border-violet-500/50 bg-violet-500/5 ring-1 ring-violet-500/30"
+                          )}
+                        >
+                          <act.icon className={cn(
+                            "h-4 w-4 transition-colors",
+                            isClickable ? "text-white/70 group-hover/act:text-violet-300" : "text-white/50",
+                            isHighlighted && "text-violet-400"
+                          )} />
+                          <span className={cn(
+                            "text-[9px] font-semibold uppercase transition-colors",
+                            isClickable ? "text-white/60 group-hover/act:text-violet-300" : "text-white/50",
+                            isHighlighted && "text-violet-400"
+                          )}>{act.label}</span>
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
 
                 <div className="border-t border-white/[0.05]">
-                  <button onClick={() => toggleTx(w.currency)} className="w-full flex items-center justify-between px-5 py-3.5 text-[10px] font-semibold uppercase tracking-widest text-white/25 hover:text-white/50 transition-all">
+                  <button onClick={() => toggleTx(w.currency)} className="w-full flex items-center justify-between px-5 py-3.5 text-[10px] font-semibold uppercase tracking-widest text-white/60 hover:text-white transition-all">
                     <span>History</span>
                     {isTxExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                   </button>
@@ -366,13 +377,13 @@ export default function MyWalletsPage() {
                 </div>
 
                 <div className="flex gap-2 border-t border-white/[0.05] p-4 bg-black/20">
-                  <Button variant="ghost" size="sm" className="flex-1 rounded-xl bg-white/[0.04] text-[9px] font-bold uppercase gap-2 text-white/40 hover:text-white/70" onClick={() => handleSync(w.currency)}>
+                  <Button variant="ghost" size="sm" className="flex-1 rounded-xl bg-white/[0.04] text-[9px] font-bold uppercase gap-2 text-white/70 hover:text-white" onClick={() => handleSync(w.currency)}>
                     <RefreshCw className={cn("h-3 w-3", syncingId === w.currency && "animate-spin")} /> {syncingId === w.currency ? 'Syncing' : 'Sync'}
                   </Button>
-                  <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-white/[0.08] hover:border-violet-500/30 text-white/30 hover:text-violet-400" onClick={() => { setSelectedQrAddress({ address: w.address, currency: w.currency }); setIsQrOpen(true); }}>
+                  <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-white/[0.08] hover:border-violet-500/30 text-white/60 hover:text-violet-400" onClick={() => { setSelectedQrAddress({ address: w.address, currency: w.currency }); setIsQrOpen(true); }}>
                     <QrCode className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-white/[0.08] hover:border-cyan-500/30 text-white/30 hover:text-cyan-400" onClick={() => openExplorer(w.address, w.currency)}>
+                  <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-white/[0.08] hover:border-cyan-500/30 text-white/60 hover:text-cyan-400" onClick={() => openExplorer(w.address, w.currency)}>
                     <ExternalLink className="h-4 w-4" />
                   </Button>
                 </div>
@@ -382,8 +393,6 @@ export default function MyWalletsPage() {
         </div>
 
         <KYCVerificationModal open={kycModalOpen} onOpenChange={setKycModalOpen} kycStatus={kycStatus} />
-
-        {/* QR Code Dialog */}
         <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
           <DialogContent className="max-w-xs border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
             <DialogHeader>
@@ -417,7 +426,6 @@ export default function MyWalletsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Block Explorer Dialog */}
         <Dialog open={explorerOpen} onOpenChange={setExplorerOpen}>
           <DialogContent className="max-w-sm border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
             <DialogHeader>
@@ -463,4 +471,3 @@ export default function MyWalletsPage() {
     </PrivateRoute>
   );
 }
-

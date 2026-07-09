@@ -64,10 +64,7 @@ export function PriceAlerts() {
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5 flex flex-col h-full">
-      {/* Top accent */}
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500" />
-
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
@@ -144,60 +141,63 @@ export function PriceAlerts() {
         </Dialog>
       </div>
 
-      {/* Alert list */}
-      <div className="flex-1 overflow-y-auto space-y-2 scroll-container min-h-0">
+      <div className="flex-1 flex flex-col overflow-y-auto scroll-container min-h-0">
         {isLoading ? (
-          <div className="h-16 flex items-center justify-center text-muted-foreground text-sm">Loading alerts…</div>
+          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Loading alerts…</div>
         ) : alerts && alerts.length > 0 ? (
-          alerts.map(alert => (
-            <div key={alert.id} className={cn(
-              "rounded-xl border p-3 transition-all",
-              alert.triggered ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/[0.03] border-white/[0.06] hover:border-white/[0.1]"
-            )}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <CryptoIcon name={getCoinName(alert.currency)} className="h-7 w-7" />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-semibold">{alert.currency}</span>
-                      <div className={cn(
-                        "flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md",
-                        alert.alertType === 'Above' ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                      )}>
-                        {alert.alertType === 'Above' ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-                        {alert.alertType}
+          <div className="space-y-2 py-1">
+            {alerts.map(alert => (
+              <div key={alert.id} className={cn(
+                "rounded-xl border p-3 transition-all",
+                alert.triggered ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/[0.03] border-white/[0.06] hover:border-white/[0.1]"
+              )}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CryptoIcon name={getCoinName(alert.currency)} className="h-7 w-7" />
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-semibold">{alert.currency}</span>
+                        <div className={cn(
+                          "flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md",
+                          alert.alertType === 'Above' ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                        )}>
+                          {alert.alertType === 'Above' ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                          {alert.alertType}
+                        </div>
                       </div>
+                      <p className="text-[11px] font-mono text-muted-foreground">${alert.thresholdPrice.toLocaleString()}</p>
                     </div>
-                    <p className="text-[11px] font-mono text-muted-foreground">${alert.thresholdPrice.toLocaleString()}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {alert.triggered ? (
+                      <Badge className="h-5 text-[10px] bg-emerald-500/15 text-emerald-400 border-emerald-500/20 rounded-lg px-1.5">
+                        <BellRing className="h-2.5 w-2.5 mr-1" />Triggered
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="h-5 text-[10px] rounded-lg border-white/10 text-muted-foreground px-1.5">Active</Badge>
+                    )}
+                    <Button variant="ghost" size="icon"
+                      className="h-6 w-6 rounded-lg text-muted-foreground/40 hover:text-red-400 hover:bg-red-400/10"
+                      onClick={() => handleDeleteAlert(alert.id)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  {alert.triggered ? (
-                    <Badge className="h-5 text-[10px] bg-emerald-500/15 text-emerald-400 border-emerald-500/20 rounded-lg px-1.5">
-                      <BellRing className="h-2.5 w-2.5 mr-1" />Triggered
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="h-5 text-[10px] rounded-lg border-white/10 text-muted-foreground px-1.5">Active</Badge>
-                  )}
-                  <Button variant="ghost" size="icon"
-                    className="h-6 w-6 rounded-lg text-muted-foreground/40 hover:text-red-400 hover:bg-red-400/10"
-                    onClick={() => handleDeleteAlert(alert.id)}>
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         ) : (
-          <div className="h-16 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-            <Bell className="h-5 w-5 opacity-25" />
-            <p className="text-xs">No alerts set</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-center gap-2.5 text-muted-foreground">
+            <Bell className="h-10 w-10 text-muted-foreground/30" />
+            <div className="text-center">
+              <h4 className="text-sm font-semibold text-muted-foreground">Get notified at target prices</h4>
+              <p className="text-xs text-muted-foreground/70">Create your first price alert to get started.</p>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Quick action buttons */}
-      <div className="mt-4 pt-4 border-t border-white/[0.06] grid grid-cols-2 gap-2">
+      <div className="mt-auto pt-4 border-t border-white/[0.06] grid grid-cols-2 gap-2">
         {[
           { label: '↔ Swap',     href: '/swap',         grad: 'from-violet-600 to-violet-400' },
           { label: '↑ Send',     href: '/send-receive', grad: 'from-violet-500 to-cyan-500' },

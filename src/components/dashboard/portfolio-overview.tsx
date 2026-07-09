@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Pie, PieChart, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { portfolioAssets as staticAssets, marketCoins } from '@/lib/data';
@@ -11,8 +12,9 @@ import { collection, query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrency } from '@/context/currency-context';
 import type { PortfolioAsset } from '@/lib/types';
-import { TrendingUp, AlertTriangle } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import { useLivePrices } from '@/hooks/use-live-prices';
+import { Button } from '@/components/ui/button';
 
 const allKnownCoins = [...staticAssets, ...marketCoins].reduce<Array<{ symbol: string; name: string }>>((acc, c) => {
   if (!acc.find(x => x.symbol === c.symbol)) acc.push({ symbol: c.symbol, name: c.name });
@@ -110,10 +112,7 @@ export function PortfolioOverview() {
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5 h-full">
-      {/* Top accent bar */}
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500" />
-
-      {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
           <h3 className="text-base font-semibold text-foreground">Portfolio Overview</h3>
@@ -129,9 +128,7 @@ export function PortfolioOverview() {
           {priceError ? 'OFFLINE' : 'LIVE'}
         </div>
       </div>
-
       <div className="flex flex-col md:flex-row items-center gap-6">
-        {/* Donut chart */}
         <div className="relative shrink-0" style={{ width: 192, height: 192 }}>
           {totalBalance > 0 ? (
             <ChartContainer config={chartConfig} style={{ width: 192, height: 192 }}>
@@ -177,10 +174,11 @@ export function PortfolioOverview() {
           )}
         </div>
 
-        {/* Asset list */}
-        <div className="flex-1 w-full space-y-1 min-w-0">
-          {portfolioAssets.length > 0
-            ? portfolioAssets
+        <div className="flex-1 w-full min-w-0">
+          {totalBalance > 0 ? (
+            <div className="space-y-1">
+              {portfolioAssets
+                .filter(asset => asset.valueUSD > 0.01)
                 .sort((a, b) => b.valueUSD - a.valueUSD)
                 .map((asset, i) => (
                   <div key={asset.symbol} className="flex items-center justify-between group cursor-pointer px-2 py-2 rounded-xl hover:bg-white/[0.04] transition-all">
@@ -207,13 +205,17 @@ export function PortfolioOverview() {
                       </div>
                     </div>
                   </div>
-                ))
-            : (
-              <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm gap-2">
-                <AlertTriangle className="h-6 w-6 opacity-30" />
-                No holdings yet
-              </div>
-            )}
+                ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center bg-white/[0.02] rounded-xl p-6">
+              <h4 className="text-base font-semibold text-foreground mb-1">Your portfolio is empty</h4>
+              <p className="text-sm text-muted-foreground mb-5">Start by adding funds to your account.</p>
+              <Link href="/send-receive" className="w-full">
+                <Button size="lg" className="w-full">Receive Assets</Button>
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>

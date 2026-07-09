@@ -26,7 +26,7 @@ function MiniSparkline({ positive }: { positive: boolean }) {
 }
 
 export function MarketOverview() {
-  const { currency, formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrency();
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const { prices, changes, isLoading, error } = useLivePrices(marketSymbols);
 
@@ -38,10 +38,9 @@ export function MarketOverview() {
     return staticMarketCoins.map(coin => {
       const livePrice = prices[coin.symbol];
       const liveChange = changes[coin.symbol];
-      const priceInSelectedCurrency = (livePrice ?? coin.priceUSD) * currency.rate;
-      return { ...coin, priceUSD: priceInSelectedCurrency, change24h: liveChange ?? coin.change24h };
+      return { ...coin, priceUSD: livePrice ?? coin.priceUSD, change24h: liveChange ?? coin.change24h };
     });
-  }, [prices, changes, currency.rate]);
+  }, [prices, changes]);
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5 h-full">
