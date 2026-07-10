@@ -1,8 +1,7 @@
 
 import { z } from 'zod';
 import { ai } from '../genkit';
-import { type Message } from 'genkit';
-import { gemini15Flash } from '@genkit-ai/googleai'; // Import the specific model
+import { gemini15Flash } from '@genkit-ai/googleai';
 
 const APEX_KNOWLEDGE = `
 - Store, send, and receive supported crypto assets on a private internal ledger;
@@ -48,26 +47,21 @@ export const chatFlow = ai.defineFlow(
       mode: z.enum(['support', 'trade_advisor']).default('support'),
     }),
   },
-  async (input) => {
+  async (input: any) => {
     const systemInstruction =
       input.mode === 'trade_advisor'
         ? TRADE_ADVISOR_PROMPT
         : CUSTOMER_SUPPORT_PROMPT;
 
-    const historyMessages: Message[] = (input.history || []).map((msg: any) => msg as Message);
-
-    // FINAL, CORRECTED IMPLEMENTATION: Based on the working example in genkit.ts
-    // This call now includes the required 'model' property and correctly passes the other
-    // arguments. The response is also handled correctly as a property, not a function.
     const response = await ai.generate({
       model: gemini15Flash,
       prompt: input.message,
-      history: historyMessages,
+      history: input.history,
       config: {
-        temperature: input.mode === 'trade_advisor' ? 0.4 : 0.1,
         systemInstruction: systemInstruction,
+        temperature: input.mode === 'trade_advisor' ? 0.4 : 0.1,
       },
-    });
+    } as any);
 
     return response.text;
   }
