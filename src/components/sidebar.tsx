@@ -30,8 +30,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+// Defining the main navigation links
 const mainNav = [
   { href: "/",             label: "Dashboard",      icon: LayoutDashboard, },
+  // Ensuring the "My Wallets" link is present and correct
   { href: "/wallets",      label: "My Wallets",     icon: Wallet,          },
   { href: "/swap",         label: "Swap",           icon: ArrowRightLeft,  },
   { href: "/send-receive", label: "Send / Receive", icon: Send,            },

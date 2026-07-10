@@ -1,63 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Permissions-Policy',
-            value: 'clipboard-write=(self)',
-          },
-        ],
-      },
-    ]
-  },
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'flagcdn.com',
-        port: '',
-        pathname: '/**',
-      },
-    ],
-  },
-  transpilePackages: ['undici'],
-  allowedDevOrigins: [
-    "*.replit.dev",
-    "*.kirk.replit.dev",
-    "*.picard.replit.dev",
-    "*.janeway.replit.dev",
-    "*.sisko.replit.dev",
-    "*.spock.replit.dev",
-    "*.repl.co",
-    "*.cloudworkstations.dev",
-    "*.firebaseapp.com",
-    "*.web.app",
-    ...(process.env.REPLIT_DEV_DOMAIN ? [process.env.REPLIT_DEV_DOMAIN] : []),
-  ],
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
@@ -78,24 +20,53 @@ const nextConfig = {
       ],
     },
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**.replit.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.replit.dev",
+      },
+      {
+        protocol: "https",
+        hostname: "**.repl.co",
+      },
+       {
+        protocol: "https",
+        hostname: "**.cloudworkstations.dev",
+      },
+      {
+        protocol: "https",
+        hostname: "**.firebaseapp.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.web.app",
+      },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
+       ...(process.env.REPLIT_DEV_DOMAIN ? [{
+        protocol: "https",
+        hostname: process.env.REPLIT_DEV_DOMAIN,
+      }] : []),
+    ],
+  },
   webpack: (config, { isServer, webpack }) => {
     if (!isServer) {
       config.plugins.push(
         new webpack.NormalModuleReplacementPlugin(
-          /firebase\/functions/,
-          './empty-module.js'
+          /node:crypto/,
+          (resource) => {
+            resource.request = resource.request.replace(/^node:/, "");
+          }
         )
       );
     }
-
-    // Suppress missing optional OpenTelemetry peer dependency warnings
-    // that come from the genkit SDK in both server and client bundles.
-    config.plugins.push(
-      new webpack.IgnorePlugin({
-        resourceRegExp: /^@opentelemetry\/exporter-jaeger$/,
-      })
-    );
-
     return config;
   },
 };
