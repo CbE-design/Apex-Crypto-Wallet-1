@@ -54,10 +54,58 @@ export function Header() {
     ? `${wallet.address.slice(0, 6)}···${wallet.address.slice(-4)}`
     : '';
 
-  const copyAddress = () => {
-    if (wallet?.address) {
-      navigator.clipboard.writeText(wallet.address);
+  const copyAddress = async () => {
+    if (!wallet?.address) {
+      return;
+    }
+
+    const address = wallet.address;
+
+    try {
+      await navigator.clipboard.writeText(address);
       toast({ title: 'Address copied' });
+    } catch (err) {
+      console.warn('Clipboard API failed. Falling back to execCommand.', err);
+
+      const textArea = document.createElement('textarea');
+      textArea.value = address;
+      
+      // Prevent scrolling to bottom of page in MS Edge.
+      textArea.style.position = 'fixed';
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+
+      // Ensure it has a small size and is transparent
+      textArea.style.width = '1px';
+      textArea.style.height = '1px';
+      textArea.style.padding = '0';
+      textArea.style.border = 'none';
+      textArea.style.outline = 'none';
+      textArea.style.boxShadow = 'none';
+      textArea.style.background = 'transparent';
+
+
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          toast({ title: 'Address copied' });
+        } else {
+          throw new Error('execCommand returned false.');
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback copy method failed:', fallbackErr);
+        toast({
+          title: 'Copy failed',
+          description: 'Could not copy address to clipboard.',
+          variant: 'destructive',
+        });
+      } finally {
+        document.body.removeChild(textArea);
+      }
     }
   };
 

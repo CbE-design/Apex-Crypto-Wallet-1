@@ -188,12 +188,14 @@ export function WithdrawalForm() {
     await runTransaction(firestore, async (transaction: any) => {
       const walletSnap = await transaction.get(walletRef);
       const currentBalance = walletSnap.exists() ? (walletSnap.data().balance || 0) : 0;
+      const currentReserved = walletSnap.exists() ? (walletSnap.data().reservedForWithdrawal || 0) : 0;
+
       if (currentBalance < amount) {
         throw new Error(`Insufficient ${asset} balance`);
       }
       transaction.set(walletRef, {
         balance: currentBalance - amount,
-        reservedForWithdrawal: amount,
+        reservedForWithdrawal: currentReserved + amount,
         lastSynced: serverTimestamp(),
       }, { merge: true });
     });

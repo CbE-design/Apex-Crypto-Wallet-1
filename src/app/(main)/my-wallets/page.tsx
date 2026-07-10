@@ -1,3 +1,4 @@
+'use client';
 import { useEffect, useState } from 'react';
 import { db } from '@/firebase/config'; // Double-check if your configuration path matches this
 import { doc, onSnapshot } from 'firebase/firestore';

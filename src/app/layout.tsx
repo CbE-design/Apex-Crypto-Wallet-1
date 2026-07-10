@@ -7,13 +7,11 @@ import { Providers } from './providers';
 
 const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-inter',
   display: 'swap',
 });
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
-  variable: '--font-space-grotesk',
   display: 'swap',
   weight: ['300', '400', '500', '600', '700'],
 });
@@ -81,8 +79,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn('h-full', inter.variable, GeistSans.variable, spaceGrotesk.variable)} suppressHydrationWarning>
-      <body className={cn('font-body antialiased h-full')}>
+    <html lang="en" className={cn('h-full', GeistSans.variable)} suppressHydrationWarning>
+      <body className={cn('font-body antialiased h-full', inter.className, spaceGrotesk.className)}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}

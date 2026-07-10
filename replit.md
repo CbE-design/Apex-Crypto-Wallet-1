@@ -14,7 +14,7 @@ An institutional-grade cryptocurrency wallet and exchange app built with Next.js
 - **Framework**: Next.js 16 (App Router, Turbopack)
 - **UI**: Tailwind CSS, Radix UI, shadcn/ui components
 - **Auth/DB**: Firebase (Firestore, Firebase Admin SDK)
-- **AI**: Google Genkit + Gemini API
+- **AI**: Groq SDK + Llama3
 - **Blockchain**: ethers.js, ccxt (exchange integrations)
 - **Email**: Resend
 - **Charts**: Recharts
@@ -44,6 +44,7 @@ Set these in Replit Secrets:
 
 | Variable | Description |
 |---|---|
+| `GROQ_API_KEY` | Groq API key for the Client Support AI |
 | `GEMINI_API_KEY` | Google Gemini API key for AI features |
 | `RESEND_API_KEY` | Resend API key for email sending |
 | `FROM_EMAIL` | Sender email address |

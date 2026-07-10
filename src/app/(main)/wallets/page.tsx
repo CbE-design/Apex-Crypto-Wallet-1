@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore } from '@/firebase';
-import { collection, getDocs, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where } from 'firebase/firestore';
 import { CryptoIcon } from '@/components/crypto-icon';
 import KYCVerificationModal from '@/components/kyc-verification-modal';
 import type { KYCStatus } from '@/lib/types';
@@ -71,7 +71,10 @@ function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string
     if (!firestore || !userId) return;
     setLoading(true);
     try {
-      const snap = await getDocs(collection(firestore, 'users', userId, 'wallets', walletCurrency, 'transactions'));
+      const txRef = collection(firestore, 'users', userId, 'transactions');
+      const q = query(txRef, where('currency', '==', walletCurrency));
+      const snap = await getDocs(q);
+
       const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as TransactionDoc));
       const sorted = data.sort((a, b) => {
         const t1 = a.timestamp?.toMillis?.() ?? (a.timestamp?.seconds ?? 0) * 1000 ?? 0;
@@ -138,7 +141,7 @@ function TransactionHistory({ walletCurrency, userId }: { walletCurrency: string
                 {isOut ? '−' : '+'}{(tx.amount ?? 0).toFixed(walletCurrency === 'BTC' ? 6 : 4)}
               </p>
               <p className="text-[9px] text-muted-foreground/60 font-bold">
-                {formatCurrency(fiatAmountUSD * fiat.rate)}
+                {formatCurrency(fiatAmountUSD)}
               </p>
             </div>
           </div>
@@ -281,7 +284,7 @@ export default function MyWalletsPage() {
             </div>
 
             <div className="flex flex-col md:items-end gap-2">
-              <p className="text-3xl md:text-4xl font-black tracking-tighter tabular-nums">{formatCurrency(totalPortfolioUSD * fiat.rate)}</p>
+              <p className="text-3xl md:text-4xl font-black tracking-tighter tabular-nums">{formatCurrency(totalPortfolioUSD)}</p>
               <Button variant="ghost" size="icon" className="absolute top-4 right-4 h-8 w-8 rounded-lg hover:bg-white/5" onClick={fetchWallets}>
                 <RefreshCw className={cn("h-4 w-4 text-white/40", isLoading && "animate-spin text-primary")} />
               </Button>
@@ -328,7 +331,7 @@ export default function MyWalletsPage() {
                 <div className="px-5 pb-5 space-y-4">
                   <div>
                     <p className="text-2xl font-bold tracking-tight tabular-nums text-white">{(w.balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 4 })}</p>
-                    <p className="text-sm text-white/30 font-medium">{formatCurrency(valueUSD * fiat.rate)}</p>
+                    <p className="text-sm text-white/30 font-medium">{formatCurrency(valueUSD)}</p>
                   </div>
 
                   <div className="grid grid-cols-4 gap-2">

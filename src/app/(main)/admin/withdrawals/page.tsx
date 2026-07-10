@@ -117,6 +117,13 @@ export default function WithdrawalApprovalsPage() {
     setIsProcessing(true);
     try {
         await runTransaction(firestore, async (transaction) => {
+            const processedReqRef = doc(firestore, 'processed_requests', withdrawal.id);
+            const processedReqSnap = await transaction.get(processedReqRef);
+
+            if (processedReqSnap.exists()) {
+                throw new Error('Request already processed.');
+            }
+
             const withdrawalRef = doc(firestore, 'withdrawal_requests', withdrawal.id);
             const withdrawalSnap = await transaction.get(withdrawalRef);
 
@@ -130,24 +137,11 @@ export default function WithdrawalApprovalsPage() {
                     const walletSnap = await transaction.get(walletRef);
                     if (!walletSnap.exists()) continue;
 
-                    const currentBalance = walletSnap.data().balance || 0;
-                    transaction.update(walletRef, { balance: currentBalance - crypto.amount });
+                    const currentReserved = walletSnap.data().reservedForWithdrawal || 0;
+                    transaction.update(walletRef, { reservedForWithdrawal: currentReserved - crypto.amount });
 
-                    const txRef = doc(collection(walletRef, 'transactions'));
+                    const txRef = doc(collection(firestore, 'users', withdrawal.userId, 'transactions'));
                     transaction.set(txRef, {
-                        userId: withdrawal.userId,
-                        type: 'Withdrawal',
-                        amount: crypto.amount,
-                        price: crypto.priceUSD,
-                        currency: crypto.symbol,
-                        timestamp: serverTimestamp(),
-                        status: 'Completed',
-                        referenceNo: withdrawal.transactionReference ?? '',
-                    });
-
-                    // Mirror to top-level transactions for dashboard TransactionHistory.
-                    const dashTxRef = doc(collection(firestore, 'users', withdrawal.userId, 'transactions'));
-                    transaction.set(dashTxRef, {
                         userId: withdrawal.userId,
                         type: 'Withdrawal',
                         amount: crypto.amount,
@@ -165,6 +159,11 @@ export default function WithdrawalApprovalsPage() {
                 processedAt: serverTimestamp(),
                 processedBy: user.uid,
                 updatedAt: serverTimestamp(),
+            });
+
+            transaction.set(processedReqRef, { 
+                requestId: withdrawal.id,
+                processedAt: serverTimestamp(),
             });
         });
 
