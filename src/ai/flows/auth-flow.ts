@@ -22,7 +22,7 @@ export const getAuthToken = ai.defineFlow(
       isReturningUser: z.boolean(),
     }),
   },
-  async ({ address }) => {
+  async ({ address }: { address: string }) => {
     const db = getAdminFirestore();
     if (!db) {
       throw new Error('Firebase Admin SDK is not initialised.');
