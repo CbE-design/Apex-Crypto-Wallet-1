@@ -76,8 +76,8 @@ export default function KYCApprovalsPage() {
     });
 
     const sortFn = (x: KYCSubmission, y: KYCSubmission) => {
-      const t1 = x.submittedAt?.toMillis?.() ?? (x.submittedAt?.seconds * 1000) ?? 0;
-      const t2 = y.submittedAt?.toMillis?.() ?? (y.submittedAt?.seconds * 1000) ?? 0;
+      const t1 = x.submittedAt?.toMillis?.() ?? ((x.submittedAt?.seconds ?? 0) * 1000);
+      const t2 = y.submittedAt?.toMillis?.() ?? ((y.submittedAt?.seconds ?? 0) * 1000);
       return t2 - t1;
     };
 
