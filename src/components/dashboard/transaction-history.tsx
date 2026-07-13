@@ -11,9 +11,11 @@ import { useLivePrices } from '@/hooks/use-live-prices';
 import { AlertTriangle, History } from 'lucide-react';
 import type { Transaction } from '@/lib/types';
 
-function TransactionRow({ tx, onHover, priceError }: { tx: Transaction; onHover: () => void; priceError: boolean }) {
+type EnrichedTransaction = Transaction & { pricePerCoinUSD: number };
+
+function TransactionRow({ tx, onHover, priceError }: { tx: EnrichedTransaction; onHover: () => void; priceError: boolean }) {
   const { formatCurrency } = useCurrency();
-  const isDebit = tx.type === 'send';
+  const isDebit = tx.type === 'Sell' || tx.type === 'Withdrawal';
   const value = tx.amount * tx.pricePerCoinUSD;
 
   return (

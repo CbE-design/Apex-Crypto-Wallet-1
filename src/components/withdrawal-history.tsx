@@ -78,8 +78,8 @@ export function WithdrawalHistory() {
       
       // Sort client-side
       const sorted = data.sort((a, b) => {
-        const t1 = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ?? 0) * 1000 ?? 0;
-        const t2 = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ?? 0) * 1000 ?? 0;
+        const t1 = a.createdAt?.toMillis?.() ?? ((a.createdAt?.seconds ?? 0) * 1000);
+        const t2 = b.createdAt?.toMillis?.() ?? ((b.createdAt?.seconds ?? 0) * 1000);
         return t2 - t1;
       });
       

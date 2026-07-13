@@ -25,7 +25,6 @@ if (getApps().length === 0) {
       tabManager: persistentMultipleTabManager()
     }),
     experimentalForceLongPolling: true, // Fixes WebChannel stream errors
-    experimentalDisableJSDomWorker: true, // Fix for `BloomFilterError`
   });
   storage = getStorage(app);
 } else {
@@ -39,7 +38,6 @@ if (getApps().length === 0) {
         tabManager: persistentMultipleTabManager()
       }),
       experimentalForceLongPolling: true,
-      experimentalDisableJSDomWorker: true, // Fix for `BloomFilterError`
     });
   }
   storage = getStorage(app);
