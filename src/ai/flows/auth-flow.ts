@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { ai } from '@/ai/genkit';
+import { ai } from '../genkit';
 import { getAdminFirestore, firebaseAdmin } from '@/lib/firebase-admin';
 
 /**

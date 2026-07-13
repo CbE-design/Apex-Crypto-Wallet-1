@@ -8,7 +8,7 @@
  * - GetExchangeRateOutput - The return type for the getExchangeRate function.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai } from '../genkit';
 import { getLivePrices } from '@/services/crypto-service';
 import {
   GetExchangeRateInputSchema,
@@ -29,7 +29,7 @@ const getExchangeRateFlow = ai.defineFlow(
     inputSchema: GetExchangeRateInputSchema,
     outputSchema: GetExchangeRateOutputSchema,
   },
-  async ({ fromAsset, toAsset, fiatCurrency = 'USD' }) => {
+  async ({ fromAsset, toAsset, fiatCurrency = 'USD' }: { fromAsset: string, toAsset: string, fiatCurrency?: string }) => {
     if (fromAsset === toAsset) {
         return { rate: 1 };
     }

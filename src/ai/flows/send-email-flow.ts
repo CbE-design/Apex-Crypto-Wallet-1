@@ -4,7 +4,7 @@
  * @fileOverview A flow for sending emails to all users.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai } from '../genkit';
 import { getAdminFirestore } from '@/lib/firebase-admin';
 import { Resend } from 'resend';
 import { 
@@ -24,7 +24,7 @@ const sendEmailFlow = ai.defineFlow(
     inputSchema: SendEmailInputSchema,
     outputSchema: SendEmailOutputSchema,
   },
-  async ({ subject, body }) => {
+  async ({ subject, body }: { subject: string, body: string }) => {
     
     const resendApiKey = process.env.RESEND_API_KEY;
     const fromEmail = process.env.FROM_EMAIL;
