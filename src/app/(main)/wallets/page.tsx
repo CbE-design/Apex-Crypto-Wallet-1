@@ -173,9 +173,9 @@ export default function MyWalletsPage() {
       </div>
       <p className={cn(
         "font-semibold",
-        tx.type === 'deposit' ? 'text-emerald-400' : 'text-red-400'
+        tx.type === 'Buy' ? 'text-emerald-400' : 'text-red-400'
       )}>
-        {tx.type === 'deposit' ? '+' : '-'} {tx.amount.toFixed(6)}
+        {tx.type === 'Buy' ? '+' : '-'} {tx.amount.toFixed(6)}
       </p>
       <p className="font-mono text-white/40">{formatCurrency(tx.valueUSD)}</p>
       <div className="flex justify-end">
