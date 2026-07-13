@@ -183,8 +183,8 @@ export default function UsersPage() {
     }
 
     return filtered.sort((a, b) => {
-      const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds * 1000) ?? 0;
-      const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds * 1000) ?? 0;
+      const aTime = a.createdAt?.toMillis?.() ?? ((a.createdAt?.seconds ?? 0) * 1000);
+      const bTime = b.createdAt?.toMillis?.() ?? ((b.createdAt?.seconds ?? 0) * 1000);
       return bTime - aTime;
     });
   }, [users, kycFilter, search]);
@@ -216,8 +216,8 @@ export default function UsersPage() {
       const withdrawals = withdrawalsSnap.docs
         .map(d => ({ id: d.id, ...d.data() } as WithdrawalSummary))
         .sort((a, b) => {
-          const aTime = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds * 1000) ?? 0;
-          const bTime = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds * 1000) ?? 0;
+          const aTime = a.createdAt?.toMillis?.() ?? ((a.createdAt?.seconds ?? 0) * 1000);
+          const bTime = b.createdAt?.toMillis?.() ?? ((b.createdAt?.seconds ?? 0) * 1000);
           return bTime - aTime;
         });
       setWithdrawalHistory(withdrawals);
