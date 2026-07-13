@@ -29,7 +29,7 @@ export default function AiAssistantPage() {
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = { role: 'user', content: input };
-    const newMessages = [...messages, userMessage, { role: 'assistant', content: '' }];
+    const newMessages: Message[] = [...messages, userMessage, { role: 'assistant', content: '' }];
     setMessages(newMessages);
     setInput('');
     setIsLoading(true);

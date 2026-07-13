@@ -29,6 +29,7 @@ export interface MarketCoin {
 export interface Transaction {
   id: string;
   type: 'Buy' | 'Sell' | 'Withdrawal' | 'Swap' | 'Internal Transfer';
+  currency: string;
   amount: number;
   price: number;
   status: 'Completed' | 'Pending' | 'Failed' | 'Reconciling';

@@ -87,8 +87,6 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency.symbol,
-      minimumFractionDigits: currency.digits,
-      maximumFractionDigits: currency.digits,
     }).format(convertedValue);
   }, [currency]);
 

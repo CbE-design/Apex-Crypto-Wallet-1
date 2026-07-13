@@ -12,7 +12,7 @@ function toHex(buf: ArrayBuffer | Uint8Array): string {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function fromHex(hex: string): Uint8Array {
+function fromHex(hex: string): Uint8Array<ArrayBuffer> {
   const buffer = new ArrayBuffer(hex.length / 2);
   const out = new Uint8Array(buffer);
   for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
@@ -20,7 +20,7 @@ function fromHex(hex: string): Uint8Array {
 }
 
 // ── key derivation ───────────────────────────────────────────────────────
-async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
   const raw = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(password),
@@ -79,7 +79,7 @@ export async function decryptVault(vault: Vault, pin: string): Promise<object> {
 }
 
 // ── passkey-wrap helpers (credential ID used as key material) ────────────
-export async function encryptWithCredId(data: string, credId: string, salt: Uint8Array): Promise<{ iv: string; ct: string }> {
+export async function encryptWithCredId(data: string, credId: string, salt: Uint8Array<ArrayBuffer>): Promise<{ iv: string; ct: string }> {
   const iv  = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveKey(credId, salt);
   const ct  = await crypto.subtle.encrypt(

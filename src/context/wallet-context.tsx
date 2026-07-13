@@ -360,7 +360,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Ethers validation
-      let importedWallet: ethers.Wallet;
+      let importedWallet: ethers.HDNodeWallet;
       try {
         importedWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
       } catch (e: any) {

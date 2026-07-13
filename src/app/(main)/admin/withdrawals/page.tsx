@@ -100,8 +100,8 @@ export default function WithdrawalApprovalsPage() {
     });
 
     const sortFn = (x: WithdrawalDoc, y: WithdrawalDoc) => {
-      const t1 = x.createdAt?.toMillis?.() ?? (x.createdAt?.seconds * 1000) ?? 0;
-      const t2 = y.createdAt?.toMillis?.() ?? (y.createdAt?.seconds * 1000) ?? 0;
+      const t1 = x.createdAt?.toMillis?.() ?? ((x.createdAt?.seconds ?? 0) * 1000);
+      const t2 = y.createdAt?.toMillis?.() ?? ((y.createdAt?.seconds ?? 0) * 1000);
       return t2 - t1;
     };
 
