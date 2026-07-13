@@ -1,13 +1,12 @@
-import { configureGenkit } from 'genkit';
-import { googleAI } from '@genkit-ai/googleai';
-import { ai } from '@genkit-ai/ai';
+import { genkit } from 'genkit';
+import { googleAI, gemini15Flash } from '@genkit-ai/googleai';
 
-configureGenkit({
+export const ai = genkit({
   plugins: [
-    googleAI(),
+    googleAI({
+      apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || 'BUILD_PLACEHOLDER',
+    }),
   ],
-  logLevel: 'debug',
-  enableTracingAndMetrics: true,
 });
 
-export { ai };
+export { gemini15Flash };

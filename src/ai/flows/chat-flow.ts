@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { ai } from '../genkit';
-import { gemini15Flash } from '@genkit-ai/googleai';
+import { ai, gemini15Flash } from '../genkit';
 
 const CUSTOMER_SUPPORT_PROMPT = `You are the Apex Crypto Wallet Customer Support Assistant...`;
 const TRADE_ADVISOR_PROMPT = `You are the Apex Trade Advisor...`;
