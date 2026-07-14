@@ -20,7 +20,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://apexwallet.co.za';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'Apex Crypto Wallet',
+  title: 'Apex Private Ledger',
   description: 'Institutional-grade self-custodial crypto wallet.',
   manifest: '/manifest.json',
   icons: {
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    siteName: 'Apex Wallet',
+    siteName: 'Apex Private Ledger',
     type: 'website',
     images: ['/apex-icon.png'],
   },
@@ -48,7 +48,7 @@ const organizationJsonLd = {
     {
       '@type': 'Organization',
       '@id': `${SITE_URL}/#organization`,
-      name: 'Apex Wallet',
+      name: 'Apex Private Ledger',
       url: SITE_URL,
       logo: {
         '@type': 'ImageObject',
@@ -65,7 +65,7 @@ const organizationJsonLd = {
       '@type': 'WebSite',
       '@id': `${SITE_URL}/#website`,
       url: SITE_URL,
-      name: 'Apex Wallet',
+      name: 'Apex Private Ledger',
       publisher: {
         '@id': `${SITE_URL}/#organization`,
       },

@@ -63,12 +63,12 @@ export function AppSidebar() {
         <div className="flex items-center gap-3 px-4 py-5 border-b border-white/[0.05]">
           <div className="relative flex-shrink-0">
             <div className="h-9 w-9 rounded-xl overflow-hidden ring-1 ring-violet-500/30 shadow-lg shadow-violet-500/20">
-              <img src="/apex-icon.png" alt="Apex" className="h-full w-full object-cover" />
+              <img src="/apex-icon.png" alt="Apex Private Ledger" className="h-full w-full object-cover" />
             </div>
             <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-cyan-400 border-2 border-[#050709] shadow-sm shadow-cyan-400/50" />
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
-            <p className="text-[14px] font-bold tracking-tight text-white leading-none">Apex Wallet</p>
+            <p className="text-[14px] font-bold tracking-tight text-white leading-none">Apex Private Ledger</p>
             <p className="text-[10px] text-violet-400/70 mt-0.5 font-medium tracking-wide">INSTITUTIONAL</p>
           </div>
         </div>

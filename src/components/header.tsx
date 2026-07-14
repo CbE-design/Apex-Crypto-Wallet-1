@@ -42,7 +42,7 @@ export function Header() {
   const pathname = usePathname();
   const { toast } = useToast();
 
-  const pageTitle = PAGE_TITLES[pathname] ?? 'Apex Wallet';
+  const pageTitle = PAGE_TITLES[pathname] ?? 'Apex Private Ledger';
 
   const onDisconnect = () => {
     disconnectWallet();
