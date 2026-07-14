@@ -177,7 +177,7 @@ export default function MyWalletsPage() {
       )}>
         {tx.type === 'Buy' ? '+' : '-'} {tx.amount.toFixed(6)}
       </p>
-      <p className="font-mono text-white/40">{formatCurrency(tx.valueUSD)}</p>
+      <p className="font-mono text-white/40">{formatCurrency((tx as any).valueUSD)}</p>
       <div className="flex justify-end">
         <Button variant="ghost" size="sm" className="h-7 text-white/40 hover:text-white">
           Details
