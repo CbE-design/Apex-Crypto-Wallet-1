@@ -1,6 +1,6 @@
 'use client';
 
-import { LogOut, Settings, User, Copy, Bell } from 'lucide-react';
+import { LogOut, Settings, User, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useWallet } from '@/context/wallet-context';
@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
+import { NotificationBell } from './notification-bell';
 
 const CurrencySwitcher = dynamic(
   () => import('@/components/currency-switcher').then((mod) => mod.CurrencySwitcher),
@@ -128,14 +129,7 @@ export function Header() {
       <div className="flex items-center gap-1.5">
         <CurrencySwitcher />
 
-        {/* Notifications placeholder */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-lg hover:bg-white/[0.05] text-white/30 hover:text-white/60 transition-colors relative"
-        >
-          <Bell className="h-4 w-4" />
-        </Button>
+        <NotificationBell />
 
         {/* Profile dropdown */}
         <DropdownMenu>

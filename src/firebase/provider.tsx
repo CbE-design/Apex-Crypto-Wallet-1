@@ -12,38 +12,29 @@ const AuthContext = createContext<Auth | undefined>(undefined);
 const FirestoreContext = createContext<Firestore | undefined>(undefined);
 const StorageContext = createContext<FirebaseStorage | undefined>(undefined);
 
-let app: FirebaseApp;
-let firestore: Firestore;
-let storage: FirebaseStorage;
 
-// Ensure consistent initialization
-if (getApps().length === 0) {
-  app = initializeApp(firebaseConfig);
-  // Using initializeFirestore ensures settings like forceLongPolling are applied
-  firestore = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    }),
-    experimentalForceLongPolling: true, // Fixes WebChannel stream errors
-  });
-  storage = getStorage(app);
-} else {
-  app = getApp();
-  // Even if app exists, try to get the existing firestore or initialize if needed
-  try {
-    firestore = getFirestore(app);
-  } catch {
-    firestore = initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      }),
-      experimentalForceLongPolling: true,
+const getFirebase = () => {
+    let app: FirebaseApp;
+    if (getApps().length === 0) {
+        app = initializeApp(firebaseConfig);
+    } else {
+        app = getApp();
+    }
+
+    const auth = getAuth(app);
+    const firestore = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager()
+        }),
+        experimentalForceLongPolling: true, // Fixes WebChannel stream errors
     });
-  }
-  storage = getStorage(app);
+    const storage = getStorage(app);
+
+    return { app, auth, firestore, storage };
 }
 
-const auth = getAuth(app);
+const { app, auth, firestore, storage } = getFirebase();
+
 
 export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (

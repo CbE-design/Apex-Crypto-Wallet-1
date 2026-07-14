@@ -53,49 +53,60 @@ export function useCollection<T = any>(
     });
     setError(null);
 
-    const unsubscribe = onSnapshot(
-      memoizedTargetRefOrQuery,
-      (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: ResultItemType[] = [];
-        for (const doc of snapshot.docs) {
-          results.push({ ...(doc.data() as T), id: doc.id });
-        }
-        setData(results);
-        setError(null);
-        setIsLoading(false);
-      },
-      (err: FirestoreError) => {
-        // Always stop the spinner first — even if path resolution fails below.
-        setData(null);
-        setIsLoading(false);
-
-        let path = 'unknown';
-        try {
-          if (memoizedTargetRefOrQuery.type === 'collection') {
-            path = (memoizedTargetRefOrQuery as CollectionReference).path;
+    let unsubscribe: () => void;
+    try {
+      unsubscribe = onSnapshot(
+        memoizedTargetRefOrQuery,
+        (snapshot: QuerySnapshot<DocumentData>) => {
+          const results: ResultItemType[] = [];
+          for (const doc of snapshot.docs) {
+            results.push({ ...(doc.data() as T), id: doc.id });
           }
-        } catch {
-          // This is a best-effort attempt to get the path. If it fails for any
-          // reason, we can safely ignore it and the path will remain 'unknown'.
+          setData(results);
+          setError(null);
+          setIsLoading(false);
+        },
+        (err: FirestoreError) => {
+          // Always stop the spinner first — even if path resolution fails below.
+          setData(null);
+          setIsLoading(false);
+
+          let path = 'unknown';
+          try {
+            if (memoizedTargetRefOrQuery.type === 'collection') {
+              path = (memoizedTargetRefOrQuery as CollectionReference).path;
+            }
+          } catch {
+            // This is a best-effort attempt to get the path. If it fails for any
+            // reason, we can safely ignore it and the path will remain 'unknown'.
+          }
+
+          const contextualError = new FirestorePermissionError({
+            operation: 'list',
+            path,
+          });
+
+          setError(contextualError);
+
+          // Only surface as a permission error for real access denials.
+          // Other codes (failed-precondition = missing index, unavailable = offline, etc.)
+          // should not trigger the "Firestore rules" warning toast.
+          if (err.code === 'permission-denied') {
+            errorEmitter.emit('permission-error', contextualError);
+          } else {
+            console.warn('[Firestore] Query error:', err.code, path, err.message);
+          }
         }
+      );
+    } catch (e) {
+        const err = e as Error;
+        console.error("[Firestore] Error setting up listener:", err.message);
+        setError(err);
+        setIsLoading(false);
+        // Can't unsubscribe if the setup failed, so return a no-op function
+        unsubscribe = () => {};
+    }
 
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path,
-        });
-
-        setError(contextualError);
-
-        // Only surface as a permission error for real access denials.
-        // Other codes (failed-precondition = missing index, unavailable = offline, etc.)
-        // should not trigger the "Firestore rules" warning toast.
-        if (err.code === 'permission-denied') {
-          errorEmitter.emit('permission-error', contextualError);
-        } else {
-          console.warn('[Firestore] Query error:', err.code, path, err.message);
-        }
-      }
-    );
 
     return () => unsubscribe();
   }, [memoizedTargetRefOrQuery]);

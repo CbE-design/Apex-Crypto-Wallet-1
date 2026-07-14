@@ -5,7 +5,6 @@ import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Providers } from './providers';
-import { Header } from './header';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -88,7 +87,6 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
         <Providers>
-          <Header />
           {children}
         </Providers>
       </body>

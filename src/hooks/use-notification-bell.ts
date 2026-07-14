@@ -1,131 +1,138 @@
+'use client';
 
-import { useMemo, useCallback } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useState, useEffect } from 'react';
+import { useFirestore } from '@/firebase';
 import {
   collection,
   query,
   where,
+  orderBy,
   doc,
   updateDoc,
+  onSnapshot,
+  deleteDoc,
   setDoc,
-  Timestamp,
-  orderBy,
-  limit,
+  serverTimestamp,
+  Timestamp
 } from 'firebase/firestore';
 
-// --- Type Definitions ---
-
-// Document shape in /notifications
-interface DirectNotificationDoc {
-  recipientId: string;
+// A unified interface for all notification types
+export interface MergedNotification {
+  id: string;
   title: string;
-  body: string;
+  message: string;
   read: boolean;
   createdAt: Timestamp;
+  isBroadcast: boolean;
 }
 
-// Document shape in /broadcasts
-interface BroadcastNotificationDoc {
-  title: string;
-  body: string;
-  createdAt: Timestamp;
-}
-
-// The final, merged notification object the hook returns
-export interface Notification {
-  id: string;
-  type: 'direct' | 'broadcast';
-  title: string;
-  body: string;
-  isRead: boolean;
-  createdAt: Date;
-}
-
-/**
- * A custom hook to manage real-time notifications for a user.
- *
- * @param currentUserId The ID of the currently logged-in user.
- * @returns An object with the merged notifications, unread count, and a function to mark notifications as read.
- */
-export const useNotificationBell = (currentUserId?: string | null) => {
+export function useNotificationBell(currentUserId: string | undefined) {
   const firestore = useFirestore();
 
-  // 1. Create memoized Firestore queries
-  const directQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUserId) return null;
-    return query(
-      collection(firestore, 'notifications'),
-      where('recipientId', '==', currentUserId),
-      orderBy('createdAt', 'desc'),
-      limit(25) // Limits to the 25 most recent direct notifications
-    );
-  }, [firestore, currentUserId]);
+  // State for each individual stream
+  const [personalNotifications, setPersonalNotifications] = useState<MergedNotification[]>([]);
+  const [broadcasts, setBroadcasts] = useState<MergedNotification[]>([]);
+  const [deletedBroadcastIds, setDeletedBroadcastIds] = useState<Set<string>>(new Set());
 
-  const broadcastsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    // Note: This query requires a single-field index on `broadcasts.createdAt` (desc).
-    // Firestore will provide a link in the console error to create this automatically.
-    return query(collection(firestore, 'broadcasts'), orderBy('createdAt', 'desc'), limit(50));
-  }, [firestore]);
+  // Final merged and filtered state
+  const [mergedNotifications, setMergedNotifications] = useState<MergedNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const readBroadcastsQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUserId) return null;
-    return collection(firestore, 'users', currentUserId, 'readBroadcasts');
-  }, [firestore, currentUserId]);
-
-  // 2. Establish real-time listeners with your custom useCollection hook
-  const { data: directNotifications } = useCollection<DirectNotificationDoc>(directQuery);
-  const { data: broadcastNotifications } = useCollection<BroadcastNotificationDoc>(broadcastsQuery);
-  const { data: readBroadcasts } = useCollection(readBroadcastsQuery);
-
-  // 3. Memoize the merging and processing logic
-  const { notifications, unreadCount } = useMemo(() => {
-    if (!directNotifications || !broadcastNotifications || !readBroadcasts) {
-      return { notifications: [], unreadCount: 0 };
+  // Effect for USER-DEPENDENT listeners
+  useEffect(() => {
+    // If there's no user, we can't set up personal listeners.
+    // We also clear any existing personal notification state.
+    if (!currentUserId) {
+        setPersonalNotifications([]);
+        setDeletedBroadcastIds(new Set());
+        return;
     }
 
-    const readBroadcastIds = new Set(readBroadcasts.map(b => b.id));
+    // User is logged in, set up their listeners.
+    const personalQuery = query(collection(firestore, 'notifications'), where('userId', '==', currentUserId), orderBy('createdAt', 'desc'));
+    const deletedQuery = collection(firestore, 'users', currentUserId, 'deletedBroadcasts');
 
-    const processedDirect: Notification[] = directNotifications.map(n => ({
-      id: n.id,
-      type: 'direct',
-      title: n.title,
-      body: n.body,
-      isRead: n.read,
-      createdAt: n.createdAt.toDate(),
-    }));
+    const unsubPersonal = onSnapshot(personalQuery, (snapshot) => {
+        const personal = snapshot.docs.map(d => ({ ...d.data(), id: d.id, isBroadcast: false })) as MergedNotification[];
+        setPersonalNotifications(personal);
+    }, (error) => {
+        console.error("Error fetching personal notifications:", error);
+    });
 
-    const processedBroadcasts: Notification[] = broadcastNotifications.map(b => ({
-      id: b.id,
-      type: 'broadcast',
-      title: b.title,
-      body: b.body,
-      isRead: readBroadcastIds.has(b.id),
-      createdAt: b.createdAt.toDate(),
-    }));
+    const unsubDeleted = onSnapshot(deletedQuery, (snapshot) => {
+        const deletedIds = new Set(snapshot.docs.map(d => d.id));
+        setDeletedBroadcastIds(deletedIds);
+    }, (error) => {
+        console.error("Error fetching deleted broadcasts:", error);
+    });
 
-    const all = [...processedDirect, ...processedBroadcasts]
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    // Cleanup for user-dependent listeners
+    return () => {
+        setTimeout(() => {
+            unsubPersonal();
+            unsubDeleted();
+        }, 150);
+    };
+  }, [currentUserId, firestore]);
 
-    const unread = all.filter(n => !n.isRead).length;
+  // Effect for GLOBAL, user-independent listeners
+  useEffect(() => {
+    const broadcastsQuery = query(collection(firestore, 'broadcasts'), orderBy('createdAt', 'desc'));
+    
+    const unsubBroadcasts = onSnapshot(broadcastsQuery, (snapshot) => {
+        const fetchedBroadcasts = snapshot.docs.map(d => ({ ...d.data(), id: d.id, isBroadcast: true })) as MergedNotification[];
+        setBroadcasts(fetchedBroadcasts);
+    }, (error) => {
+        console.error("Error fetching broadcasts:", error);
+    });
 
-    return { notifications: all, unreadCount: unread };
-  }, [directNotifications, broadcastNotifications, readBroadcasts]);
+    // Cleanup for global listener
+    return () => {
+        setTimeout(() => {
+            unsubBroadcasts();
+        }, 150);
+    };
+  }, [firestore]); // Runs once
 
-  // 4. Create a memoized function to mark notifications as read
-  const markAsRead = useCallback(async (notification: Notification) => {
-    if (!firestore || !currentUserId || notification.isRead) return;
+  // Effect to merge and filter the streams when any of them change
+  useEffect(() => {
+    const activeBroadcasts = broadcasts.filter(b => !deletedBroadcastIds.has(b.id));
+    const all = [...personalNotifications, ...activeBroadcasts];
+    
+    all.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+
+    setMergedNotifications(all);
+    setUnreadCount(all.filter(n => !n.read).length);
+  }, [personalNotifications, broadcasts, deletedBroadcastIds]);
+
+  const markAsRead = async (notificationId: string) => {
+    if (!currentUserId) return;
+    const notificationRef = doc(firestore, 'notifications', notificationId);
+    try {
+      await updateDoc(notificationRef, { read: true });
+    } catch (error) {
+      console.error("Failed to mark as read:", error);
+    }
+  };
+
+  const deleteNotification = async (notification: MergedNotification) => {
+    if (!currentUserId) {
+      console.error("Cannot delete notification: user ID is missing.");
+      return;
+    }
 
     try {
-      if (notification.type === 'direct') {
-        await updateDoc(doc(firestore, 'notifications', notification.id), { read: true });
-      } else if (notification.type === 'broadcast') {
-        await setDoc(doc(firestore, 'users', currentUserId, 'readBroadcasts', notification.id), {});
+      if (notification.isBroadcast) {
+        const softDeleteRef = doc(firestore, "users", currentUserId, "deletedBroadcasts", notification.id);
+        await setDoc(softDeleteRef, { deletedAt: serverTimestamp() });
+      } else {
+        const hardDeleteRef = doc(firestore, "notifications", notification.id);
+        await deleteDoc(hardDeleteRef);
       }
     } catch (error) {
-      console.error("Error marking notification as read:", error);
+      console.error(`Failed to delete notification ${notification.id}:`, error);
     }
-  }, [firestore, currentUserId]);
+  };
 
-  return { notifications, unreadCount, markAsRead };
-};
+  return { notifications: mergedNotifications, unreadCount, markAsRead, deleteNotification };
+}
