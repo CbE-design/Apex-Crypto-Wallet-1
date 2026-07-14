@@ -1,4 +1,4 @@
-
+'use client';
 import { useNotificationBell } from '@/hooks/use-notification-bell';
 import { useWallet } from '@/context/wallet-context'; // Or your auth context
 import { BellIcon, Badge } from 'lucide-react'; // Example icons
