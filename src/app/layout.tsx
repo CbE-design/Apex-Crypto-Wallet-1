@@ -2,6 +2,7 @@
 import type { Metadata } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import { GeistSans } from 'geist/font/sans';
+import { Analytics } from '@vercel/analytics/react';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Providers } from './providers';
@@ -89,6 +90,7 @@ export default function RootLayout({
         <Providers>
           {children}
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
