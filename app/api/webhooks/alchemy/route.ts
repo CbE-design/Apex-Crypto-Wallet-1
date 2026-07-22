@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHmac } from 'crypto';
 import { db } from '@/lib/firebaseAdmin';
-import { FieldValue } from 'firebase-admin/firestore';
 
 /**
  * Types for Alchemy webhook payload
@@ -10,7 +10,7 @@ interface AlchemyWebhookActivity {
   toAddress: string;
   hash: string;
   value: number;
-  asset: string;
+  asset?: string;
   blockNum?: string;
   rawContract?: {
     value: string;
@@ -33,267 +33,230 @@ interface AlchemyWebhookPayload {
 
 interface WebhookResponse {
   success: boolean;
-  message: string;
-  processedTransactions?: number;
-  errors?: string[];
+  message?: string;
+  error?: string;
+  userId?: string;
+  txHash?: string;
 }
 
 /**
- * Normalize Ethereum addresses to lowercase for consistency
+ * Validate HMAC-SHA256 signature using timing-safe comparison
+ * 
+ * @param rawBody - The raw request body as string (before JSON parsing)
+ * @param signature - The signature from x-alchemy-signature header
+ * @param signingKey - The webhook signing key from environment
+ * @returns true if signature is valid, false otherwise
  */
-const normalizeAddress = (address: string): string => {
-  return address.toLowerCase();
-};
-
-/**
- * Validate webhook signature (optional but recommended)
- * If Alchemy provides an X-Alchemy-Signature header, verify it
- */
-const validateWebhookSignature = (
-  request: NextRequest,
-  payload: string
+const validateSignature = (
+  rawBody: string,
+  signature: string,
+  signingKey: string
 ): boolean => {
-  const signature = request.headers.get('x-alchemy-signature');
-  
-  // If no signature provided, you may want to enforce this
-  if (!signature) {
-    console.warn('No webhook signature provided');
-    return true; // Set to false if signature validation is required
-  }
+  try {
+    // Compute HMAC-SHA256 of the raw body
+    const hmac = createHmac('sha256', signingKey);
+    hmac.update(rawBody);
+    const computedSignature = hmac.digest('hex');
 
-  // Implement HMAC-SHA256 verification with your webhook signing key
-  // This is a placeholder - implement actual verification based on Alchemy's spec
-  return true;
+    // Use timing-safe comparison to prevent timing attacks
+    return createHmac('sha256', signingKey)
+      .update(signature)
+      .digest()
+      .equals(
+        createHmac('sha256', signingKey)
+          .update(computedSignature)
+          .digest()
+      );
+  } catch (error) {
+    console.error('Error validating signature:', error);
+    return false;
+  }
 };
 
 /**
- * Process incoming transaction activity and update user balances
+ * Process incoming Alchemy webhook activity and update Firestore
  */
-const processTransaction = async (
-  activity: AlchemyWebhookActivity,
-  transaction: { hash: string; timestamp: number }
-): Promise<{ success: boolean; error?: string }> => {
+const processAlchemyActivity = async (
+  activity: AlchemyWebhookActivity
+): Promise<{ success: boolean; userId?: string; txHash?: string; error?: string }> => {
   try {
-    const fromAddress = normalizeAddress(activity.fromAddress);
-    const toAddress = normalizeAddress(activity.toAddress);
-    const value = activity.value;
-    const asset = activity.asset || 'UNKNOWN';
+    // Normalize recipient address to lowercase
+    const recipientAddress = activity.toAddress.toLowerCase();
+    const asset = activity.asset || 'APEX';
+    const amount = Number(activity.value);
+    const timestamp = new Date().toISOString();
 
-    // Update sender balance (decrease)
-    if (fromAddress && fromAddress !== '0x0000000000000000000000000000000000000000') {
-      await updateUserBalance(fromAddress, -value, asset, transaction);
+    // Query Firestore users collection where walletAddressLowercase matches
+    const usersSnapshot = await db
+      .collection('users')
+      .where('walletAddressLowercase', '==', recipientAddress)
+      .limit(1)
+      .get();
+
+    if (usersSnapshot.empty) {
+      console.warn(`No user found for address: ${recipientAddress}`);
+      return {
+        success: false,
+        error: `No user found for wallet: ${recipientAddress}`,
+      };
     }
 
-    // Update recipient balance (increase)
-    if (toAddress && toAddress !== '0x0000000000000000000000000000000000000000') {
-      await updateUserBalance(toAddress, value, asset, transaction);
-    }
+    const userDoc = usersSnapshot.docs[0];
+    const userId = userDoc.id;
 
-    // Log transaction for audit trail
-    await logTransaction({
-      hash: activity.hash,
-      fromAddress,
-      toAddress,
-      value,
-      asset,
-      timestamp: transaction.timestamp,
-      blockNum: activity.blockNum,
-    });
+    // Fetch current wallet balance
+    const walletDocRef = db.collection('users').doc(userId).collection('wallets').doc(asset);
+    const walletDoc = await walletDocRef.get();
+    const currentBalance = walletDoc.exists ? (walletDoc.data()?.balance || 0) : 0;
 
-    return { success: true };
+    // Calculate new balance
+    const newBalance = currentBalance + amount;
+
+    // Update wallet balance with merge: true
+    await walletDocRef.set(
+      {
+        balance: newBalance,
+        lastUpdated: new Date(),
+      },
+      { merge: true }
+    );
+
+    // Record transaction in subcollection
+    await db
+      .collection('users')
+      .doc(userId)
+      .collection('transactions')
+      .add({
+        asset,
+        amount,
+        action: 'RECEIVE',
+        from: activity.fromAddress,
+        txHash: activity.hash,
+        timestamp,
+        createdAt: new Date(),
+      });
+
+    console.info(
+      `✓ Updated user ${userId}: ${asset} balance ${currentBalance} → ${newBalance}, tx: ${activity.hash}`
+    );
+
+    return {
+      success: true,
+      userId,
+      txHash: activity.hash,
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error processing transaction:', errorMessage);
-    return { success: false, error: errorMessage };
+    console.error('Error processing Alchemy activity:', errorMessage);
+    return {
+      success: false,
+      error: errorMessage,
+    };
   }
 };
 
 /**
- * Update user balance in Firestore
- */
-const updateUserBalance = async (
-  address: string,
-  amount: number,
-  asset: string,
-  transaction: { hash: string; timestamp: number }
-): Promise<void> => {
-  const userDocRef = db.collection('users').doc(address);
-
-  await db.runTransaction(async (transaction_ref) => {
-    const userDoc = await transaction_ref.get(userDocRef);
-    
-    if (!userDoc.exists) {
-      // Create new user document
-      transaction_ref.set(
-        userDocRef,
-        {
-          address,
-          [asset]: {
-            balance: amount >= 0 ? amount : 0,
-            rawBalance: amount,
-          },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          transactionHistory: [
-            {
-              hash: transaction.hash,
-              amount,
-              asset,
-              timestamp: transaction.timestamp,
-            },
-          ],
-        },
-        { merge: false }
-      );
-    } else {
-      // Update existing user document
-      const currentData = userDoc.data() || {};
-      const currentAssetData = currentData[asset] || { balance: 0, rawBalance: 0 };
-      const newBalance = Math.max(
-        0,
-        (currentAssetData.rawBalance || currentAssetData.balance || 0) + amount
-      );
-
-      transaction_ref.update(userDocRef, {
-        [asset]: {
-          balance: newBalance,
-          rawBalance: newBalance,
-          lastUpdated: new Date(),
-        },
-        updatedAt: new Date(),
-        transactionHistory: db.FieldValue.arrayUnion({
-          hash: transaction.hash,
-          amount,
-          asset,
-          timestamp: transaction.timestamp,
-        }),
-      });
-    }
-  });
-};
-
-/**
- * Log transaction for audit trail and analysis
- */
-const logTransaction = async (transactionData: {
-  hash: string;
-  fromAddress: string;
-  toAddress: string;
-  value: number;
-  asset: string;
-  timestamp: number;
-  blockNum?: string;
-}): Promise<void> => {
-  try {
-    await db.collection('transactions').add({
-      ...transactionData,
-      createdAt: new Date(),
-      processed: true,
-    });
-  } catch (error) {
-    console.error('Error logging transaction:', error);
-    // Don't throw - transaction was processed, logging failure is non-critical
-  }
-};
-
-/**
- * Main webhook handler
+ * Main webhook handler for Alchemy ADDRESS_ACTIVITY events
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // Verify request method
-    if (request.method !== 'POST') {
+    // Get environment variable
+    const signingKey = process.env.ALCHEMY_WEBHOOK_SIGNING_KEY;
+    if (!signingKey) {
+      console.error('ALCHEMY_WEBHOOK_SIGNING_KEY not configured');
       return NextResponse.json(
-        { success: false, message: 'Method not allowed' },
-        { status: 405 }
-      );
-    }
-
-    // Parse request body
-    const body = await request.json() as AlchemyWebhookPayload;
-
-    // Validate webhook signature
-    const rawBody = await request.text();
-    if (!validateWebhookSignature(request, rawBody)) {
-      console.warn('Invalid webhook signature');
-      return NextResponse.json(
-        { success: false, message: 'Invalid signature' },
+        { success: false, error: 'Webhook signing key not configured' },
         { status: 401 }
       );
     }
 
-    // Validate payload structure
-    if (!body.event || !Array.isArray(body.event.activity)) {
-      console.error('Invalid webhook payload structure');
+    // Get signature from header
+    const signature = request.headers.get('x-alchemy-signature');
+    if (!signature) {
+      console.warn('Missing x-alchemy-signature header');
       return NextResponse.json(
-        { success: false, message: 'Invalid payload structure' },
+        { success: false, error: 'Missing authentication signature' },
+        { status: 401 }
+      );
+    }
+
+    // Read raw body BEFORE parsing JSON (critical for HMAC validation)
+    const rawBody = await request.text();
+
+    // Validate signature using timing-safe comparison
+    const isValidSignature = validateSignature(rawBody, signature, signingKey);
+    if (!isValidSignature) {
+      console.warn('Invalid webhook signature');
+      return NextResponse.json(
+        { success: false, error: 'Invalid signature' },
+        { status: 403 }
+      );
+    }
+
+    // Parse JSON after signature validation
+    let body: AlchemyWebhookPayload;
+    try {
+      body = JSON.parse(rawBody) as AlchemyWebhookPayload;
+    } catch (error) {
+      console.error('Invalid JSON payload');
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON payload' },
         { status: 400 }
       );
     }
 
-    // Check webhook type
-    if (body.type !== 'ADDRESS_ACTIVITY') {
-      console.info(`Skipping webhook of type: ${body.type}`);
+    // Validate payload structure
+    if (!body.event || !Array.isArray(body.event.activity) || body.event.activity.length === 0) {
+      console.warn('Invalid or empty activity in webhook payload');
       return NextResponse.json(
-        { success: true, message: `Webhook type ${body.type} received but not processed` },
+        { success: false, error: 'No activity found in payload' },
+        { status: 400 }
+      );
+    }
+
+    // Only process ADDRESS_ACTIVITY type
+    if (body.type !== 'ADDRESS_ACTIVITY') {
+      console.info(`Skipping webhook type: ${body.type}`);
+      return NextResponse.json(
+        { success: true, message: `Webhook type ${body.type} not processed` },
         { status: 200 }
       );
     }
 
-    const activities = body.event.activity;
-    const errors: string[] = [];
-    let processedCount = 0;
+    // Process first activity only
+    const activity = body.event.activity[0];
 
-    // Process each transaction in the activity
-    for (const activity of activities) {
-      try {
-        // Validate activity data
-        if (!activity.fromAddress || !activity.toAddress || activity.value === undefined) {
-          const error = 'Missing required activity fields';
-          console.warn(error, activity);
-          errors.push(error);
-          continue;
-        }
-
-        const transaction = {
-          hash: activity.hash || `unknown_${Date.now()}`,
-          timestamp: Math.floor(Date.now() / 1000),
-        };
-
-        const result = await processTransaction(activity, transaction);
-
-        if (result.success) {
-          processedCount++;
-          console.info(`✓ Processed transaction: ${activity.hash}`);
-        } else {
-          const error = `Failed to process transaction ${activity.hash}: ${result.error}`;
-          console.error(error);
-          errors.push(error);
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const message = `Error processing activity: ${errorMessage}`;
-        console.error(message);
-        errors.push(message);
-      }
+    // Validate required fields
+    if (!activity.fromAddress || !activity.toAddress || activity.value === undefined) {
+      console.error('Missing required activity fields', activity);
+      return NextResponse.json(
+        { success: false, error: 'Missing required transaction fields' },
+        { status: 400 }
+      );
     }
 
-    // Return response
-    const response: WebhookResponse = {
-      success: errors.length === 0,
-      message: `Processed ${processedCount} of ${activities.length} transactions`,
-      processedTransactions: processedCount,
-    };
+    // Process the activity
+    const result = await processAlchemyActivity(activity);
 
-    if (errors.length > 0) {
-      response.errors = errors;
+    if (result.success) {
+      return NextResponse.json(
+        {
+          success: true,
+          message: 'Activity processed successfully',
+          userId: result.userId,
+          txHash: result.txHash,
+        },
+        { status: 200 }
+      );
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          error: result.error || 'Failed to process activity',
+        },
+        { status: 400 }
+      );
     }
-
-    console.info('Webhook processing complete:', response);
-
-    return NextResponse.json(response, {
-      status: errors.length === 0 ? 200 : 207, // 207 Partial Success
-    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Webhook handler error:', errorMessage);
@@ -301,8 +264,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         success: false,
-        message: 'Internal server error',
-        errors: [errorMessage],
+        error: 'Internal server error',
       },
       { status: 500 }
     );
