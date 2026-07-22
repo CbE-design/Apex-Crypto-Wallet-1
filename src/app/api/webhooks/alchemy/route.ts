@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { getAdminFirestore, firebaseAdmin } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
+
+export const runtime = 'nodejs';
 
 interface AlchemyWebhookPayload {
   webhookId: string;
@@ -87,8 +90,8 @@ async function processDeposit(
     batch.set(
       walletRef,
       {
-        balance: firebaseAdmin.firestore.FieldValue.increment(value),
-        lastUpdated: firebaseAdmin.firestore.FieldValue.serverTimestamp(),
+        balance: FieldValue.increment(value),
+        lastUpdated: FieldValue.serverTimestamp(),
         currency: asset,
         id: asset,
         userId,
@@ -107,7 +110,7 @@ async function processDeposit(
       from: fromAddress.toLowerCase(),
       txHash,
       timestamp: new Date().toISOString(),
-      createdAt: firebaseAdmin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     // Commit batch
