@@ -1,17 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { db } from '@/lib/firebase';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  doc,
-  increment,
-  setDoc,
-  serverTimestamp,
-  writeBatch,
-} from 'firebase/firestore';
+import { getAdminFirestore, firebaseAdmin } from '@/lib/firebase-admin';
 
 interface AlchemyWebhookPayload {
   webhookId: string;
@@ -48,10 +37,10 @@ function verifySignature(
     const hmac = createHmac('sha256', signingKey);
     hmac.update(body);
     const digest = hmac.digest('hex');
-    
+
     const signatureBuffer = Buffer.from(signature);
     const digestBuffer = Buffer.from(digest);
-    
+
     return timingSafeEqual(signatureBuffer, digestBuffer);
   } catch (error) {
     console.error('Signature verification error:', error);
@@ -70,37 +59,47 @@ async function processDeposit(
   txHash: string
 ): Promise<void> {
   try {
+    const db = getAdminFirestore();
+    if (!db) throw new Error('Firestore admin not initialised');
+
     // Query user by wallet address (case-insensitive)
-    const usersRef = collection(db, 'users');
-    const q = query(
-      usersRef,
-      where('walletAddressLowercase', '==', toAddress.toLowerCase())
-    );
-    
-    const userDocs = await getDocs(q);
-    
-    if (userDocs.empty) {
+    const usersSnap = await db
+      .collection('users')
+      .where('walletAddressLowercase', '==', toAddress.toLowerCase())
+      .limit(1)
+      .get();
+
+    if (usersSnap.empty) {
       console.warn(`No user found for wallet address: ${toAddress}`);
       return;
     }
-    
-    const userDoc = userDocs.docs[0];
+
+    const userDoc = usersSnap.docs[0];
     const userId = userDoc.id;
-    
+
     // Use batch write for atomic operations
-    const batch = writeBatch(db);
-    
-    // Increment wallet balance
-    const walletRef = doc(db, 'users', userId, 'wallets', asset);
-    batch.update(walletRef, {
-      balance: increment(value),
-      lastUpdated: serverTimestamp(),
-    });
-    
+    const batch = db.batch();
+
+    // Wallet ref
+    const walletRef = db.doc(`users/${userId}/wallets/${asset}`);
+
+    // Increment wallet balance (merge to create if missing)
+    batch.set(
+      walletRef,
+      {
+        balance: firebaseAdmin.firestore.FieldValue.increment(value),
+        lastUpdated: firebaseAdmin.firestore.FieldValue.serverTimestamp(),
+        currency: asset,
+        id: asset,
+        userId,
+      },
+      { merge: true }
+    );
+
     // Record transaction
-    const transactionsRef = collection(db, 'users', userId, 'transactions');
-    const newTransactionRef = doc(transactionsRef);
-    
+    const transactionsCol = db.collection('users').doc(userId).collection('transactions');
+    const newTransactionRef = transactionsCol.doc();
+
     batch.set(newTransactionRef, {
       asset,
       amount: value,
@@ -108,15 +107,13 @@ async function processDeposit(
       from: fromAddress.toLowerCase(),
       txHash,
       timestamp: new Date().toISOString(),
-      createdAt: serverTimestamp(),
+      createdAt: firebaseAdmin.firestore.FieldValue.serverTimestamp(),
     });
-    
+
     // Commit batch
     await batch.commit();
-    
-    console.log(
-      `Successfully processed deposit: ${value} ${asset} to ${userId}`
-    );
+
+    console.log(`Successfully processed deposit: ${value} ${asset} to ${userId}`);
   } catch (error) {
     console.error('Error processing deposit:', error);
     throw error;
@@ -131,17 +128,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Get signing key
     const signingKey = process.env.ALCHEMY_WEBHOOK_SIGNING_KEY;
     const signature = request.headers.get('x-alchemy-signature');
-    
+
     if (!signingKey || !signature) {
       return NextResponse.json(
         { error: 'Missing signing key or signature' },
         { status: 401 }
       );
     }
-    
+
     // Read raw body for signature verification
     const rawBody = await request.text();
-    
+
     // Verify signature
     if (!verifySignature(rawBody, signature, signingKey)) {
       return NextResponse.json(
@@ -149,10 +146,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { status: 403 }
       );
     }
-    
+
     // Parse payload
     const payload: AlchemyWebhookPayload = JSON.parse(rawBody);
-    
+
     // Extract first activity
     if (!payload.event?.activity?.[0]) {
       return NextResponse.json(
@@ -160,28 +157,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { status: 400 }
       );
     }
-    
+
     const activity = payload.event.activity[0];
-    
+
     // Extract and validate required fields
     const toAddress = activity.toAddress;
     const fromAddress = activity.fromAddress;
     const txHash = activity.hash;
     const asset = activity.asset || 'APEX';
-    const value = typeof activity.value === 'string' 
-      ? parseFloat(activity.value) 
-      : activity.value;
-    
+    const value = typeof activity.value === 'string'
+      ? parseFloat(activity.value)
+      : (activity.value as number);
+
     if (!toAddress || !fromAddress || !txHash || isNaN(value)) {
       return NextResponse.json(
         { error: 'Missing required fields in activity' },
         { status: 400 }
       );
     }
-    
+
     // Process the deposit
     await processDeposit(toAddress, fromAddress, value, asset, txHash);
-    
+
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error('Webhook error:', error);
