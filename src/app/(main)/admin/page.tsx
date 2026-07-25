@@ -129,19 +129,24 @@ export default function AdminDashboardPage() {
       toast({ title: 'Error', description: 'Could not update platform status.', variant: 'destructive' });
     }
   };
-
-  const handleBroadcast: SubmitHandler<NotificationFormValues> = async (data) => {
-    setBroadcastStatus('processing');
-    try {
-      const result = await sendNotification(data);
-      setBroadcastStatus('success');
-      broadcastForm.reset();
-      toast({ title: 'Notification Sent', description: `${result.successCount} users notified.` });
-    } catch (e: any) {
-      setBroadcastStatus('error');
-      toast({ title: 'Broadcast Failed', description: e.message, variant: 'destructive' });
-    }
-  };
+const handleBroadcast: SubmitHandler<NotificationFormValues> = async (data) => {
+  setBroadcastStatus('processing');
+  try {
+    const result = await sendNotification({
+      ...data,
+      category: 'general',
+      priority: 'normal',
+    });
+    setBroadcastStatus('success');
+    broadcastForm.reset();
+    toast({ title: 'Notification Sent', description: `${result.successCount} users notified.` });
+  } catch (e: any) {
+    setBroadcastStatus('error');
+    toast({ title: 'Broadcast Failed', description: e.message, variant: 'destructive' });
+  }
+};
+  
+      
 
   const handleSendEmail: SubmitHandler<EmailFormValues> = async (data) => {
     setEmailStatus('processing');
