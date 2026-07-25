@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { getAdminFirestore, firebaseAdmin } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { sendTransactionalEmail } from '@/lib/email';
 
 export const runtime = 'nodejs';
 
@@ -115,6 +116,34 @@ async function processDeposit(
 
     // Commit batch
     await batch.commit();
+
+    // Send deposit notification email if the user has a real email address.
+    try {
+      const userData = userDoc.data();
+      if (userData.email && typeof userData.email === 'string' && userData.email.includes('@') && !userData.email.endsWith('@apex.io')) {
+        await sendTransactionalEmail({
+          to: userData.email,
+          subject: `Deposit Received: ${value} ${asset}`,
+          html: `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" /><title>Deposit Confirmed</title></head>
+<body style="margin:0;padding:0;background:#0A0C12;color:#E5E7EB;font-family:sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#11131A;border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:28px;">
+      <div style="font-size:22px;font-weight:700;color:#22D3EE;margin-bottom:24px;">Apex Wallet</div>
+      <h1 style="font-size:20px;color:#FFFFFF;margin:0 0 16px;">Deposit Confirmed</h1>
+      <p style="font-size:15px;line-height:1.6;color:#9CA3AF;">We have received a deposit into your wallet.</p>
+      <div style="background:rgba(34,211,238,0.08);border-left:3px solid #22D3EE;padding:12px 16px;border-radius:8px;margin:16px 0;">
+        Amount: <strong>${value} ${asset}</strong><br />
+        Transaction: <code>${txHash}</code>
+      </div>
+    </div>
+  </div>
+</body></html>`,
+        });
+      }
+    } catch (emailErr) {
+      console.error('[AlchemyWebhook] Deposit email failed:', emailErr);
+    }
 
     console.log(`Successfully processed deposit: ${value} ${asset} to ${userId}`);
   } catch (error) {

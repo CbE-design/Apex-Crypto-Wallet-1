@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { sendWithdrawalApprovedEmail, sendWithdrawalRejectedEmail } from '@/app/actions/transactional-email';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore } from '@/firebase';
 import { 
@@ -169,6 +170,20 @@ export default function WithdrawalApprovalsPage() {
 
         toast({ title: 'Success', description: 'Payout approved.' });
         setIsDetailOpen(false);
+
+        try {
+          if (withdrawal.userEmail && withdrawal.userEmail.includes('@')) {
+            await sendWithdrawalApprovedEmail({
+              to: withdrawal.userEmail,
+              reference: withdrawal.transactionReference ?? '',
+              method: withdrawal.withdrawalMethod,
+              amount: withdrawal.fiatAmount ?? 0,
+            });
+          }
+        } catch (emailErr) {
+          console.error('[WithdrawalApprovals] Approval email failed:', emailErr);
+        }
+
         fetchWithdrawals();
     } catch (error: any) {
         toast({ title: 'Failed', description: error.message, variant: 'destructive' });
@@ -190,6 +205,19 @@ export default function WithdrawalApprovalsPage() {
       });
       toast({ title: 'Rejected', description: 'Payout declined.' });
       setIsDetailOpen(false);
+
+      try {
+        if (withdrawal.userEmail && withdrawal.userEmail.includes('@')) {
+          await sendWithdrawalRejectedEmail({
+            to: withdrawal.userEmail,
+            reference: withdrawal.transactionReference ?? '',
+            reason: rejectionReason.trim(),
+          });
+        }
+      } catch (emailErr) {
+        console.error('[WithdrawalApprovals] Rejection email failed:', emailErr);
+      }
+
       fetchWithdrawals();
     } catch (error) {
       console.error(error);

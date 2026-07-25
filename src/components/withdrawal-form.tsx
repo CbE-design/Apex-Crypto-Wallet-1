@@ -28,6 +28,7 @@ import { useWallet } from '@/context/wallet-context';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, doc, updateDoc, runTransaction } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { sendWithdrawalRequestEmail } from '@/app/actions/transactional-email';
 import { marketCoins } from '@/lib/data';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { Loader2, Building2, Globe, AlertTriangle, Info } from 'lucide-react';
@@ -224,6 +225,19 @@ export function WithdrawalForm() {
       });
       eftForm.reset();
       toast({ title: 'Withdrawal Submitted', description: `Reference: ${payload.transactionReference}. Your request is being reviewed.` });
+
+      try {
+        if (userProfile?.email && userProfile.email.includes('@')) {
+          await sendWithdrawalRequestEmail({
+            to: userProfile.email,
+            reference: payload.transactionReference,
+            method: 'EFT',
+            amount: payload.fiatAmount,
+          });
+        }
+      } catch (emailErr) {
+        console.error('[WithdrawalForm] EFT email notification failed:', emailErr);
+      }
     } catch (err) {
       console.error('[WithdrawalForm] EFT submit error:', err);
       toast({ title: 'Submission Failed', description: 'Could not submit your withdrawal request. Please try again.', variant: 'destructive' });
@@ -255,6 +269,19 @@ export function WithdrawalForm() {
       });
       swiftForm.reset();
       toast({ title: 'Withdrawal Submitted', description: `Reference: ${payload.transactionReference}. Your request is being reviewed.` });
+
+      try {
+        if (userProfile?.email && userProfile.email.includes('@')) {
+          await sendWithdrawalRequestEmail({
+            to: userProfile.email,
+            reference: payload.transactionReference,
+            method: 'SWIFT',
+            amount: payload.fiatAmount,
+          });
+        }
+      } catch (emailErr) {
+        console.error('[WithdrawalForm] SWIFT email notification failed:', emailErr);
+      }
     } catch (err) {
       console.error('[WithdrawalForm] SWIFT submit error:', err);
       toast({ title: 'Submission Failed', description: 'Could not submit your withdrawal request. Please try again.', variant: 'destructive' });
