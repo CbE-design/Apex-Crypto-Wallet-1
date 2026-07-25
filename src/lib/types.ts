@@ -103,17 +103,42 @@ export const CryptoAssistantOutputSchema = z.object({
 });
 export type CryptoAssistantOutput = z.infer<typeof CryptoAssistantOutputSchema>;
 
+export const NotificationCategorySchema = z.enum(['general', 'market', 'security', 'system', 'promotion']);
+export type NotificationCategory = z.infer<typeof NotificationCategorySchema>;
+
+export const NotificationPrioritySchema = z.enum(['low', 'normal', 'high', 'urgent']);
+export type NotificationPriority = z.infer<typeof NotificationPrioritySchema>;
+
 export const SendNotificationInputSchema = z.object({
   title: z.string().describe('The title of the notification.'),
   body: z.string().describe('The body content of the notification.'),
+  category: NotificationCategorySchema.default('general').describe('The category/label of the notification.'),
+  priority: NotificationPrioritySchema.default('normal').describe('The urgency level of the notification.'),
+  sender: z.string().optional().describe('The sender or admin identifier.'),
 });
 export type SendNotificationInput = z.infer<typeof SendNotificationInputSchema>;
 
 export const SendNotificationOutputSchema = z.object({
   successCount: z.number().describe('The number of messages that were sent successfully.'),
   failureCount: z.number().describe('The number of messages that could not be sent.'),
+  broadcastId: z.string().optional().describe('The Firestore broadcast document ID.'),
 });
 export type SendNotificationOutput = z.infer<typeof SendNotificationOutputSchema>;
+
+export interface BroadcastNotification {
+  id: string;
+  title: string;
+  body: string;
+  message: string;
+  category: NotificationCategory;
+  priority: NotificationPriority;
+  sender?: string;
+  read: boolean;
+  createdAt: any;
+  sentCount?: number;
+  failureCount?: number;
+  metadata?: Record<string, any>;
+}
 
 export const SendEmailInputSchema = z.object({
   subject: z.string().describe('The subject of the email.'),

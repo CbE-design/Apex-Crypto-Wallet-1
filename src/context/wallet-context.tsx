@@ -9,7 +9,7 @@ import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/fireb
 import { signOut, signInWithCustomToken, User as FirebaseUser } from 'firebase/auth';
 import {
   doc, serverTimestamp, writeBatch,
-  collection, getDocs, updateDoc, setDoc,
+  collection, getDocs, updateDoc, setDoc, getDoc,
 } from 'firebase/firestore';
 import { marketCoins } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
@@ -59,6 +59,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const DEFAULT_ADMIN_ADDRESS = '0x985864190c7E5c803B918B273f324220037e819f'.toLowerCase();
 const ADMIN_EMAILS = ['admin@apexwallet.io', 'corrie@apex-crypto.co.uk'];
+const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 
 // ── chain address derivation ───────────────────────────────────────────
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
@@ -261,6 +262,63 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
     initializeWallet();
   }, [user, auth, wallet]);
+
+  // Register/refresh the FCM token after the user is authenticated.
+  useEffect(() => {
+    if (typeof window === 'undefined' || loading || !user || !firestore) return;
+
+    const registerFcmToken = async () => {
+      if (!('Notification' in window) || !('serviceWorker' in navigator) || !VAPID_KEY) {
+        if (!VAPID_KEY) {
+          console.warn('[FCM] NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set. Push notifications will not be registered.');
+        }
+        return;
+      }
+
+      try {
+        const { getMessaging, getToken, onMessage } = await import('firebase/messaging');
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          console.warn('[FCM] Notification permission denied.');
+          return;
+        }
+
+        const messaging = getMessaging();
+        const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+        if (!currentToken) {
+          console.warn('[FCM] No token returned from getToken.');
+          return;
+        }
+
+        // Persist the token in the user's profile so the admin send flow can use it.
+        const userRef = doc(firestore, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists() && userSnap.data()?.fcmToken !== currentToken) {
+          await updateDoc(userRef, { fcmToken: currentToken });
+          console.log('[FCM] Token refreshed and saved.');
+        }
+
+        // Show foreground push notifications as toasts.
+        const unsubscribe = onMessage(messaging, (payload) => {
+          toast({
+            title: payload.notification?.title,
+            description: payload.notification?.body,
+          });
+        });
+
+        return unsubscribe;
+      } catch (err) {
+        console.warn('[FCM] Registration skipped or failed:', err);
+      }
+    };
+
+    let unsubscribePromise = registerFcmToken();
+    return () => {
+      unsubscribePromise.then((unsubscribe) => {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      }).catch(() => {});
+    };
+  }, [user, firestore, loading, toast]);
 
   const setupVault = useCallback(async (pin: string) => {
     if (!pendingWallet || !user) throw new Error('No pending wallet to vault');

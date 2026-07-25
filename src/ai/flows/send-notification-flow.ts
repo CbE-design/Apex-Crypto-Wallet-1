@@ -1,10 +1,13 @@
 'use server';
 
 import { ai } from '../genkit';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminFirestore, getAdminMessaging } from '@/lib/firebase-admin';
 import {
   SendNotificationInputSchema,
   SendNotificationOutputSchema,
+  NotificationCategorySchema,
+  NotificationPrioritySchema,
   type SendNotificationInput,
   type SendNotificationOutput,
 } from '@/lib/types';
@@ -19,7 +22,7 @@ const sendNotificationFlow = ai.defineFlow(
     inputSchema: SendNotificationInputSchema,
     outputSchema: SendNotificationOutputSchema,
   },
-  async ({ title, body }: { title: string, body: string }) => {
+  async ({ title, body, category = 'general', priority = 'normal', sender }: SendNotificationInput) => {
     const db = getAdminFirestore();
     const messaging = getAdminMessaging();
 
@@ -27,6 +30,25 @@ const sendNotificationFlow = ai.defineFlow(
       throw new Error('Firebase Admin SDK is not initialized. Cannot send notifications.');
     }
 
+    // 1. Persist the broadcast so it appears in every user's in-app notification list.
+    let broadcastId: string | undefined;
+    try {
+      const broadcastRef = await db.collection('broadcasts').add({
+        title,
+        body,
+        message: body,
+        category: NotificationCategorySchema.parse(category),
+        priority: NotificationPrioritySchema.parse(priority),
+        sender: sender || 'Apex Admin',
+        read: false,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      broadcastId = broadcastRef.id;
+    } catch (error) {
+      console.error('Failed to persist broadcast notification:', error);
+    }
+
+    // 2. Collect FCM tokens and send push notifications.
     const usersSnapshot = await db.collection('users').get();
 
     const tokens: string[] = [];
@@ -37,25 +59,42 @@ const sendNotificationFlow = ai.defineFlow(
       }
     });
 
-    if (tokens.length === 0) {
-      return { successCount: 0, failureCount: 0 };
-    }
+    let successCount = 0;
+    let failureCount = 0;
 
-    const message = {
-      notification: { title, body },
-      tokens,
-    };
-
-    try {
-      // Modern firebase-admin uses sendEachForMulticast
-      const response = await (messaging as any).sendEachForMulticast(message);
-      return {
-        successCount: response.successCount,
-        failureCount: response.failureCount,
+    if (tokens.length > 0) {
+      const message = {
+        notification: { title, body },
+        data: {
+          category,
+          priority,
+          sender: sender || 'Apex Admin',
+          broadcastId: broadcastId || '',
+        },
+        tokens,
       };
-    } catch (error) {
-      console.error('Error sending notifications:', error);
-      return { successCount: 0, failureCount: tokens.length };
+
+      try {
+        // Modern firebase-admin uses sendEachForMulticast
+        const response = await (messaging as any).sendEachForMulticast(message);
+        successCount = response.successCount || 0;
+        failureCount = response.failureCount || 0;
+
+        // Update the broadcast with final delivery stats.
+        if (broadcastId) {
+          try {
+            await db.collection('broadcasts').doc(broadcastId).update({
+              sentCount: successCount,
+              failureCount: failureCount,
+            });
+          } catch (_) {}
+        }
+      } catch (error) {
+        console.error('Error sending FCM notifications:', error);
+        failureCount = tokens.length;
+      }
     }
+
+    return { successCount, failureCount, broadcastId };
   },
 );
