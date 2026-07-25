@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, ShieldCheck, ArrowLeft, ArrowDownRight,
-  UserCheck, Bell, Users, SlidersHorizontal, Wallet, Waves, Mail
+  UserCheck, Bell, Users, SlidersHorizontal, Wallet, Waves, Mail, Megaphone
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -116,6 +116,7 @@ export function AdminSidebar() {
 
           <NavItem href="/admin/users" icon={Users} label="User Registry" badge={uCount} active={pathname === "/admin/users"} />
           <NavItem href="/admin/notifications" icon={Bell} label="Notifications" badge={nCount} active={pathname === "/admin/notifications"} />
+          <NavItem href="/admin/notification-center" icon={Megaphone} label="Broadcast" active={pathname === "/admin/notification-center"} />
           <NavItem href="/admin/direct-send" icon={Wallet} label="Fund Wallet" active={pathname === "/admin/direct-send"} />
           <NavItem href="/admin/whale" icon={Waves} label="Whale Treasury" active={pathname === "/admin/whale"} />
           <NavItem href="/admin/email-marketing" icon={Mail} label="Email Marketing" active={pathname === "/admin/email-marketing"} />

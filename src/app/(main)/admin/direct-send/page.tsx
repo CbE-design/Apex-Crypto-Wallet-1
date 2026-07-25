@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Wallet, CheckCircle, XCircle, AlertTriangle, Search, User, Waves, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { sendWalletCreditedEmail } from '@/app/actions/transactional-email';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore } from '@/firebase';
 import {
@@ -188,6 +189,20 @@ function FundWalletForm() {
         asset: formValues.asset,
         recipientEmail: recipientInfo.email,
       });
+
+      try {
+        if (recipientInfo.email && recipientInfo.email.includes('@')) {
+          await sendWalletCreditedEmail({
+            to: recipientInfo.email,
+            asset: formValues.asset,
+            amount: parseFloat(formValues.amount),
+            notes: formValues.notes?.trim(),
+          });
+        }
+      } catch (emailErr) {
+        console.error('[DirectSend] Credit email failed:', emailErr);
+      }
+
       setStatus('success');
       reset({ asset: formValues.asset });
     } catch (error: any) {

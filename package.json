@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.33.0-rc.1",
-    "@genkit-ai/googleai": "^1.28.0",
     "@google-cloud/firestore": "^8.5.0",
     "@hookform/resolvers": "^3.3.4",
     "@next/swc-linux-x64-gnu": "^14.2.33",
@@ -40,6 +39,7 @@
     "@radix-ui/react-toast": "^1.1.5",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tensorflow/tfjs-node": "^4.22.0",
+    "@vercel/analytics": "^2.0.1",
     "@vladmandic/face-api": "^1.7.15",
     "ai": "^2.2.37",
     "canvas": "^3.2.3",

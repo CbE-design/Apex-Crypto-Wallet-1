@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFirestore, firebaseAdmin } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { sendTransactionalEmail } from '@/lib/email';
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,6 +59,9 @@ export async function POST(req: NextRequest) {
     const senderWalletRef   = db.doc(`users/${senderUid}/wallets/${asset}`);
     const recipientWalletRef = db.doc(`users/${recipientUid}/wallets/${asset}`);
 
+    let senderEmail: string | undefined;
+    let recipientEmail: string | undefined;
+
     await db.runTransaction(async (tx) => {
       const senderWalletDoc = await tx.get(senderWalletRef);
 
@@ -107,6 +111,62 @@ export async function POST(req: NextRequest) {
       const recipientDashTxRef = db.collection(`users/${recipientUid}/transactions`).doc();
       tx.set(recipientDashTxRef, recipientTxData);
     });
+
+    // Fetch emails and send transfer notifications (best-effort).
+    try {
+      const [senderDoc, recipientDoc] = await Promise.all([
+        db.collection('users').doc(senderUid).get(),
+        db.collection('users').doc(recipientUid).get(),
+      ]);
+      senderEmail = senderDoc.data()?.email as string | undefined;
+      recipientEmail = recipientDoc.data()?.email as string | undefined;
+
+      if (senderEmail && senderEmail.includes('@') && !senderEmail.endsWith('@apex.io')) {
+        await sendTransactionalEmail({
+          to: senderEmail,
+          subject: `Transfer Sent: ${amount} ${asset}`,
+          html: `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" /><title>Transfer Sent</title></head>
+<body style="margin:0;padding:0;background:#0A0C12;color:#E5E7EB;font-family:sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#11131A;border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:28px;">
+      <div style="font-size:22px;font-weight:700;color:#22D3EE;margin-bottom:24px;">Apex Wallet</div>
+      <h1 style="font-size:20px;color:#FFFFFF;margin:0 0 16px;">Transfer Sent</h1>
+      <p style="font-size:15px;line-height:1.6;color:#9CA3AF;">You have sent crypto from your wallet.</p>
+      <div style="background:rgba(34,211,238,0.08);border-left:3px solid #22D3EE;padding:12px 16px;border-radius:8px;margin:16px 0;">
+        Amount: <strong>${amount} ${asset}</strong><br />
+        To: <code>${recipientAddress}</code>
+      </div>
+    </div>
+  </div>
+</body></html>`,
+        });
+      }
+
+      if (recipientEmail && recipientEmail.includes('@') && !recipientEmail.endsWith('@apex.io')) {
+        await sendTransactionalEmail({
+          to: recipientEmail,
+          subject: `You Received ${amount} ${asset}`,
+          html: `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" /><title>Incoming Transfer</title></head>
+<body style="margin:0;padding:0;background:#0A0C12;color:#E5E7EB;font-family:sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <div style="background:#11131A;border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:28px;">
+      <div style="font-size:22px;font-weight:700;color:#22D3EE;margin-bottom:24px;">Apex Wallet</div>
+      <h1 style="font-size:20px;color:#FFFFFF;margin:0 0 16px;">Incoming Transfer</h1>
+      <p style="font-size:15px;line-height:1.6;color:#9CA3AF;">You have received crypto in your wallet.</p>
+      <div style="background:rgba(34,211,238,0.08);border-left:3px solid #22D3EE;padding:12px 16px;border-radius:8px;margin:16px 0;">
+        Amount: <strong>${amount} ${asset}</strong><br />
+        From: <code>${recipientAddress}</code>
+      </div>
+    </div>
+  </div>
+</body></html>`,
+        });
+      }
+    } catch (emailErr) {
+      console.error('[/api/transfer] Transfer email notification failed:', emailErr);
+    }
 
     return NextResponse.json({ success: true });
 

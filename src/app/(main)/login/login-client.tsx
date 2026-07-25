@@ -40,6 +40,8 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
   const [mnemonicVisible,        setMnemonicVisible]        = useState(false);
   const [copied,                 setCopied]                 = useState(false);
   const [pinSetupOpen,           setPinSetupOpen]           = useState(false);
+  const [newWalletEmail,         setNewWalletEmail]         = useState('');
+  const [importEmail,            setImportEmail]            = useState('');
 
   const [showAdminLogin,  setShowAdminLogin]  = useState(initialAdminMode);
   const [adminEmail,      setAdminEmail]      = useState('');
@@ -78,8 +80,12 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
       toast({ title: 'Seed phrase required', variant: 'destructive' });
       return;
     }
+    if (importEmail.trim() && !importEmail.trim().includes('@')) {
+      toast({ title: 'Invalid email', description: 'Please enter a valid email or leave it blank.', variant: 'destructive' });
+      return;
+    }
     try {
-      await importWallet(mnemonic);
+      await importWallet(mnemonic, importEmail.trim() || undefined);
     } catch (error: any) {
       toast({ title: 'Import failed', description: 'See console for details.', variant: 'destructive' });
     }
@@ -87,8 +93,12 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
 
   const handleConfirmNewWallet = async () => {
     if (!newMnemonic) return;
+    if (newWalletEmail.trim() && !newWalletEmail.trim().includes('@')) {
+      toast({ title: 'Invalid email', description: 'Please enter a valid email or leave it blank.', variant: 'destructive' });
+      return;
+    }
     try {
-      await confirmAndCreateWallet(newMnemonic);
+      await confirmAndCreateWallet(newMnemonic, newWalletEmail.trim() || undefined);
       setIsNewWalletDialogOpen(false);
     } catch {
       toast({ title: 'Creation failed', description: 'Could not finalise wallet.', variant: 'destructive' });
@@ -223,6 +233,23 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
                           disabled={loading}
                           className="bg-white/[0.04] border-white/[0.08] resize-none text-sm font-mono placeholder:text-white/20 focus:border-violet-500/40 rounded-xl"
                         />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
+                          Email Address (optional)
+                        </label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40" />
+                          <Input
+                            type="email"
+                            placeholder="you@example.com"
+                            value={importEmail}
+                            onChange={e => setImportEmail(e.target.value)}
+                            disabled={loading}
+                            className="pl-9 h-10 rounded-xl bg-white/[0.04] border-white/[0.08] text-sm placeholder:text-white/20 focus:border-violet-500/40"
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground/40">Used for withdrawal and deposit notifications.</p>
                       </div>
                       <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
                         <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
@@ -442,6 +469,26 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
                 ? <><CheckCircle2 className="h-3.5 w-3.5 text-cyan-400" />Copied!</>
                 : <><Copy className="h-3.5 w-3.5" />Copy to clipboard</>}
             </button>
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-white/50 uppercase tracking-wider">
+                Email Address (optional)
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/30" />
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={newWalletEmail}
+                  onChange={e => setNewWalletEmail(e.target.value)}
+                  disabled={loading}
+                  className="pl-9 h-10 rounded-xl bg-white/[0.04] border-white/[0.08] text-sm text-white placeholder:text-white/20 focus:border-violet-500/40"
+                />
+              </div>
+              <p className="text-[10px] text-white/25">Used for withdrawal and deposit notifications.</p>
+            </div>
           </div>
 
           <DialogFooter>

@@ -9,7 +9,7 @@ import { useUser, useAuth, useFirestore, useDoc, useMemoFirebase } from '@/fireb
 import { signOut, signInWithCustomToken, User as FirebaseUser } from 'firebase/auth';
 import {
   doc, serverTimestamp, writeBatch,
-  collection, getDocs, updateDoc, setDoc,
+  collection, getDocs, updateDoc, setDoc, getDoc,
 } from 'firebase/firestore';
 import { marketCoins } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +23,8 @@ import {
 import { registerPasskey, authenticatePasskey, isPasskeySupported } from '@/lib/passkey';
 import { KYCStatus, UserProfile } from '@/lib/types';
 import { logger } from '@/lib/logger';
+import { EmailCollectionDialog } from '@/components/email-collection-dialog';
+import { useTransactionListener } from '@/hooks/use-transaction-listener';
 
 // ── types ────────────────────────────────────────────────────────────────
 interface Wallet {
@@ -59,6 +61,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const DEFAULT_ADMIN_ADDRESS = '0x985864190c7E5c803B918B273f324220037e819f'.toLowerCase();
 const ADMIN_EMAILS = ['admin@apexwallet.io', 'corrie@apex-crypto.co.uk'];
+const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 
 // ── chain address derivation ───────────────────────────────────────────
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
@@ -100,6 +103,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [hasPasskey, setHasPasskey] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [passkeySupported, setPasskeySupported] = useState(false);
+  const [emailCollectionOpen, setEmailCollectionOpen] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState<string | undefined>();
 
   const pinnedPinRef = useRef<string | null>(null);
 
@@ -145,7 +150,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, [auth, clearLocalSession]);
 
   const setupUserAndWalletDocuments = useCallback(
-    async (firebaseUser: FirebaseUser, walletInstance: ethers.Wallet, isNew: boolean): Promise<Wallet> => {
+    async (firebaseUser: FirebaseUser, walletInstance: ethers.Wallet, isNew: boolean, email?: string): Promise<Wallet> => {
       if (!firestore) throw new Error('Firestore unavailable');
 
       const batch = writeBatch(firestore);
@@ -157,9 +162,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         walletAddressLowercase: walletInstance.address.toLowerCase(),
       };
       if (isNew) {
-        profileUpdate.email = `${walletInstance.address.substring(0, 8)}@apex.io`;
+        profileUpdate.email = email && email.includes('@') ? email : `${walletInstance.address.substring(0, 8)}@apex.io`;
         profileUpdate.createdAt = serverTimestamp();
         profileUpdate.kycStatus = "NOT_SUBMITTED";
+      } else if (email && email.includes('@')) {
+        profileUpdate.email = email;
       }
       batch.set(userRef, profileUpdate, { merge: true });
 
@@ -189,7 +196,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
             title: 'New User Registered',
             message: `New wallet registered: ${walletInstance.address.substring(0, 12)}...`,
             userId: firebaseUser.uid,
-            userEmail: `${walletInstance.address.substring(0, 8)}@apex.io`,
+            userEmail: profileUpdate.email || '',
             read: false,
             createdAt: serverTimestamp(),
             metadata: { walletAddress: walletInstance.address },
@@ -262,6 +269,75 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     initializeWallet();
   }, [user, auth, wallet]);
 
+  // Register/refresh the FCM token after the user is authenticated.
+  useEffect(() => {
+    if (typeof window === 'undefined' || loading || !user || !firestore) return;
+
+    const registerFcmToken = async () => {
+      if (!('Notification' in window) || !('serviceWorker' in navigator) || !VAPID_KEY) {
+        if (!VAPID_KEY) {
+          console.warn('[FCM] NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set. Push notifications will not be registered.');
+        }
+        return;
+      }
+
+      try {
+        const { getMessaging, getToken, onMessage } = await import('firebase/messaging');
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          console.warn('[FCM] Notification permission denied.');
+          return;
+        }
+
+        const messaging = getMessaging();
+        const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+        if (!currentToken) {
+          console.warn('[FCM] No token returned from getToken.');
+          return;
+        }
+
+        // Persist the token in the user's profile so the admin send flow can use it.
+        const userRef = doc(firestore, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists() && userSnap.data()?.fcmToken !== currentToken) {
+          await updateDoc(userRef, { fcmToken: currentToken });
+          console.log('[FCM] Token refreshed and saved.');
+        }
+
+        // Show foreground push notifications as toasts.
+        const unsubscribe = onMessage(messaging, (payload) => {
+          toast({
+            title: payload.notification?.title,
+            description: payload.notification?.body,
+          });
+        });
+
+        return unsubscribe;
+      } catch (err) {
+        console.warn('[FCM] Registration skipped or failed:', err);
+      }
+    };
+
+    let unsubscribePromise = registerFcmToken();
+    return () => {
+      unsubscribePromise.then((unsubscribe) => {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      }).catch(() => {});
+    };
+  }, [user, firestore, loading, toast]);
+
+  // Prompt existing users to add a real email if they are using a placeholder.
+  useEffect(() => {
+    if (typeof window === 'undefined' || loading || !user || !userProfile) return;
+    const email = userProfile.email as string | undefined;
+    if (!email || email.endsWith('@apex.io')) {
+      setEmailCollectionOpen(true);
+    }
+  }, [user, userProfile, loading]);
+
+  // Listen for real-time transaction events (deposits, withdrawals, transfers).
+  useTransactionListener(user?.uid, firestore);
+
   const setupVault = useCallback(async (pin: string) => {
     if (!pendingWallet || !user) throw new Error('No pending wallet to vault');
     const vault = await encryptVault(pendingWallet, pin);
@@ -320,14 +396,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     return w.mnemonic?.phrase ?? '';
   }, []);
 
-  const confirmAndCreateWallet = useCallback(async (mnemonic: string) => {
+  const confirmAndCreateWallet = useCallback(async (mnemonic: string, email?: string) => {
     if (!auth) throw new Error('Auth missing');
     setIsInitializing(true);
     try {
       const newWallet = ethers.Wallet.fromPhrase(mnemonic);
       const { token, isReturningUser } = await getCustomTokenForWallet(newWallet.address);
       const firebaseUser = await signInWithToken(token);
-      const walletData = await setupUserAndWalletDocuments(firebaseUser, newWallet as any, !isReturningUser);
+      const walletData = await setupUserAndWalletDocuments(firebaseUser, newWallet as any, !isReturningUser, email);
       setPendingWallet(walletData);
     } catch (e) {
       toast({ title: 'Setup Failed', description: 'Could not create secure identity.', variant: 'destructive' });
@@ -337,7 +413,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [auth, signInWithToken, setupUserAndWalletDocuments, toast]);
 
-  const importWallet = useCallback(async (mnemonic: string) => {
+  const importWallet = useCallback(async (mnemonic: string, email?: string) => {
     if (!auth || !firestore) throw new Error('Services missing');
     setIsInitializing(true);
     try {
@@ -383,6 +459,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         firebaseUser,
         importedWallet as any,
         !isReturningUser,
+        email,
       );
 
       setPendingWallet(walletData);
@@ -432,6 +509,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       setupVault, unlockWithPin, setupPasskey, unlockWithPasskey,
     }}>
       {children}
+      {user && (
+        <EmailCollectionDialog
+          userId={user.uid}
+          open={emailCollectionOpen}
+          onOpenChange={setEmailCollectionOpen}
+          onSaved={(email) => setNewUserEmail(email)}
+        />
+      )}
     </WalletContext.Provider>
   );
 };
