@@ -85,7 +85,7 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
       return;
     }
     try {
-      await importWallet(mnemonic, importEmail.trim() || undefined);
+      await importWallet(mnemonic);
     } catch (error: any) {
       toast({ title: 'Import failed', description: 'See console for details.', variant: 'destructive' });
     }
