@@ -165,8 +165,16 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         profileUpdate.email = email && email.includes('@') ? email : `${walletInstance.address.substring(0, 8)}@apex.io`;
         profileUpdate.createdAt = serverTimestamp();
         profileUpdate.kycStatus = "NOT_SUBMITTED";
-      } else if (email && email.includes('@')) {
-        profileUpdate.email = email;
+        profileUpdate.lastLogin = serverTimestamp();
+        profileUpdate.lastSeen = serverTimestamp();
+        profileUpdate.isOnline = true;
+      } else {
+        profileUpdate.lastLogin = serverTimestamp();
+        profileUpdate.lastSeen = serverTimestamp();
+        profileUpdate.isOnline = true;
+        if (email && email.includes('@')) {
+          profileUpdate.email = email;
+        }
       }
       batch.set(userRef, profileUpdate, { merge: true });
 

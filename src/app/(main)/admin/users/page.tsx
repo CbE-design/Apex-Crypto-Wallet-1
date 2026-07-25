@@ -53,6 +53,10 @@ interface UserDoc {
   walletAddress: string;
   kycStatus?: KYCStatus;
   kycSubmissionId?: string;
+  lastLogin?: any;
+  lastSeen?: any;
+  isOnline?: boolean;
+  fcmToken?: string;
 }
 
 interface WalletBalance {
@@ -125,6 +129,29 @@ function formatCurrency(amount: number, currency: string) {
     currency,
     minimumFractionDigits: 2,
   }).format(amount);
+}
+
+function formatRelativeTime(timestamp: any): string {
+  if (!timestamp) return 'Never';
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  if (diffSecs < 60) return 'Just now';
+  const diffMins = Math.floor(diffSecs / 60);
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return formatDate(timestamp);
+}
+
+function isUserOnline(user: UserDoc): boolean {
+  if (user.isOnline === false) return false;
+  if (!user.lastSeen) return false;
+  const lastSeen = user.lastSeen.toDate ? user.lastSeen.toDate() : new Date(user.lastSeen);
+  return new Date().getTime() - lastSeen.getTime() < 5 * 60 * 1000;
 }
 
 export default function UsersPage() {
@@ -258,9 +285,10 @@ export default function UsersPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           {[
             { label: 'Total Accounts', value: kycCounts.all, icon: Users, border: 'border-violet-500/15 bg-violet-500/5', iconCls: 'bg-violet-500/10 border-violet-500/20 text-violet-400' },
+            { label: 'Online Now', value: users.filter(isUserOnline).length, icon: Activity, border: users.filter(isUserOnline).length > 0 ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/[0.06] bg-white/[0.02]', iconCls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' },
             { label: 'KYC Verified', value: kycCounts.APPROVED, icon: ShieldCheck, border: 'border-emerald-500/15 bg-emerald-500/5', iconCls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' },
             { label: 'Awaiting Review', value: kycCounts.PENDING, icon: Clock, border: kycCounts.PENDING > 0 ? 'border-amber-500/20 bg-amber-500/5' : 'border-white/[0.06] bg-white/[0.02]', iconCls: 'bg-amber-500/10 border-amber-500/20 text-amber-400' },
             { label: 'Anonymous', value: kycCounts.NOT_SUBMITTED, icon: Shield, border: 'border-white/[0.06] bg-white/[0.02]', iconCls: 'bg-white/[0.04] border-white/[0.08] text-white/30' },
@@ -309,8 +337,8 @@ export default function UsersPage() {
 
         {/* User Table */}
         <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 overflow-hidden">
-          <div className="grid grid-cols-[1fr_2fr_1.5fr_1.5fr_auto] gap-4 px-6 py-3 border-b border-white/[0.06] bg-white/[0.03] text-[9px] font-semibold uppercase tracking-[0.18em] text-white/20">
-            <span>Identity</span><span>Wallet / UID</span><span>Created</span><span>Compliance</span><span className="text-right">Actions</span>
+          <div className="grid grid-cols-[1fr_2fr_1.5fr_1.5fr_1fr_1fr_auto] gap-4 px-6 py-3 border-b border-white/[0.06] bg-white/[0.03] text-[9px] font-semibold uppercase tracking-[0.18em] text-white/20">
+            <span>Identity</span><span>Wallet / UID</span><span>Created</span><span>Compliance</span><span>Last Login</span><span>Status</span><span className="text-right">Actions</span>
           </div>
           <div className="divide-y divide-white/[0.04]">
             {error ? (
@@ -328,12 +356,15 @@ export default function UsersPage() {
             ) : processedUsers.length > 0 ? (
               processedUsers.map((u) => (
                 <div key={u.id}
-                  className="grid grid-cols-[1fr_2fr_1.5fr_1.5fr_auto] gap-4 px-6 py-4 items-center hover:bg-violet-500/[0.03] transition-colors cursor-pointer group"
+                  className="grid grid-cols-[1fr_2fr_1.5fr_1.5fr_1fr_1fr_auto] gap-4 px-6 py-4 items-center hover:bg-violet-500/[0.03] transition-colors cursor-pointer group"
                   onClick={() => handleOpenDetail(u)}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-white/[0.04] flex items-center justify-center ring-1 ring-white/[0.08] group-hover:ring-violet-500/30 transition-all">
+                    <div className="h-9 w-9 rounded-xl bg-white/[0.04] flex items-center justify-center ring-1 ring-white/[0.08] group-hover:ring-violet-500/30 transition-all relative">
                       <User className="h-4 w-4 text-white/25 group-hover:text-violet-400 transition-colors" />
+                      {isUserOnline(u) && (
+                        <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-[#0A0C12] animate-pulse" />
+                      )}
                     </div>
                     <p className="text-xs font-semibold text-white/70 truncate max-w-[140px]">{u.email}</p>
                   </div>
@@ -343,6 +374,11 @@ export default function UsersPage() {
                   </div>
                   <div className="text-[10px] font-medium text-white/25">{formatDate(u.createdAt)}</div>
                   <div>{getKycBadge(u.kycStatus)}</div>
+                  <div className="text-[10px] text-white/30">{formatRelativeTime(u.lastLogin)}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn("h-2 w-2 rounded-full", isUserOnline(u) ? 'bg-emerald-400' : 'bg-white/10')} />
+                    <span className="text-[10px] text-white/30">{isUserOnline(u) ? 'Online' : formatRelativeTime(u.lastSeen)}</span>
+                  </div>
                   <div className="text-right">
                     <ChevronRight className="h-4 w-4 text-white/20 group-hover:text-violet-400 transition-colors" />
                   </div>
@@ -367,8 +403,11 @@ export default function UsersPage() {
                 <div className="p-7 border-b border-white/[0.06]">
                   <div className="flex flex-row items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="h-14 w-14 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                      <div className="h-14 w-14 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center relative">
                         <User className="h-7 w-7 text-violet-400" />
+                        {isUserOnline(selectedUser) && (
+                          <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-400 ring-2 ring-[#07090F] animate-pulse" />
+                        )}
                       </div>
                       <div>
                         <DialogTitle className="text-lg font-bold text-white truncate max-w-[280px]">{selectedUser.email}</DialogTitle>
@@ -382,8 +421,26 @@ export default function UsersPage() {
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
                       {getKycBadge(selectedUser.kycStatus)}
-                      <p className="text-[10px] text-white/20">Reg. {formatDate(selectedUser.createdAt)}</p>
+                      <div className="flex items-center gap-1.5 text-[10px] text-white/30">
+                        <span className={cn("h-2 w-2 rounded-full", isUserOnline(selectedUser) ? 'bg-emerald-400' : 'bg-white/10')} />
+                        {isUserOnline(selectedUser) ? 'Online now' : `Last seen ${formatRelativeTime(selectedUser.lastSeen)}`}
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Info strip */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+                    {[
+                      { label: 'Registered', value: formatDate(selectedUser.createdAt) },
+                      { label: 'Last Login', value: formatRelativeTime(selectedUser.lastLogin) },
+                      { label: 'Last Seen', value: formatRelativeTime(selectedUser.lastSeen) },
+                      { label: 'Push Token', value: selectedUser.fcmToken ? 'Registered' : 'None' },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-white/20">{item.label}</p>
+                        <p className="text-xs font-semibold text-white/60 mt-1">{item.value}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

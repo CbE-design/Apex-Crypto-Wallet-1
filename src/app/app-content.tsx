@@ -13,17 +13,51 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { EyeWatermark } from '@/components/eye-watermark';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { type ProtocolStatus } from '@/lib/types';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export default function AppContent({ children }: { children: React.ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);
   const pathname = usePathname();
-  const { isAdmin, loading } = useWallet();
+  const { user, isAdmin, loading } = useWallet();
   const firestore = useFirestore();
 
   useEffect(() => { setIsMounted(true); }, []);
+
+  // Track user presence: heartbeat every 60s and cleanup on unload.
+  const updatePresence = useCallback(async (online: boolean) => {
+    if (!firestore || !user) return;
+    try {
+      await updateDoc(doc(firestore, 'users', user.uid), {
+        lastSeen: serverTimestamp(),
+        isOnline: online,
+      });
+    } catch (e) {
+      console.error('[Presence] Update failed:', e);
+    }
+  }, [firestore, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    updatePresence(true);
+    const heartbeat = setInterval(() => updatePresence(true), 60000);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') updatePresence(true);
+    };
+    const handleBeforeUnload = () => {
+      // Best-effort offline marker; may not always fire before tab closes.
+      updatePresence(false);
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      clearInterval(heartbeat);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      updatePresence(false);
+    };
+  }, [user, updatePresence]);
 
   const protocolSettingsRef = useMemoFirebase(() => {
     if (!firestore) return null;

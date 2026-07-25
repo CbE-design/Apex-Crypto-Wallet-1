@@ -170,6 +170,9 @@ export interface UserProfile {
   kycStatus?: KYCStatus;
   kycSubmittedAt?: any;
   kycApprovedAt?: any;
+  lastLogin?: any;
+  lastSeen?: any;
+  isOnline?: boolean;
 }
 
 // KYC Status Types
