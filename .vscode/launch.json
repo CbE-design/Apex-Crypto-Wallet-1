@@ -1,18 +1,19 @@
-{
+{{
   "version": "0.2.0",
   "configurations": [
+
     {
+      "name": "Next.js: Debug Server-side",
       "type": "node",
       "request": "launch",
-      "name": "Next.js: debug server-side",
       "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev"
-      ],
-      "port": 9002,
-      "console": "integratedTerminal",
-      "preLaunchTask": "npm-install"
-    }
+      "runtimeArgs": ["run", "dev"],
+      "port": 9229,
+      "skipFiles": ["<node_internals>/**"]
+    },
   ]
 }
+
+
+
+  

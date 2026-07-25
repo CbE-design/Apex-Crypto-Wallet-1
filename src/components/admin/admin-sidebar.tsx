@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from "react";
@@ -10,12 +9,41 @@ import {
   SidebarMenuButton,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, ShieldAlert, ArrowLeft, ArrowDownRight, UserCheck, Bell, Users, SlidersHorizontal, Wallet } from "lucide-react";
+import {
+  LayoutDashboard, ShieldCheck, ArrowLeft, ArrowDownRight,
+  UserCheck, Bell, Users, SlidersHorizontal, Wallet, Waves, Mail
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
+
+function NavItem({ href, icon: Icon, label, badge, active }: {
+  href: string; icon: any; label: string; badge?: number; active: boolean;
+}) {
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={active}
+        className={cn(
+          "h-9 rounded-xl px-3 gap-2.5 text-[12px] font-medium transition-all duration-150",
+          active
+            ? "bg-cyan-500/12 text-cyan-300 border border-cyan-500/20"
+            : "text-white/40 hover:text-white/70 hover:bg-white/[0.04]"
+        )}>
+        <Link href={href} className="flex items-center w-full">
+          <Icon className={cn("h-3.5 w-3.5 shrink-0", active ? "text-cyan-400" : "text-white/25")} />
+          <span>{label}</span>
+          {badge != null && badge > 0 && (
+            <span className="ml-auto h-4.5 min-w-[18px] px-1 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/25 text-[9px] font-bold flex items-center justify-center">
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
 
 export function AdminSidebar() {
   const pathname = usePathname();
@@ -46,148 +74,70 @@ export function AdminSidebar() {
   const { data: unreadNotifications } = useCollection(notificationsRef);
   const { data: allUsers } = useCollection(usersRef);
 
-  const pendingWithdrawalsCount = pendingWithdrawals?.length || 0;
-  const pendingKycCount = pendingKyc?.length || 0;
-  const unreadCount = unreadNotifications?.length || 0;
-  const totalUsers = allUsers?.length || 0;
-  const pendingTotal = pendingWithdrawalsCount + pendingKycCount;
+  const wCount = pendingWithdrawals?.length || 0;
+  const kCount = pendingKyc?.length || 0;
+  const nCount = unreadNotifications?.length || 0;
+  const uCount = allUsers?.length || 0;
+  const pendingTotal = wCount + kCount;
 
   return (
     <>
-      <SidebarHeader>
-        <div className="flex items-center gap-3 px-3 py-6">
-            <div className="bg-destructive/20 p-2 rounded-xl border border-destructive/30 relative">
-                <ShieldAlert className="text-destructive h-6 w-6" />
-                {pendingTotal > 0 && (
-                  <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-[9px] font-black text-white flex items-center justify-center">
-                    {pendingTotal > 9 ? '9+' : pendingTotal}
-                  </span>
-                )}
-            </div>
-            <div>
-                <h2 className="text-lg font-black tracking-tight text-destructive">ADMIN</h2>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Control Centre</p>
-            </div>
+      <SidebarHeader className="p-0">
+        <div className="flex items-center gap-3 px-4 py-5 border-b border-white/[0.05]">
+          <div className="relative p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+            <ShieldCheck className="h-5 w-5 text-cyan-400" />
+            {pendingTotal > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-amber-500 text-[8px] font-black text-black flex items-center justify-center">
+                {pendingTotal > 9 ? '9+' : pendingTotal}
+              </span>
+            )}
+          </div>
+          <div className="group-data-[collapsible=icon]:hidden">
+            <p className="text-[13px] font-bold tracking-tight text-cyan-300 leading-none">Admin</p>
+            <p className="text-[9px] text-cyan-500/50 mt-0.5 font-semibold tracking-[0.15em] uppercase">Control Centre</p>
+          </div>
         </div>
       </SidebarHeader>
-      
-      <SidebarContent className="p-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/admin"}>
-              <Link href="/admin">
-                <LayoutDashboard className="h-4 w-4" />
-                <span>Dashboard</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          
-          <div className="my-3 border-t border-white/5 mx-2" />
-          
-          <p className="px-3 py-1 text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Approvals Queue</p>
-          
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/admin/withdrawals"}>
-              <Link href="/admin/withdrawals" className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <ArrowDownRight className="h-4 w-4" />
-                  <span>Withdrawals</span>
-                </div>
-                {pendingWithdrawalsCount > 0 && (
-                  <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-amber-500/20 text-amber-500 border-amber-500/30 ml-auto">
-                    {pendingWithdrawalsCount}
-                  </Badge>
-                )}
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/admin/kyc"}>
-              <Link href="/admin/kyc" className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <UserCheck className="h-4 w-4" />
-                  <span>KYC Verification</span>
-                </div>
-                {pendingKycCount > 0 && (
-                  <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-amber-500/20 text-amber-500 border-amber-500/30 ml-auto">
-                    {pendingKycCount}
-                  </Badge>
-                )}
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
 
-          <div className="my-3 border-t border-white/5 mx-2" />
+      <SidebarContent className="px-2 py-3">
+        <SidebarMenu className="gap-0.5">
+          <NavItem href="/admin" icon={LayoutDashboard} label="Dashboard" active={pathname === "/admin"} />
 
-          <p className="px-3 py-1 text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Management</p>
+          <div className="my-2 px-1">
+            <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/18">Approvals</p>
+          </div>
+
+          <NavItem href="/admin/withdrawals" icon={ArrowDownRight} label="Withdrawals" badge={wCount} active={pathname === "/admin/withdrawals"} />
+          <NavItem href="/admin/kyc" icon={UserCheck} label="KYC Verification" badge={kCount} active={pathname === "/admin/kyc"} />
+
+          <div className="my-2 px-1">
+            <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/18">Management</p>
+          </div>
+
+          <NavItem href="/admin/users" icon={Users} label="User Registry" badge={uCount} active={pathname === "/admin/users"} />
+          <NavItem href="/admin/notifications" icon={Bell} label="Notifications" badge={nCount} active={pathname === "/admin/notifications"} />
+          <NavItem href="/admin/direct-send" icon={Wallet} label="Fund Wallet" active={pathname === "/admin/direct-send"} />
+          <NavItem href="/admin/whale" icon={Waves} label="Whale Treasury" active={pathname === "/admin/whale"} />
+          <NavItem href="/admin/email-marketing" icon={Mail} label="Email Marketing" active={pathname === "/admin/email-marketing"} />
+          <NavItem href="/admin/settings" icon={SlidersHorizontal} label="Settings" active={pathname === "/admin/settings"} />
+
+          <div className="my-2 neon-divider" />
 
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/admin/users"}>
-              <Link href="/admin/users" className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  <span>User Registry</span>
-                </div>
-                {totalUsers > 0 && (
-                  <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-primary/20 text-primary border-primary/30 ml-auto">
-                    {totalUsers}
-                  </Badge>
-                )}
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/admin/notifications"}>
-              <Link href="/admin/notifications" className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <Bell className="h-4 w-4" />
-                  <span>Notifications</span>
-                </div>
-                {unreadCount > 0 && (
-                  <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-primary/20 text-primary border-primary/30 ml-auto">
-                    {unreadCount}
-                  </Badge>
-                )}
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/admin/direct-send"}>
-              <Link href="/admin/direct-send">
-                <Wallet className="h-4 w-4" />
-                <span>Fund Wallet</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/admin/settings"}>
-              <Link href="/admin/settings">
-                <SlidersHorizontal className="h-4 w-4" />
-                <span>Settings</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          
-          <div className="my-3 border-t border-white/5 mx-2" />
-          
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild className="text-muted-foreground hover:text-white">
+            <SidebarMenuButton asChild
+              className="h-9 rounded-xl px-3 gap-2.5 text-[12px] font-medium text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-all">
               <Link href="/">
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-3.5 w-3.5 text-white/20" />
                 <span>Exit Admin</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
-      
-      <SidebarFooter className="p-2">
-        <div className="px-3 py-2 text-[9px] font-bold text-muted-foreground uppercase tracking-widest text-center">
-          Apex Wallet Admin v5
+
+      <SidebarFooter className="p-3 border-t border-white/[0.05]">
+        <div className="text-[9px] font-bold text-white/15 uppercase tracking-[0.15em] text-center">
+          Apex Admin · v6
         </div>
       </SidebarFooter>
     </>

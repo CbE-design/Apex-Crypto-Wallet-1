@@ -1,5 +1,5 @@
 'use client';
-    
+
 import { useState, useEffect } from 'react';
 import {
   DocumentReference,
@@ -51,35 +51,45 @@ export function useDoc<T = any>(
     });
     setError(null);
 
-    const unsubscribe = onSnapshot(
-      memoizedDocRef,
-      (snapshot: DocumentSnapshot<DocumentData>) => {
-        if (snapshot.exists()) {
-          setData({ ...(snapshot.data() as T), id: snapshot.id });
-        } else {
+    let unsubscribe: () => void;
+    try {
+      unsubscribe = onSnapshot(
+        memoizedDocRef,
+        (snapshot: DocumentSnapshot<DocumentData>) => {
+          if (snapshot.exists()) {
+            setData({ ...(snapshot.data() as T), id: snapshot.id });
+          } else {
+            setData(null);
+          }
+          setError(null);
+          setIsLoading(false);
+        },
+        (err: FirestoreError) => {
+          const contextualError = new FirestorePermissionError({
+            operation: 'get',
+            path: memoizedDocRef.path,
+          });
+
+          setError(contextualError);
           setData(null);
-        }
-        setError(null);
-        setIsLoading(false);
-      },
-      (err: FirestoreError) => {
-        const contextualError = new FirestorePermissionError({
-          operation: 'get',
-          path: memoizedDocRef.path,
-        });
+          setIsLoading(false);
 
-        setError(contextualError);
-        setData(null);
-        setIsLoading(false);
-
-        // Only surface as a permission error for real access denials.
-        if (err.code === 'permission-denied') {
-          errorEmitter.emit('permission-error', contextualError);
-        } else {
-          console.warn('[Firestore] Doc error:', err.code, memoizedDocRef.path, err.message);
+          // Only surface as a permission error for real access denials.
+          if (err.code === 'permission-denied') {
+            errorEmitter.emit('permission-error', contextualError);
+          } else {
+            console.warn('[Firestore] Doc error:', err.code, memoizedDocRef.path, err.message);
+          }
         }
-      }
-    );
+      );
+    } catch (e) {
+        const err = e as Error;
+        console.error("[Firestore] Error setting up listener:", err.message);
+        setError(err);
+        setIsLoading(false);
+        // Can't unsubscribe if the setup failed, so return a no-op function
+        unsubscribe = () => {};
+    }
 
     return () => unsubscribe();
   }, [memoizedDocRef]);

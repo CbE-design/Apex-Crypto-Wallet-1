@@ -1,6 +1,6 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
+import { ai } from '../genkit';
 import { getAdminFirestore, getAdminMessaging } from '@/lib/firebase-admin';
 import {
   SendNotificationInputSchema,
@@ -19,7 +19,7 @@ const sendNotificationFlow = ai.defineFlow(
     inputSchema: SendNotificationInputSchema,
     outputSchema: SendNotificationOutputSchema,
   },
-  async ({ title, body }) => {
+  async ({ title, body }: { title: string, body: string }) => {
     const db = getAdminFirestore();
     const messaging = getAdminMessaging();
 

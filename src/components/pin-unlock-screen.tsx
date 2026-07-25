@@ -96,7 +96,7 @@ export function PinUnlockScreen({
 
       {/* Card */}
       <div className="w-full max-w-sm relative z-10">
-        <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl shadow-2xl overflow-hidden">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0A0C12]/90 backdrop-blur-xl shadow-2xl overflow-hidden">
           <div className="px-6 pt-6 pb-5 border-b border-border/40">
             <div className="flex items-center gap-2 mb-1">
               <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
@@ -139,7 +139,7 @@ export function PinUnlockScreen({
                 </div>
                 <Button
                   variant="outline"
-                  className="w-full h-11 rounded-xl border-border/60 hover:border-accent/40 hover:bg-accent/5 font-semibold"
+                  className="w-full h-11 rounded-xl border-white/[0.08] hover:border-cyan-500/30 hover:bg-cyan-500/5 font-semibold"
                   onClick={handlePasskey}
                   disabled={busy}
                 >

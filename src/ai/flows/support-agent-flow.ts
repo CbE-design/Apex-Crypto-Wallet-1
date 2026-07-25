@@ -1,6 +1,6 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
+import { ai } from '../genkit';
 import { z } from 'genkit';
 import {
   SupportAgentInputSchema,
@@ -99,7 +99,7 @@ const supportAgentFlow = ai.defineFlow(
     inputSchema: SupportAgentInputSchema,
     outputSchema: SupportAgentOutputSchema,
   },
-  async (input) => {
+  async (input: SupportAgentInput) => {
     const historyLines = (input.history ?? [])
       .map(m => `${m.role === 'user' ? 'User' : 'Apex Support'}: ${m.content}`)
       .join('\n');

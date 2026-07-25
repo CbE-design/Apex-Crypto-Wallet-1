@@ -1,32 +1,27 @@
+
 import type { Metadata } from 'next';
-import { Inter, Roboto_Mono, Space_Grotesk } from 'next/font/google';
+import { Inter, Space_Grotesk } from 'next/font/google';
 import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Providers } from './providers';
-import { ClientShell } from './client-shell';
-import { Suspense } from 'react';
 
 const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-inter',
   display: 'swap',
 });
 
-const roboto_mono = Roboto_Mono({
+const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
-  variable: '--font-roboto-mono',
   display: 'swap',
+  weight: ['300', '400', '500', '600', '700'],
 });
 
-const space_grotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space-grotesk',
-  display: 'swap',
-});
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://apexwallet.co.za';
 
 export const metadata: Metadata = {
-  title: 'Apex Crypto Wallet',
+  metadataBase: new URL(SITE_URL),
+  title: 'Apex Private Ledger',
   description: 'Institutional-grade self-custodial crypto wallet.',
   manifest: '/manifest.json',
   icons: {
@@ -37,6 +32,46 @@ export const metadata: Metadata = {
       { url: '/apple-icon.png', sizes: '512x512', type: 'image/png' },
     ],
   },
+  openGraph: {
+    siteName: 'Apex Private Ledger',
+    type: 'website',
+    images: ['/apex-icon.png'],
+  },
+  twitter: {
+    card: 'summary',
+    images: ['/apex-icon.png'],
+  },
+};
+
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: 'Apex Private Ledger',
+      url: SITE_URL,
+      logo: {
+        '@type': 'ImageObject',
+        url: `${SITE_URL}/apex-icon.png`,
+      },
+      contactPoint: {
+        '@type': 'ContactPoint',
+        email: 'support@apexwallet.co.za',
+        contactType: 'customer support',
+      },
+      sameAs: [],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: 'Apex Private Ledger',
+      publisher: {
+        '@id': `${SITE_URL}/#organization`,
+      },
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -45,14 +80,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn('h-full', inter.variable, roboto_mono.variable, space_grotesk.variable, GeistSans.variable)} suppressHydrationWarning>
-      <body className={cn('font-body antialiased h-full', inter.className)}>
+    <html lang="en" className={cn('h-full', GeistSans.variable)} suppressHydrationWarning>
+      <body className={cn('font-body antialiased h-full', inter.className, spaceGrotesk.className)}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
         <Providers>
-          <Suspense fallback={null}>
-            <ClientShell>
-              {children}
-            </ClientShell>
-          </Suspense>
+          {children}
         </Providers>
       </body>
     </html>

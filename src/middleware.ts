@@ -2,16 +2,9 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  // Check if the request is HTTP
-  if (
-    process.env.NODE_ENV === 'production' &&
-    request.headers.get('x-forwarded-proto') !== 'https' &&
-    !request.url.includes('localhost')
-  ) {
-    const httpsUrl = request.url.replace(/^http:/, 'https:');
-    return NextResponse.redirect(httpsUrl, 301);
-  }
-
+  // No HTTPS redirect — Replit's edge infrastructure handles TLS termination.
+  // Internal health checks and direct container traffic must stay on HTTP
+  // so the deployment healthchecker can probe us successfully.
   return NextResponse.next();
 }
 

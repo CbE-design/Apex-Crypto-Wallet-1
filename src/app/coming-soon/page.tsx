@@ -1,6 +1,23 @@
-
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import type { Metadata } from 'next';
 import { Rocket } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: 'Coming Soon — Apex Wallet',
+  description: 'A new Apex Wallet feature is under active development. Stay tuned for updates.',
+  alternates: {
+    canonical: '/coming-soon',
+  },
+  openGraph: {
+    title: 'Coming Soon — Apex Wallet',
+    description: 'A new Apex Wallet feature is under active development. Stay tuned for updates.',
+    url: '/coming-soon',
+    type: 'website',
+  },
+  twitter: {
+    title: 'Coming Soon — Apex Wallet',
+    description: 'A new Apex Wallet feature is under active development. Stay tuned for updates.',
+  },
+};
 
 export default function ComingSoonPage() {
   return (
@@ -10,7 +27,7 @@ export default function ComingSoonPage() {
         </div>
         <h1 className="text-4xl font-bold mb-2">Coming Soon!</h1>
         <p className="text-lg text-muted-foreground max-w-md">
-            This feature is currently under active development. Please check back later to see what we've built!
+            This feature is currently under active development. Please check back later to see what we&#39;ve built!
         </p>
     </div>
   );

@@ -1,108 +1,36 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── Helper Functions ──────────────────────────────────────────────────────
+    match /notifications/{notificationId} {
+      // READ: Allow reading if the doc has a userId and it matches the requester's UID.
+      // This prevents queries from failing if a malformed doc without a userId exists.
+      allow read: if 'userId' in resource.data && request.auth.uid == resource.data.userId;
 
-    function isSignedIn() {
-      return request.auth != null;
+      // UPDATE/DELETE: Same logic as read.
+      allow update, delete: if 'userId' in resource.data && request.auth.uid == resource.data.userId;
+
+      // CREATE: A user must be logged in. The new document MUST have a `userId` field,
+      // and that field MUST match the UID of the user creating it.
+      // This prevents users from creating notifications for other users from the client.
+      allow create: if request.auth.uid != null
+                    && 'userId' in request.resource.data
+                    && request.resource.data.userId == request.auth.uid;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
+    match /broadcasts/{broadcastId} {
+      // Any authenticated user can read broadcasts.
+      allow read: if request.auth.uid != null;
 
-    function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.admin == true ||
-        request.auth.token.email == 'admin@apexwallet.io' ||
-        request.auth.token.email == 'corrie@apex-crypto.co.uk' ||
-        request.auth.token.email == 'apex@test.com' ||
-        request.auth.uid == 'xTqwKRdxUnQnsNe4n7bQAHmh3lC3'
-      );
-    }
-
-    // ─── Protocol Settings ─────────────────────────────────────────────────────
-    match /protocol_settings/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // ─── Core App Data ─────────────────────────────────────────────────────────
-
-    match /withdrawal_requests/{requestId} {
-      allow list:   if isAdmin();
-      allow get:    if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn();
-      allow update: if isAdmin();
-      allow delete: if false;
-    }
-
-    match /kyc_submissions/{submissionId} {
-      allow list:   if isAdmin();
-      allow get:    if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn();
-      allow update: if isAdmin();
-      allow delete: if false;
-    }
-
-    match /admin_notifications/{notificationId} {
-      allow read:   if isAdmin();
-      allow write:  if isAdmin();
-      // Users may create their own notifications (e.g. NEW_USER on registration)
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-    }
-
-    // ─── Collection-group rules ────────────────────────────────────────────────
-    // Admins can search wallets across all users (Fund Wallet page).
-    // Owners can always read/write their own wallets via the specific /users/{userId} path below.
-    match /{path=**}/wallets/{walletId} {
-      allow read:  if isAdmin();
-      allow write: if isAdmin();
-    }
-
-    match /{path=**}/transactions/{transactionId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-    }
-
-    // ─── User Profiles ────────────────────────────────────────────────────────
-    match /users/{userId} {
-      // Any signed-in user may list with a filter (needed for wallet-address lookup
-      // during import — the server-side API now handles this, but keep the rule
-      // so the client-side fallback also works if needed).
-      allow list:  if isAdmin() || isSignedIn();
-      allow get:   if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId) || isAdmin();
-
-      // Wallet sub-documents — owners and admins have full access.
-      match /wallets/{walletId} {
-        allow read:  if isOwner(userId) || isAdmin();
-        allow write: if isOwner(userId) || isAdmin();
-      }
-
-      match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId) || isAdmin();
-      }
-    }
-
-    // ─── Platform & Static Data ───────────────────────────────────────────────
-
-    match /platform_config/{docId} {
-      allow read, write: if isAdmin();
-    }
-
-    match /prices/{docId} {
-      allow read: if true;
+      // No user can write to the broadcasts collection. (Admin-only)
       allow write: if false;
     }
 
-    // ─── Email / Notification Logs ────────────────────────────────────────────
-    match /email_logs/{docId} {
-      allow read, write: if isAdmin();
-    }
-
-    match /notification_logs/{docId} {
-      allow read, write: if isAdmin();
+    // Rule for the user's subcollection of deleted broadcast IDs
+    match /users/{userId}/deletedBroadcasts/{broadcastId} {
+      // A user can only access (read, create, update, delete) their own list.
+      allow read, write: if request.auth.uid == userId;
     }
   }
 }

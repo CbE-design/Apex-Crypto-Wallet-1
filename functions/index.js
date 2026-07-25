@@ -1,43 +1,157 @@
 
-const functions = require("firebase-functions");
+const {https, firestore} = require("firebase-functions/v2");
+const {log} = require("firebase-functions/logger");
 const admin = require("firebase-admin");
-const { getFirestore } = require("firebase-admin/firestore");
+const ethers = require("ethers");
+const { Resend } = require("resend");
 
 admin.initializeApp();
 
-exports.getCustomToken = functions.https.onCall(async (data, context) => {
-  const { walletAddress } = data;
+// This is a placeholder for the master vault address.
+// In a production environment, you should store this in a secure way,
+// such as a Firebase secret.
+const MASTER_VAULT_ADDRESS = "0x...YOUR_MASTER_VAULT_ADDRESS...";
 
-  if (!walletAddress) {
-    throw new functions.https.HttpsError(
-      "invalid-argument",
-      "The function must be called with one argument 'walletAddress'.",
-    );
+// This function retrieves the gateway private key for a given deposit address.
+// In a real-world scenario, you would need a secure way to store and retrieve
+// these keys. For this example, we'll use a placeholder function.
+function getGatewayPrivateKey(depositAddress) {
+    // In a real implementation, you would look up the private key
+    // associated with the depositAddress from a secure storage.
+    // For this example, we are using a placeholder.
+    // IMPORTANT: Never expose private keys in your code.
+    // Use Firebase secrets or another secure key management system.
+    return process.env.GATEWAY_PRIVATE_KEY;
+}
+
+exports.handleOnChainDeposit = https.onRequest({
+    secrets: ["GATEWAY_PRIVATE_KEY", "ALCHEMY_RPC_URL", "ALCHEMY_SIGNING_KEY"]
+}, async (request, response) => {
+    try {
+        const body = request.body;
+
+     // 2. Parse the Incoming Webhook
+        const activity = body.event.activity[0];
+        const txHash = activity.hash;
+        const depositAddress = activity.toAddress;
+        let amount = activity.value;
+        let asset = activity.asset; // The token symbol (e.g., "ETH", "USDC")
+
+        // 3. Basic Validation
+        if (!txHash || !depositAddress || !amount || !asset) {
+            log("Validation Failed: Missing required fields from Alchemy payload.", { txHash, depositAddress, amount, asset });
+            return response.status(400).json({ success: false, error: "Missing required fields." });
+        }
+
+        log(`Processing deposit: ${amount} ${asset} to ${depositAddress} (Tx: ${txHash})`);
+
+        // 4. Credit User's Account in Firestore
+        const db = admin.firestore();
+        const userRef = db.collection('users').where(`deposit_gateways.${asset}`, '==', depositAddress).limit(1);
+
+        await db.runTransaction(async (transaction) => {
+            const userSnapshot = await transaction.get(userRef);
+
+            if (userSnapshot.empty) {
+                log(`No user found for deposit address: ${depositAddress}`);
+                // Do not throw an error to prevent the webhook from being retried.
+                return;
+            }
+
+            const userDoc = userSnapshot.docs[0];
+            const accountRef = userDoc.ref.collection('accounts').doc(asset);
+
+            const accountSnapshot = await transaction.get(accountRef);
+
+            let newBalance;
+            if (accountSnapshot.exists) {
+                const currentBalance = accountSnapshot.data().balance || 0;
+                newBalance = currentBalance + parseFloat(amount);
+                transaction.update(accountRef, { balance: newBalance });
+            } else {
+                newBalance = parseFloat(amount);
+                transaction.set(accountRef, { balance: newBalance });
+            }
+
+            const depositRecordRef = userDoc.ref.collection('deposits').doc(txHash);
+            transaction.set(depositRecordRef, {
+                amount: parseFloat(amount),
+                asset,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                depositAddress,
+            });
+
+            log(`Successfully credited ${userDoc.id} with ${amount} ${asset}. New balance: ${newBalance}`);
+        });
+
+        // Return success immediately after the database credit!
+        return response.status(200).json({ success: true, message: "Deposit processed and credited safely." });
+
+    } catch (error) {
+        log("Error processing deposit:", error);
+        return response.status(500).json({ success: false, error: "Internal Server Error" });
+    }
+});
+
+exports.sendWithdrawalTemplateEmail = firestore.onDocumentUpdated({
+  document: "withdrawal_requests/{docId}",
+  secrets: ["RESEND_API_KEY"],
+}, async (event) => {
+  if (!process.env.RESEND_API_KEY) {
+    log("RESEND_API_KEY is not set. Aborting function.");
+    return;
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  // Get the state of the document before and after the change
+  const beforeData = event.data?.before.data();
+  const afterData = event.data?.after.data();
+
+  // Guard clause: Ensure data exists and status has changed from PENDING to APPROVED
+  if (!beforeData || !afterData || !(beforeData.status === 'PENDING' && afterData.status === 'APPROVED')) {
+    log(`No action taken for withdrawal ${event.params.docId}. Status change was not PENDING -> APPROVED.`);
+    return;
   }
 
-  const db = getFirestore();
-  const usersRef = db.collection("users");
-  const q = usersRef.where("walletAddressLowercase", "==", walletAddress.toLowerCase()).limit(1);
-  const userSnap = await q.get();
+  // Extract variables from the newly approved document payload
+  const { userEmail: to, accountHolder: userName, fiatAmount: amount, fiatCurrency: currency, processedAt } = afterData;
 
-  if (userSnap.empty) {
-     throw new functions.https.HttpsError(
-      "not-found",
-      "No user found with this wallet address.",
-    );
+  // Validate that essential data for the email is present
+  if (!to || !userName || !amount || !currency) {
+    log(`Missing required data for email in document ${event.params.docId}.`, afterData);
+    return;
   }
 
-  const userDoc = userSnap.docs[0];
-  const uid = userDoc.id;
+  // Format the date for the email template
+  const transactionDate = processedAt?.toDate()?.toLocaleDateString('en-GB', {
+    year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  }) || new Date().toLocaleDateString();
+
+  log(`Attempting to send withdrawal processed email to: ${to}`);
 
   try {
-    const customToken = await admin.auth().createCustomToken(uid);
-    return { token: customToken };
-  } catch (error) {
-    console.error("Error creating custom token:", error);
-    throw new functions.https.HttpsError(
-      "internal",
-      "Could not create custom token.",
-    );
+    const { data, error } = await resend.emails.send({
+      from: "Apex Private Ledger <withdrawals@apex-crypto.co.uk>",
+      to: [to],
+      subject: `💸 Withdrawal Processed: ${amount} ${currency || 'GBP'}`,
+      template: {
+        id: "withdrawal-confirmation-2",
+        variables: {
+          userName,
+          amount: amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          currency,
+          transactionDate,
+        },
+      },
+    });
+
+    if (error) {
+      log(`Failed to send email for withdrawal ${event.params.docId}. Resend API Error:`, error);
+      return;
+    }
+
+    log(`Successfully sent email with ID ${data?.id} for withdrawal ${event.params.docId}.`);
+  } catch (err) {
+    log(`An unexpected error occurred while sending email for withdrawal ${event.params.docId}:`, err);
   }
 });

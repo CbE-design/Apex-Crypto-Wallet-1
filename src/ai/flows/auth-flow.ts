@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { ai } from '@/ai/genkit';
+import { ai } from '../genkit';
 import { getAdminFirestore, firebaseAdmin } from '@/lib/firebase-admin';
 
 /**
@@ -22,7 +22,7 @@ export const getAuthToken = ai.defineFlow(
       isReturningUser: z.boolean(),
     }),
   },
-  async ({ address }) => {
+  async ({ address }: { address: string }) => {
     const db = getAdminFirestore();
     if (!db) {
       throw new Error('Firebase Admin SDK is not initialised.');

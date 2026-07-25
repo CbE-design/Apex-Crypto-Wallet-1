@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +15,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useUser, useFirestore, useCollection, addDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase } from "@/firebase"
 import { collection, query, doc } from "firebase/firestore"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 
 export function PriceAlerts() {
   const { toast } = useToast();
@@ -39,7 +39,6 @@ export function PriceAlerts() {
       toast({ title: "Invalid input", description: "Select an asset and enter a valid target price.", variant: "destructive" });
       return;
     }
-
     addDocumentNonBlocking(collection(firestore, 'users', user.uid, 'price_alerts'), {
       userId: user.uid,
       currency: newAlertAsset,
@@ -47,77 +46,59 @@ export function PriceAlerts() {
       alertType: newAlertType,
       triggered: false,
     });
-
-    toast({
-      title: "Alert created",
-      description: `You'll be notified when ${newAlertAsset} is ${newAlertType.toLowerCase()} $${parseFloat(newAlertPrice).toLocaleString()}.`,
-    });
-
-    setNewAlertAsset("");
-    setNewAlertPrice("");
-    setNewAlertType("Above");
-    setOpen(false);
+    toast({ title: "Alert created", description: `You'll be notified when ${newAlertAsset} is ${newAlertType.toLowerCase()} $${parseFloat(newAlertPrice).toLocaleString()}.` });
+    setNewAlertAsset(""); setNewAlertPrice(""); setNewAlertType("Above"); setOpen(false);
   };
 
   const handleDeleteAlert = (id: string) => {
     if (!user || !firestore || !alerts) return;
-
     try {
       deleteDocumentNonBlocking(doc(firestore, 'users', user.uid, 'price_alerts', id));
       toast({ title: "Alert removed" });
-    } catch (error) {
-      toast({ title: "Error", description: "Could not remove alert. Please try again.", variant: "destructive" });
+    } catch {
+      toast({ title: "Error", description: "Could not remove alert.", variant: "destructive" });
     }
   };
 
-  const getCoinName = (symbol: string) =>
-    marketCoins.find(c => c.symbol === symbol)?.name ?? symbol;
+  const getCoinName = (symbol: string) => marketCoins.find(c => c.symbol === symbol)?.name ?? symbol;
 
   return (
-    <Card className="bg-card/50 backdrop-blur-sm">
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5 flex flex-col h-full">
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500" />
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <CardTitle className="flex items-center gap-2 text-base">
+          <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
             <Bell className="h-4 w-4 text-muted-foreground" />
             Price Alerts
-          </CardTitle>
-          <CardDescription className="text-[12px] mt-0.5">
-            Get notified when targets are hit
-          </CardDescription>
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Get notified at target prices</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!user}
-              className="h-8 rounded-lg text-[12px] border-border/60 hover:border-primary/40 hover:bg-primary/5"
-            >
-              <BellPlus className="h-3.5 w-3.5 mr-1.5" />
-              New Alert
+            <Button size="sm" variant="outline" disabled={!user}
+              className="h-8 rounded-xl text-xs border-white/10 hover:border-primary/40 hover:bg-primary/5 gap-1.5">
+              <BellPlus className="h-3.5 w-3.5" /> Add
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-sm rounded-2xl border-border/60">
+          <DialogContent className="sm:max-w-sm border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
             <DialogHeader>
-              <DialogTitle className="text-[16px]">Create Price Alert</DialogTitle>
-              <DialogDescription className="text-[13px]">
-                Get notified when your crypto hits a target price.
-              </DialogDescription>
+              <DialogTitle className="text-white font-bold">Create Price Alert</DialogTitle>
+              <DialogDescription className="text-white/30">Get notified when your crypto hits a target price.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground">Asset</Label>
+                <Label className="text-xs font-medium text-white/30">Asset</Label>
                 <Select value={newAlertAsset} onValueChange={setNewAlertAsset}>
-                  <SelectTrigger className="h-10 rounded-xl bg-muted/30 border-border/60 text-[13px]">
+                  <SelectTrigger className="h-10 rounded-xl bg-white/[0.04] border-white/[0.08] text-sm">
                     <SelectValue placeholder="Select cryptocurrency" />
                   </SelectTrigger>
                   <SelectContent>
                     {marketCoins.filter(c => c.symbol !== 'USDT').map(coin => (
-                      <SelectItem key={coin.symbol} value={coin.symbol} className="text-[13px]">
+                      <SelectItem key={coin.symbol} value={coin.symbol} className="text-sm">
                         <div className="flex items-center gap-2">
                           <CryptoIcon name={coin.name} className="h-4 w-4" />
                           <span>{coin.name}</span>
-                          <span className="text-muted-foreground text-[11px]">{coin.symbol}</span>
+                          <span className="text-muted-foreground text-xs">{coin.symbol}</span>
                         </div>
                       </SelectItem>
                     ))}
@@ -128,38 +109,25 @@ export function PriceAlerts() {
                 <Label className="text-xs font-medium text-muted-foreground">Condition</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {(["Above", "Below"] as const).map(type => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setNewAlertType(type)}
+                    <button key={type} type="button" onClick={() => setNewAlertType(type)}
                       className={cn(
-                        "h-10 rounded-xl border text-[13px] font-medium flex items-center justify-center gap-2 transition-all",
+                        "h-10 rounded-xl border text-sm font-medium flex items-center justify-center gap-2 transition-all",
                         newAlertType === type
-                          ? type === 'Above'
-                            ? "bg-accent/10 border-accent/30 text-accent"
-                            : "bg-destructive/10 border-destructive/30 text-destructive"
-                          : "bg-muted/20 border-border/50 text-muted-foreground hover:border-border"
-                      )}
-                    >
-                      {type === 'Above'
-                        ? <TrendingUp className="h-3.5 w-3.5" />
-                        : <TrendingDown className="h-3.5 w-3.5" />}
+                          ? type === 'Above' ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-red-500/10 border-red-500/30 text-red-400"
+                          : "bg-white/[0.03] border-white/[0.08] text-white/30 hover:border-white/20"
+                      )}>
+                      {type === 'Above' ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
                       {type}
                     </button>
                   ))}
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground">Target Price (USD)</Label>
+                <Label className="text-xs font-medium text-white/30">Target Price (USD)</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[13px]">$</span>
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    value={newAlertPrice}
-                    onChange={(e) => setNewAlertPrice(e.target.value)}
-                    className="h-10 pl-7 rounded-xl bg-muted/30 border-border/60 text-[13px]"
-                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">$</span>
+                  <Input type="number" placeholder="0.00" value={newAlertPrice} onChange={e => setNewAlertPrice(e.target.value)}
+                    className="h-10 pl-7 rounded-xl bg-white/[0.04] border-white/[0.08] text-sm" />
                 </div>
               </div>
             </div>
@@ -167,80 +135,85 @@ export function PriceAlerts() {
               <DialogClose asChild>
                 <Button variant="ghost" size="sm" className="rounded-xl">Cancel</Button>
               </DialogClose>
-              <Button onClick={handleCreateAlert} size="sm" className="rounded-xl btn-premium text-white">
-                Create Alert
-              </Button>
+              <Button onClick={handleCreateAlert} size="sm" className="rounded-xl btn-premium text-white">Create Alert</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </CardHeader>
+      </div>
 
-      <CardContent className="px-3 pb-3">
-        <div className="max-h-80 overflow-auto space-y-1.5 scroll-container">
-          {isLoading ? (
-            <div className="h-20 flex items-center justify-center text-muted-foreground text-[13px]">
-              Loading alerts…
-            </div>
-          ) : alerts && alerts.length > 0 ? (
-            alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={cn(
-                  "flex items-center justify-between p-3 rounded-xl border transition-all",
-                  alert.triggered
-                    ? "bg-accent/5 border-accent/20"
-                    : "bg-muted/20 border-border/40 hover:border-border/70"
-                )}
-              >
-                <div className="flex items-center gap-2.5">
-                  <CryptoIcon name={getCoinName(alert.currency)} className="h-7 w-7" />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[13px] font-semibold">{alert.currency}</span>
-                      <div className={cn(
-                        "flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-md",
-                        alert.alertType === 'Above'
-                          ? "bg-accent/10 text-accent"
-                          : "bg-destructive/10 text-destructive"
-                      )}>
-                        {alert.alertType === 'Above' ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-                        {alert.alertType}
+      <div className="flex-1 flex flex-col overflow-y-auto scroll-container min-h-0">
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Loading alerts…</div>
+        ) : alerts && alerts.length > 0 ? (
+          <div className="space-y-2 py-1">
+            {alerts.map(alert => (
+              <div key={alert.id} className={cn(
+                "rounded-xl border p-3 transition-all",
+                alert.triggered ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/[0.03] border-white/[0.06] hover:border-white/[0.1]"
+              )}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CryptoIcon name={getCoinName(alert.currency)} className="h-7 w-7" />
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-semibold">{alert.currency}</span>
+                        <div className={cn(
+                          "flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md",
+                          alert.alertType === 'Above' ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                        )}>
+                          {alert.alertType === 'Above' ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                          {alert.alertType}
+                        </div>
                       </div>
+                      <p className="text-[11px] font-mono text-muted-foreground">${alert.thresholdPrice.toLocaleString()}</p>
                     </div>
-                    <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                      ${alert.thresholdPrice.toLocaleString()}
-                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {alert.triggered ? (
+                      <Badge className="h-5 text-[10px] bg-emerald-500/15 text-emerald-400 border-emerald-500/20 rounded-lg px-1.5">
+                        <BellRing className="h-2.5 w-2.5 mr-1" />Triggered
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="h-5 text-[10px] rounded-lg border-white/10 text-muted-foreground px-1.5">Active</Badge>
+                    )}
+                    <Button variant="ghost" size="icon"
+                      className="h-6 w-6 rounded-lg text-muted-foreground/40 hover:text-red-400 hover:bg-red-400/10"
+                      onClick={() => handleDeleteAlert(alert.id)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {alert.triggered ? (
-                    <Badge className="h-6 text-[10px] bg-accent/15 text-accent border-accent/20 rounded-lg">
-                      <BellRing className="h-2.5 w-2.5 mr-1" />Triggered
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="h-6 text-[10px] rounded-lg border-border/40 text-muted-foreground">
-                      Active
-                    </Badge>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDeleteAlert(alert.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
               </div>
-            ))
-          ) : (
-            <div className="h-20 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-              <Bell className="h-6 w-6 opacity-30" />
-              <p className="text-[12px]">No alerts set</p>
+            ))}
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center gap-2.5 text-muted-foreground">
+            <Bell className="h-10 w-10 text-muted-foreground/30" />
+            <div className="text-center">
+              <h4 className="text-sm font-semibold text-muted-foreground">Get notified at target prices</h4>
+              <p className="text-xs text-muted-foreground/70">Create your first price alert to get started.</p>
             </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-auto pt-4 border-t border-white/[0.06] grid grid-cols-2 gap-2">
+        {[
+          { label: '↔ Swap',     href: '/swap',         grad: 'from-violet-600 to-violet-400' },
+          { label: '↑ Send',     href: '/send-receive', grad: 'from-violet-500 to-cyan-500' },
+          { label: '↓ Receive',  href: '/send-receive', grad: 'from-cyan-600 to-cyan-400' },
+          { label: '💳 Cash Out', href: '/cash-out',     grad: 'from-violet-700 to-cyan-600' },
+        ].map(btn => (
+          <Link key={btn.label} href={btn.href}>
+            <button className={cn(
+              'w-full bg-gradient-to-r rounded-xl py-2.5 text-white text-xs font-bold tracking-wide hover:opacity-90 hover:-translate-y-px transition-all',
+              btn.grad
+            )}>
+              {btn.label}
+            </button>
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }

@@ -1,10 +1,24 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useMemo } from 'react';
 import { currencies } from '@/lib/currencies';
 import type { Currency } from '@/lib/types';
-import { getLivePrices } from '@/services/crypto-service';
+
+// Define a default, server-safe value for the context
+const defaultCurrency = currencies.find(c => c.symbol === 'USD')!;
+const defaultContextValue: CurrencyContextType = {
+  currency: { ...defaultCurrency, rate: 1 },
+  setCurrency: () => console.warn('Currency context not yet mounted'),
+  formatCurrency: (value: number) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value),
+  rates: { USD: 1 },
+  loading: true,
+};
 
 interface CurrencyContextType {
   currency: Currency & { rate: number };
@@ -14,91 +28,91 @@ interface CurrencyContextType {
   loading: boolean;
 }
 
-const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
+const CurrencyContext = createContext<CurrencyContextType>(defaultContextValue);
 const CURRENCY_STORAGE_KEY = 'apex-selected-currency';
 
 export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
+  const [isMounted, setIsMounted] = useState(false);
   const [selectedCurrencySymbol, setSelectedCurrencySymbol] = useState<string>('USD');
   const [rates, setRates] = useState<Record<string, number>>({ USD: 1 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    // This effect runs only on the client after the component has mounted.
+    setIsMounted(true);
+
+    // 1. Get stored currency preference
     const stored = localStorage.getItem(CURRENCY_STORAGE_KEY);
     if (stored && currencies.some(c => c.symbol === stored)) {
       setSelectedCurrencySymbol(stored);
     }
-  }, []);
 
-  useEffect(() => {
+    // 2. Fetch latest currency rates
     async function fetchRates() {
-      if (selectedCurrencySymbol === 'USD') {
-        setRates({ USD: 1 });
-        setLoading(false);
-        return;
-      }
-
       setLoading(true);
       try {
-        // getLivePrices now uses Frankfurter API for real fiat rates.
-        // Fetching BTC in target currency lets us back-calculate the USD→target rate.
-        const [btcInTarget, btcInUsd] = await Promise.all([
-          getLivePrices(['BTC'], selectedCurrencySymbol),
-          getLivePrices(['BTC'], 'USD'),
-        ]);
-
-        const targetPrice = btcInTarget['BTC'];
-        const usdPrice = btcInUsd['BTC'];
-
-        if (targetPrice && usdPrice && usdPrice > 0) {
-          const derivedRate = targetPrice / usdPrice;
-          setRates({ [selectedCurrencySymbol]: derivedRate, USD: 1 });
-        } else {
-          setRates({ [selectedCurrencySymbol]: 1, USD: 1 });
-        }
-      } catch {
-        setRates({ [selectedCurrencySymbol]: 1, USD: 1 });
+        const response = await fetch('/api/rates');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
+        setRates({ ...data.rates, USD: 1 });
+      } catch (error) {
+        console.error("Failed to fetch currency rates:", error);
+        // Fallback to USD if API fails
+        setRates({ USD: 1 });
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     fetchRates();
-  }, [selectedCurrencySymbol]);
+  }, []); // Empty dependency array ensures this runs only once on mount.
 
-  const setCurrency = (symbol: string) => {
-    const found = currencies.find(c => c.symbol === symbol);
-    if (found) {
+  const setCurrency = useCallback((symbol: string) => {
+    if (currencies.some(c => c.symbol === symbol)) {
       setSelectedCurrencySymbol(symbol);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(CURRENCY_STORAGE_KEY, symbol);
-      }
+      localStorage.setItem(CURRENCY_STORAGE_KEY, symbol);
     }
-  };
-
-  const formatCurrency = useCallback((value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: selectedCurrencySymbol,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  }, [selectedCurrencySymbol]);
+  }, []);
 
   const currency = useMemo(() => {
-    const current = currencies.find(c => c.symbol === selectedCurrencySymbol) || currencies[0];
-    const rate = rates[selectedCurrencySymbol] ?? (selectedCurrencySymbol === 'USD' ? 1 : 1);
-    return { ...current, rate };
+    const base = currencies.find(c => c.symbol === selectedCurrencySymbol) || defaultCurrency;
+    return {
+      ...base,
+      rate: rates[selectedCurrencySymbol] || 1,
+    };
   }, [selectedCurrencySymbol, rates]);
 
-  return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, formatCurrency, rates, loading }}>
-      {children}
-    </CurrencyContext.Provider>
-  );
+  const formatCurrency = useCallback((value: number) => {
+    const convertedValue = value * currency.rate;
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.symbol,
+    }).format(convertedValue);
+  }, [currency]);
+
+  // While not mounted, we return the default server-safe value
+  // to ensure server render and initial client render are identical.
+  if (!isMounted) {
+    return (
+      <CurrencyContext.Provider value={defaultContextValue}>
+        {children}
+      </CurrencyContext.Provider>
+    );
+  }
+
+  const value = {
+    currency,
+    setCurrency,
+    formatCurrency,
+    rates,
+    loading,
+  };
+
+  return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
 };
 
 export const useCurrency = () => {
   const context = useContext(CurrencyContext);
-  if (!context) throw new Error('useCurrency must be used within a CurrencyProvider');
+  // The context is now guaranteed to be defined because of the default value.
   return context;
 };

@@ -54,29 +54,27 @@ export async function POST(req: NextRequest) {
     const docUrl = `data:${docMime};base64,${documentBase64}`;
     const selfieUrl = `data:${selfieMime};base64,${selfieBase64}`;
 
-    // Build submission
+    // Build submission — only include defined fields to avoid Firestore undefined errors
     const kycSubmission: Record<string, any> = {
       id: submissionId,
       userId,
       userEmail: userEmail || 'unknown@apex.io',
       walletAddress: walletAddress || '',
       status: 'PENDING',
-      fullName,
-      dateOfBirth,
-      nationality,
-      countryCode: countryCode || 'ZA',
-      address,
-      documentType,
-      documentNumber,
-      documentExpiry: documentExpiry || 'N/A',
       documentImageUrl: docUrl,
       selfieImageUrl: selfieUrl,
       submittedAt: FieldValue.serverTimestamp(),
     };
 
-    if (withdrawalIntent) {
-      kycSubmission.withdrawalIntent = withdrawalIntent;
-    }
+    if (fullName !== undefined) kycSubmission.fullName = fullName;
+    if (dateOfBirth !== undefined) kycSubmission.dateOfBirth = dateOfBirth;
+    if (nationality !== undefined) kycSubmission.nationality = nationality;
+    if (countryCode !== undefined) kycSubmission.countryCode = countryCode;
+    if (address !== undefined) kycSubmission.address = address;
+    if (documentType !== undefined) kycSubmission.documentType = documentType;
+    if (documentNumber !== undefined) kycSubmission.documentNumber = documentNumber;
+    if (documentExpiry !== undefined) kycSubmission.documentExpiry = documentExpiry;
+    if (withdrawalIntent !== undefined) kycSubmission.withdrawalIntent = withdrawalIntent;
 
     // Save to Firestore
     await db.collection('kyc_submissions').doc(submissionId).set(kycSubmission);
