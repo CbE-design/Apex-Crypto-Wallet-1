@@ -1,12 +1,12 @@
 import { genkit } from 'genkit';
-import { googleAI, gemini15Flash } from '@genkit-ai/googleai';
+import { googleAI } from '@genkit-ai/google-genai';
 
-export const ai = genkit({
-  plugins: [
-    googleAI({
-      apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || 'BUILD_PLACEHOLDER',
-    }),
-  ],
+const googleai = googleAI({
+  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || 'BUILD_PLACEHOLDER',
 });
 
-export { gemini15Flash };
+export const ai = genkit({
+  plugins: [googleai],
+});
+
+export const gemini15Flash = googleai.model('gemini-1.5-flash');
