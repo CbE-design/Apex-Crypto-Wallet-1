@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { EyeWatermark } from '@/components/eye-watermark';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { type ProtocolStatus } from '@/lib/types';
 import { useState, useEffect, useCallback } from 'react';
 
@@ -26,13 +26,14 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
   useEffect(() => { setIsMounted(true); }, []);
 
   // Track user presence: heartbeat every 60s and cleanup on unload.
+  // Use setDoc({ merge: true }) so the doc is created if it does not yet exist.
   const updatePresence = useCallback(async (online: boolean) => {
     if (!firestore || !user) return;
     try {
-      await updateDoc(doc(firestore, 'users', user.uid), {
+      await setDoc(doc(firestore, 'users', user.uid), {
         lastSeen: serverTimestamp(),
         isOnline: online,
-      });
+      }, { merge: true });
     } catch (e) {
       console.error('[Presence] Update failed:', e);
     }

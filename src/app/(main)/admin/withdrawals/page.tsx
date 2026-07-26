@@ -219,7 +219,12 @@ export default function WithdrawalApprovalsPage() {
             const walletSnap = await transaction.get(walletRef);
             if (walletSnap.exists()) {
               const currentReserved = walletSnap.data().reservedForWithdrawal || 0;
-              transaction.update(walletRef, { reservedForWithdrawal: Math.max(0, currentReserved - crypto.amount) });
+              const currentBalance = walletSnap.data().balance || 0;
+              transaction.update(walletRef, {
+                reservedForWithdrawal: Math.max(0, currentReserved - crypto.amount),
+                balance: currentBalance + crypto.amount,
+                lastSynced: serverTimestamp(),
+              });
             }
           }
         }

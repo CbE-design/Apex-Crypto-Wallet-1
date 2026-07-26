@@ -10,8 +10,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { useWallet } from '@/context/wallet-context';
@@ -20,6 +23,9 @@ import {
   query,
   where,
   getDocs,
+  doc,
+  updateDoc,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import {
@@ -41,6 +47,9 @@ import {
   RefreshCw,
   Activity,
   AlertTriangle,
+  Ban,
+  Unlock,
+  ShieldAlert,
 } from 'lucide-react';
 import type { KYCStatus } from '@/lib/types';
 import Link from 'next/link';
@@ -57,6 +66,10 @@ interface UserDoc {
   lastSeen?: any;
   isOnline?: boolean;
   fcmToken?: string;
+  isRestricted?: boolean;
+  restrictedReason?: string;
+  restrictedAt?: any;
+  restrictedBy?: string;
 }
 
 interface WalletBalance {
@@ -171,6 +184,10 @@ export default function UsersPage() {
   const [withdrawalHistory, setWithdrawalHistory] = useState<WithdrawalSummary[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
+  const [isRestrictDialogOpen, setIsRestrictDialogOpen] = useState(false);
+  const [restrictionReason, setRestrictionReason] = useState('');
+  const [isRestricting, setIsRestricting] = useState(false);
+
   const fetchUsers = useCallback(async () => {
     if (!firestore || !adminUser) return;
     setIsLoading(true);
@@ -261,6 +278,39 @@ export default function UsersPage() {
     loadUserDetails(user);
   };
 
+  const handleToggleRestriction = useCallback(async (restrict: boolean) => {
+    if (!firestore || !selectedUser || !adminUser) return;
+    if (restrict && !restrictionReason.trim()) {
+      toast({ title: 'Reason required', description: 'Please provide a reason for the restriction.', variant: 'destructive' });
+      return;
+    }
+    setIsRestricting(true);
+    try {
+      const userRef = doc(firestore, 'users', selectedUser.id);
+      await updateDoc(userRef, restrict ? {
+        isRestricted: true,
+        restrictedReason: restrictionReason.trim(),
+        restrictedAt: serverTimestamp(),
+        restrictedBy: adminUser.uid,
+      } : {
+        isRestricted: false,
+        restrictedReason: '',
+        restrictedAt: null,
+        restrictedBy: '',
+      });
+      toast({ title: restrict ? 'Account Restricted' : 'Restriction Lifted', description: `User ${selectedUser.email} has been ${restrict ? 'restricted' : 'unrestricted'}.` });
+      setSelectedUser({ ...selectedUser, isRestricted: restrict, restrictedReason: restrict ? restrictionReason.trim() : '', restrictedAt: restrict ? new Date() : null, restrictedBy: restrict ? adminUser.uid : '' });
+      setIsRestrictDialogOpen(false);
+      setRestrictionReason('');
+      fetchUsers();
+    } catch (e: any) {
+      console.error('[Users] Restriction update failed:', e);
+      toast({ title: 'Update Failed', description: e.message || 'Could not update account restriction.', variant: 'destructive' });
+    } finally {
+      setIsRestricting(false);
+    }
+  }, [firestore, selectedUser, adminUser, restrictionReason, toast, fetchUsers]);
+
   return (
     <AdminRoute>
       <div className="space-y-6 pb-20">
@@ -337,11 +387,13 @@ export default function UsersPage() {
 
         {/* User Table */}
         <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 overflow-hidden">
-          <div className="grid grid-cols-[1fr_2fr_1.5fr_1.5fr_1fr_1fr_auto] gap-4 px-6 py-3 border-b border-white/[0.06] bg-white/[0.03] text-[9px] font-semibold uppercase tracking-[0.18em] text-white/20">
-            <span>Identity</span><span>Wallet / UID</span><span>Created</span><span>Compliance</span><span>Last Login</span><span>Status</span><span className="text-right">Actions</span>
-          </div>
-          <div className="divide-y divide-white/[0.04]">
-            {error ? (
+          <div className="overflow-x-auto scroll-container">
+            <div className="min-w-[900px]">
+              <div className="grid grid-cols-[1fr_2fr_1.5fr_1.5fr_1fr_1fr_auto] gap-4 px-6 py-3 border-b border-white/[0.06] bg-white/[0.03] text-[9px] font-semibold uppercase tracking-[0.18em] text-white/20">
+                <span>Identity</span><span>Wallet / UID</span><span>Created</span><span>Compliance</span><span>Last Login</span><span>Status</span><span className="text-right">Actions</span>
+              </div>
+              <div className="divide-y divide-white/[0.04]">
+                {error ? (
               <div className="py-20 text-center space-y-4">
                 <AlertTriangle className="h-10 w-10 text-red-400 mx-auto" />
                 <p className="text-sm font-bold text-red-300 uppercase tracking-widest">Registry Error</p>
@@ -360,13 +412,23 @@ export default function UsersPage() {
                   onClick={() => handleOpenDetail(u)}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-white/[0.04] flex items-center justify-center ring-1 ring-white/[0.08] group-hover:ring-violet-500/30 transition-all relative">
-                      <User className="h-4 w-4 text-white/25 group-hover:text-violet-400 transition-colors" />
-                      {isUserOnline(u) && (
+                    <div className={cn(
+                      "h-9 w-9 rounded-xl flex items-center justify-center ring-1 transition-all relative",
+                      u.isRestricted
+                        ? "bg-red-500/10 ring-red-500/20 group-hover:ring-red-500/40"
+                        : "bg-white/[0.04] ring-white/[0.08] group-hover:ring-violet-500/30"
+                    )}>
+                      <User className={cn("h-4 w-4 transition-colors", u.isRestricted ? "text-red-400" : "text-white/25 group-hover:text-violet-400")} />
+                      {isUserOnline(u) && !u.isRestricted && (
                         <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-[#0A0C12] animate-pulse" />
                       )}
                     </div>
-                    <p className="text-xs font-semibold text-white/70 truncate max-w-[140px]">{u.email}</p>
+                    <div className="min-w-0">
+                      <p className={cn("text-xs font-semibold truncate max-w-[140px]", u.isRestricted ? "text-red-300" : "text-white/70")}>{u.email}</p>
+                      {u.isRestricted && (
+                        <p className="text-[9px] text-red-400/80 font-semibold uppercase tracking-wider">Restricted</p>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-0.5">
                     <p className="text-[10px] font-mono text-white/30 truncate">{u.walletAddress || 'No Address'}</p>
@@ -392,6 +454,8 @@ export default function UsersPage() {
               </div>
             )}
           </div>
+        </div>
+        </div>
         </div>
 
         {/* Detail Dialog */}
@@ -442,15 +506,34 @@ export default function UsersPage() {
                       </div>
                     ))}
                   </div>
+
+                  {selectedUser.isRestricted && (
+                    <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+                      <div className="flex items-start gap-3">
+                        <ShieldAlert className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-red-300">Account Restricted</p>
+                          <p className="text-xs text-white/40 mt-1 leading-relaxed">{selectedUser.restrictedReason || 'No reason provided.'}</p>
+                          <p className="text-[9px] text-white/20 mt-2">Restricted {selectedUser.restrictedAt ? formatRelativeTime(selectedUser.restrictedAt) : 'Unknown'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-7 space-y-6 overflow-y-auto scroll-container flex-1">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                     {[
                       { icon: Mail, label: 'Email', onClick: () => { navigator.clipboard.writeText(selectedUser.email); toast({title:'Email Copied'}); } },
                       { icon: Wallet, label: 'Fund', href: '/admin/direct-send' },
                       { icon: Clock, label: 'KYC', href: '/admin/kyc' },
                       { icon: ArrowDownRight, label: 'Payouts', href: '/admin/withdrawals' },
+                      {
+                        icon: selectedUser.isRestricted ? Unlock : Ban,
+                        label: selectedUser.isRestricted ? 'Unrestrict' : 'Restrict',
+                        onClick: () => setIsRestrictDialogOpen(true),
+                        variant: selectedUser.isRestricted ? 'default' : 'destructive',
+                      },
                     ].map((btn, i) => (
                       btn.href ? (
                         <Link key={i} href={btn.href} onClick={() => setIsDetailOpen(false)}
@@ -459,7 +542,14 @@ export default function UsersPage() {
                         </Link>
                       ) : (
                         <button key={i} onClick={btn.onClick}
-                          className="h-11 rounded-2xl bg-white/[0.04] border border-white/[0.07] hover:bg-violet-500/10 hover:border-violet-500/20 text-[10px] font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 text-white/40 hover:text-violet-400 transition-all">
+                          className={cn(
+                            "h-11 rounded-2xl text-[10px] font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all",
+                            btn.variant === 'destructive'
+                              ? "bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40 text-red-400"
+                              : btn.variant === 'default'
+                                ? "bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40 text-emerald-400"
+                                : "bg-white/[0.04] border border-white/[0.07] hover:bg-violet-500/10 hover:border-violet-500/20 text-white/40 hover:text-violet-400"
+                          )}>
                           <btn.icon className="h-3.5 w-3.5" />{btn.label}
                         </button>
                       )
@@ -534,6 +624,63 @@ export default function UsersPage() {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Restriction Dialog */}
+        <Dialog open={isRestrictDialogOpen} onOpenChange={setIsRestrictDialogOpen}>
+          <DialogContent className="max-w-md border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] p-0 overflow-hidden shadow-2xl shadow-black/60">
+            <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[28px] bg-gradient-to-r from-red-500 to-amber-500" />
+            <DialogHeader className="p-7 pb-4">
+              <div className="flex items-center gap-2 mb-1">
+                {selectedUser?.isRestricted ? <Unlock className="h-4 w-4 text-emerald-400" /> : <Ban className="h-4 w-4 text-red-400" />}
+                <span className="text-[11px] uppercase tracking-widest font-semibold text-white/40">Account Control</span>
+              </div>
+              <DialogTitle className="text-lg font-bold text-white">
+                {selectedUser?.isRestricted ? 'Lift Restriction' : 'Restrict Account'}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-white/30">
+                {selectedUser?.isRestricted
+                  ? 'This will restore the user\'s access to the platform.'
+                  : 'This will block the user from accessing the platform. Provide a clear reason for compliance records.'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="px-7 pb-7 space-y-4">
+              {!selectedUser?.isRestricted && (
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-white/40">Restriction Reason</label>
+                  <Textarea
+                    placeholder="e.g. Suspicious activity, regulatory request, KYC violation..."
+                    value={restrictionReason}
+                    onChange={(e) => setRestrictionReason(e.target.value)}
+                    className="min-h-[100px] rounded-xl bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20"
+                  />
+                </div>
+              )}
+              <DialogFooter className="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  className="w-full h-11 rounded-xl border-white/10 text-white/50 hover:text-white"
+                  onClick={() => { setIsRestrictDialogOpen(false); setRestrictionReason(''); }}
+                  disabled={isRestricting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className={cn(
+                    "w-full h-11 rounded-xl font-bold text-white",
+                    selectedUser?.isRestricted
+                      ? "bg-emerald-500 hover:bg-emerald-400"
+                      : "bg-red-500 hover:bg-red-400"
+                  )}
+                  disabled={isRestricting || (!selectedUser?.isRestricted && !restrictionReason.trim())}
+                  onClick={() => handleToggleRestriction(!selectedUser?.isRestricted)}
+                >
+                  {isRestricting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {selectedUser?.isRestricted ? 'Lift Restriction' : 'Restrict Account'}
+                </Button>
+              </DialogFooter>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

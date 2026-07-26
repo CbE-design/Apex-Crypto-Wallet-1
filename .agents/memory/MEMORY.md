@@ -1,0 +1,5 @@
+- [Mobile viewport handling](mobile-viewport.md) — explicit viewport export and `min-h-[100dvh]` prevent clipped or locked mobile layouts.
+- [Withdrawal balance lifecycle](withdrawal-balance-lifecycle.md) — reserve crypto on request, restore on rejection, deduct on approval; track `reservedForWithdrawal` separately from `balance`.
+- [Presence writes with sparse docs](presence-sparse-docs.md) — use `setDoc(..., { merge: true })` for heartbeat updates to avoid `not-found` errors for new users.
+- [Account restriction enforcement](account-restriction.md) — client-side enforcement must sign restricted users out and show a clear message; rules must allow admins to update user profiles.
+- [Component dependency resilience](component-dependency-resilience.md) — when a package dependency is missing and installs are blocked, replacing the component with a lightweight native implementation keeps routes alive.

@@ -7,16 +7,20 @@ import { useEffect, ReactNode } from 'react';
 import { LoadingSpinner } from './loading-spinner';
 
 export const PrivateRoute = ({ children }: { children: ReactNode }) => {
-  const { user, loading } = useWallet();
+  const { user, loading, wallet, vaultLocked, pendingVaultSetup, userProfile } = useWallet();
   const router = useRouter();
 
+  const isRestricted = userProfile?.isRestricted === true;
+  const walletReady = !!wallet && !vaultLocked && !pendingVaultSetup;
+
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+    if (!user || !walletReady || isRestricted) {
       router.push('/login');
     }
-  }, [user, loading, router]);
+  }, [user, loading, walletReady, isRestricted, router]);
 
-  if (loading || !user) {
+  if (loading || !user || !walletReady || isRestricted) {
     return <LoadingSpinner />;
   }
 

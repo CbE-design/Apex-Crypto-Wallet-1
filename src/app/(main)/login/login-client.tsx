@@ -85,7 +85,7 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
       return;
     }
     try {
-      await importWallet(mnemonic);
+      await importWallet(mnemonic, importEmail.trim() || undefined);
     } catch (error: any) {
       toast({ title: 'Import failed', description: 'See console for details.', variant: 'destructive' });
     }
@@ -98,7 +98,7 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
       return;
     }
     try {
-      await confirmAndCreateWallet(newMnemonic)
+      await confirmAndCreateWallet(newMnemonic, newWalletEmail.trim() || undefined);
       setIsNewWalletDialogOpen(false);
     } catch {
       toast({ title: 'Creation failed', description: 'Could not finalise wallet.', variant: 'destructive' });

@@ -58,10 +58,11 @@
   * { @apply border-border; box-sizing: border-box; }
 
   html, body {
-    @apply h-[100dvh] w-full overflow-hidden m-0 p-0;
+    @apply min-h-[100dvh] w-full overflow-x-hidden m-0 p-0;
     overscroll-behavior-y: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    touch-action: pan-y;
   }
 
   body {
@@ -84,11 +85,13 @@
 
 /* ── Layout utilities ──────────────────────────────── */
 .locked-viewport {
-  height: 100dvh;
+  min-height: 100dvh;
+  min-height: 100svh;
   width: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .fixed-border {

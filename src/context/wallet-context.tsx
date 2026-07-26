@@ -337,6 +337,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   // Prompt existing users to add a real email if they are using a placeholder.
   useEffect(() => {
     if (typeof window === 'undefined' || loading || !user || !userProfile) return;
+    if (userProfile.isRestricted === true) return; // Don't prompt for email on restricted accounts.
     const email = userProfile.email as string | undefined;
     if (!email || email.endsWith('@apex.io')) {
       setEmailCollectionOpen(true);
@@ -507,6 +508,20 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       lastSynced: serverTimestamp(),
     });
   };
+
+  // Enforce account restrictions set by an admin. Placed after disconnectWallet
+  // so the function is in scope for the effect.
+  useEffect(() => {
+    if (typeof window === 'undefined' || loading || !user || !userProfile) return;
+    if (userProfile.isRestricted === true) {
+      toast({
+        title: 'Account Restricted',
+        description: userProfile.restrictedReason || 'Your account has been suspended. Contact support if you believe this is an error.',
+        variant: 'destructive',
+      });
+      disconnectWallet();
+    }
+  }, [userProfile, loading, user, disconnectWallet, toast]);
 
   return (
     <WalletContext.Provider value={{

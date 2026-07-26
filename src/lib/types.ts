@@ -173,6 +173,10 @@ export interface UserProfile {
   lastLogin?: any;
   lastSeen?: any;
   isOnline?: boolean;
+  isRestricted?: boolean;
+  restrictedReason?: string;
+  restrictedAt?: any;
+  restrictedBy?: string;
 }
 
 // KYC Status Types

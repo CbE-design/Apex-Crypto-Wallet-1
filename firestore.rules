@@ -3,34 +3,120 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.admin == true ||
+        request.auth.uid in [
+          'REPLACE_WITH_ADMIN_UID_1',
+          'REPLACE_WITH_ADMIN_UID_2'
+        ]
+      );
+    }
+
+    function isValidUserDoc() {
+      // Allow the owner to update a small whitelist of fields from the client.
+      return request.resource.data.keys().hasOnly([
+        'fcmToken', 'email', 'kycStatus', 'lastSeen', 'isOnline'
+      ]);
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.keys().hasAll(['id', 'email', 'walletAddress']);
+      // Owners may update only whitelisted fields; admins may update any fields for moderation.
+      allow update: if (isOwner(userId) && isValidUserDoc()) || isAdmin();
+      allow delete: if isAdmin();
+
+      // User wallets subcollection
+      match /wallets/{walletId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+
+      // User transactions subcollection
+      match /transactions/{transactionId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update, delete: if isAdmin();
+      }
+
+      // Deleted broadcasts list
+      match /deletedBroadcasts/{broadcastId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Withdrawal requests
+    match /withdrawal_requests/{requestId} {
+      // Users can read their own requests; admins can read all.
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      // Users can create requests; only admins can update/delete.
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Admin notifications (server / admin only for create/update; admin read)
+    match /admin_notifications/{notificationId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // KYC submissions
+    match /kyc_submissions/{submissionId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Notifications (per-user)
     match /notifications/{notificationId} {
-      // READ: Allow reading if the doc has a userId and it matches the requester's UID.
-      // This prevents queries from failing if a malformed doc without a userId exists.
       allow read: if 'userId' in resource.data && request.auth.uid == resource.data.userId;
-
-      // UPDATE/DELETE: Same logic as read.
       allow update, delete: if 'userId' in resource.data && request.auth.uid == resource.data.userId;
-
-      // CREATE: A user must be logged in. The new document MUST have a `userId` field,
-      // and that field MUST match the UID of the user creating it.
-      // This prevents users from creating notifications for other users from the client.
       allow create: if request.auth.uid != null
                     && 'userId' in request.resource.data
                     && request.resource.data.userId == request.auth.uid;
     }
 
+    // Broadcasts (admin write, authenticated read)
     match /broadcasts/{broadcastId} {
-      // Any authenticated user can read broadcasts.
       allow read: if request.auth.uid != null;
-
-      // No user can write to the broadcasts collection. (Admin-only)
-      allow write: if false;
+      allow write: if false; // Admin-only via server SDK
     }
 
-    // Rule for the user's subcollection of deleted broadcast IDs
-    match /users/{userId}/deletedBroadcasts/{broadcastId} {
-      // A user can only access (read, create, update, delete) their own list.
-      allow read, write: if request.auth.uid == userId;
+    // Platform config / protocol settings (admin only)
+    match /platform_config/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /protocol_settings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Processed requests idempotency layer (admin only)
+    match /processed_requests/{requestId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Rates / prices (read-only for authenticated users)
+    match /rates/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
     }
   }
 }

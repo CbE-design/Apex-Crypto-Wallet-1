@@ -1,5 +1,5 @@
 
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import { GeistSans } from 'geist/font/sans';
 import './globals.css';
@@ -18,6 +18,15 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://apexwallet.co.za';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#050709',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

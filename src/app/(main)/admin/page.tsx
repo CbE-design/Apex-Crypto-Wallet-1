@@ -223,9 +223,10 @@ const handleBroadcast: SubmitHandler<NotificationFormValues> = async (data) => {
       )}
 
       {/* KPI grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
           { href: '/admin/users', icon: Users, accent: 'violet', value: allUsers?.length ?? '—', label: 'Total Users', border: 'border-violet-500/15 bg-violet-500/5', iconBg: 'bg-violet-500/10 border-violet-500/20', iconColor: 'text-violet-400' },
+          { href: '/admin/users', icon: Activity, accent: 'emerald', value: allUsers?.filter(u => u.isOnline === true || (u.lastSeen && (Date.now() - (u.lastSeen.toMillis ? u.lastSeen.toMillis() : new Date(u.lastSeen).getTime()) < 5 * 60 * 1000))).length || 0, label: 'Online Now', border: 'border-emerald-500/15 bg-emerald-500/5', iconBg: 'bg-emerald-500/10 border-emerald-500/20', iconColor: 'text-emerald-400' },
           { href: '/admin/kyc', icon: ClipboardCheck, accent: 'amber', value: pendingTotal, label: 'Pending Actions', border: pendingTotal > 0 ? 'border-amber-500/20 bg-amber-500/5' : 'border-white/[0.06] bg-white/[0.02]', iconBg: 'bg-amber-500/10 border-amber-500/20', iconColor: 'text-amber-400' },
           { href: '/admin/withdrawals', icon: ShieldCheck, accent: 'emerald', value: processedWithdrawals?.length || 0, label: 'Processed', border: 'border-white/[0.06] bg-white/[0.02]', iconBg: 'bg-emerald-500/10 border-emerald-500/20', iconColor: 'text-emerald-400' },
           { href: '/admin/notifications', icon: Bell, accent: 'cyan', value: unreadNotifications?.length || 0, label: 'Unread Alerts', border: 'border-cyan-500/15 bg-cyan-500/5', iconBg: 'bg-cyan-500/10 border-cyan-500/20', iconColor: 'text-cyan-400' },
