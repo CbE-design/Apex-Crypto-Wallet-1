@@ -1,169 +1,239 @@
 'use server';
 
-import { sendTransactionalEmail, buildEmailTemplate } from '@/lib/email';
+import { resend } from '@/lib/email';
 
-export async function sendDepositReceivedEmail({
+// Dedicated sender identities under your verified domain apex-crypto.co.uk
+export const SENDERS = {
+  withdrawals: 'Apex Withdrawals <withdrawals@apex-crypto.co.uk>',
+  deposits: 'Apex Ledger <deposits@apex-crypto.co.uk>',
+  transfers: 'Apex Transfers <transfers@apex-crypto.co.uk>',
+  compliance: 'Apex Compliance <compliance@apex-crypto.co.uk>',
+  security: 'Apex Security <security@apex-crypto.co.uk>',
+  support: 'Apex Support <support@apex-crypto.co.uk>',
+};
+
+// Resend Published Template IDs (Replace placeholder IDs with your IDs from Resend)
+export const TEMPLATE_IDS = {
+  withdrawalApproved: '278c260a-a540-4f29-ba8f-7fc550ad1e7a',
+  withdrawalPending: 'YOUR_WITHDRAWAL_PENDING_TEMPLATE_ID',
+  withdrawalRejected: 'YOUR_WITHDRAWAL_REJECTED_TEMPLATE_ID',
+  depositCredited: 'YOUR_DEPOSIT_CREDITED_TEMPLATE_ID',
+  transferReceived: 'YOUR_TRANSFER_RECEIVED_TEMPLATE_ID',
+  kycApproved: 'YOUR_KYC_APPROVED_TEMPLATE_ID',
+};
+
+// Generic helper to send hosted Resend templates
+async function sendTemplateEmail({
+  from,
   to,
-  asset,
-  amount,
-  txHash,
+  templateId,
+  variables,
 }: {
+  from: string;
   to: string;
-  asset: string;
-  amount: number;
-  txHash: string;
+  templateId: string;
+  variables: Record<string, string>;
 }) {
-  return sendTransactionalEmail({
-    to,
-    subject: `Deposit Received: ${amount.toFixed(6)} ${asset}`,
-    html: buildEmailTemplate({
-      title: 'Deposit Confirmed',
-      previewText: `We have received a ${asset} deposit into your wallet.`,
-      body: `Amount: <strong>${amount.toFixed(6)} ${asset}</strong><br />Transaction: <code>${txHash}</code>`,
-      cta: 'View Wallet',
-      ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/wallet`,
-    }),
-  });
+  if (!resend) {
+    console.warn('Resend API key missing. Email skipped.');
+    return { success: false, error: 'Resend API key missing' };
+  }
+
+  try {
+    const data = await resend.emails.send({
+      from,
+      to: [to],
+      template: {
+        id: templateId,
+        variables,
+      },
+    });
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('Failed to send Resend template email:', error);
+    return { success: false, error: error.message };
+  }
 }
 
-export async function sendWithdrawalRequestEmail({
-  to,
-  reference,
-  method,
-  amount,
-}: {
-  to: string;
-  reference: string;
-  method: 'EFT' | 'SWIFT';
-  amount: number;
-}) {
-  return sendTransactionalEmail({
-    to,
-    subject: `Withdrawal Request Submitted · ${reference}`,
-    html: buildEmailTemplate({
-      title: 'Withdrawal Request Received',
-      previewText: `Your ${method} withdrawal request for ${amount.toFixed(2)} ZAR has been received.`,
-      body: `Reference: <strong>${reference}</strong><br />Method: ${method}<br />Amount: ${amount.toFixed(2)} ZAR`,
-      cta: 'View Status',
-      ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/cash-out`,
-    }),
-  });
-}
-
+// 1. Withdrawal Approved Email
 export async function sendWithdrawalApprovedEmail({
   to,
-  reference,
-  method,
+  userName,
   amount,
+  assetType,
+  methodDetails,
+  transactionId,
+  transactionDate,
 }: {
   to: string;
-  reference: string;
-  method: 'EFT' | 'SWIFT';
-  amount: number;
+  userName: string;
+  amount: number | string;
+  assetType: string;
+  methodDetails: string;
+  transactionId: string;
+  transactionDate?: string;
 }) {
-  return sendTransactionalEmail({
+  return sendTemplateEmail({
+    from: SENDERS.withdrawals,
     to,
-    subject: `Withdrawal Approved · ${reference}`,
-    html: buildEmailTemplate({
-      title: 'Withdrawal Approved',
-      previewText: `Your ${method} withdrawal of ${amount.toFixed(2)} ZAR has been approved.`,
-      body: `Reference: <strong>${reference}</strong><br />Method: ${method}<br />Amount: ${amount.toFixed(2)} ZAR`,
-      cta: 'View Wallet',
-      ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/wallet`,
-    }),
+    templateId: TEMPLATE_IDS.withdrawalApproved,
+    variables: {
+      userName,
+      Amount: String(amount),
+      AssetType: assetType,
+      MethodDetails: methodDetails,
+      TransactionID: transactionId,
+      TransactionDate: transactionDate || new Date().toLocaleDateString(),
+    },
   });
 }
 
+// 2. Withdrawal Pending (Request Received) Email
+export async function sendWithdrawalPendingEmail({
+  to,
+  userName,
+  amount,
+  assetType,
+  methodDetails,
+  transactionId,
+  transactionDate,
+}: {
+  to: string;
+  userName: string;
+  amount: number | string;
+  assetType: string;
+  methodDetails: string;
+  transactionId: string;
+  transactionDate?: string;
+}) {
+  return sendTemplateEmail({
+    from: SENDERS.withdrawals,
+    to,
+    templateId: TEMPLATE_IDS.withdrawalPending,
+    variables: {
+      userName,
+      Amount: String(amount),
+      AssetType: assetType,
+      MethodDetails: methodDetails,
+      TransactionID: transactionId,
+      TransactionDate: transactionDate || new Date().toLocaleDateString(),
+    },
+  });
+}
+
+// 3. Withdrawal Rejected Email
 export async function sendWithdrawalRejectedEmail({
   to,
-  reference,
-  reason,
-}: {
-  to: string;
-  reference: string;
-  reason: string;
-}) {
-  return sendTransactionalEmail({
-    to,
-    subject: `Withdrawal Rejected · ${reference}`,
-    html: buildEmailTemplate({
-      title: 'Withdrawal Rejected',
-      previewText: 'Your withdrawal request could not be approved.',
-      body: `Reference: <strong>${reference}</strong><br />Reason: ${reason}`,
-      cta: 'Contact Support',
-      ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/support`,
-    }),
-  });
-}
-
-export async function sendWalletCreditedEmail({
-  to,
-  asset,
+  userName,
   amount,
-  notes,
+  assetType,
+  rejectionReason,
+  transactionId,
+  transactionDate,
 }: {
   to: string;
-  asset: string;
-  amount: number;
-  notes?: string;
+  userName: string;
+  amount: number | string;
+  assetType: string;
+  rejectionReason: string;
+  transactionId: string;
+  transactionDate?: string;
 }) {
-  return sendTransactionalEmail({
+  return sendTemplateEmail({
+    from: SENDERS.withdrawals,
     to,
-    subject: `Wallet Credited: ${amount.toFixed(6)} ${asset}`,
-    html: buildEmailTemplate({
-      title: 'Wallet Credited',
-      previewText: `Your wallet has been credited with ${amount.toFixed(6)} ${asset}.`,
-      body: `Amount: <strong>${amount.toFixed(6)} ${asset}</strong>${notes ? `<br />Note: ${notes}` : ''}`,
-      cta: 'View Wallet',
-      ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/wallet`,
-    }),
+    templateId: TEMPLATE_IDS.withdrawalRejected,
+    variables: {
+      userName,
+      Amount: String(amount),
+      AssetType: assetType,
+      RejectionReason: rejectionReason,
+      TransactionID: transactionId,
+      TransactionDate: transactionDate || new Date().toLocaleDateString(),
+    },
   });
 }
 
+// 4. Deposit / Direct Send Credited Email
+export async function sendDepositCreditedEmail({
+  to,
+  userName,
+  amount,
+  assetType,
+  transactionId,
+  transactionDate,
+}: {
+  to: string;
+  userName: string;
+  amount: number | string;
+  assetType: string;
+  transactionId: string;
+  transactionDate?: string;
+}) {
+  return sendTemplateEmail({
+    from: SENDERS.deposits,
+    to,
+    templateId: TEMPLATE_IDS.depositCredited,
+    variables: {
+      userName,
+      Amount: String(amount),
+      AssetType: assetType,
+      TransactionID: transactionId,
+      TransactionDate: transactionDate || new Date().toLocaleDateString(),
+    },
+  });
+}
+
+// 5. Internal Transfer Received Email
 export async function sendTransferReceivedEmail({
   to,
-  asset,
+  userName,
   amount,
-  senderAddress,
+  assetType,
+  senderName,
+  transactionId,
+  transactionDate,
 }: {
   to: string;
-  asset: string;
-  amount: number;
-  senderAddress: string;
+  userName: string;
+  amount: number | string;
+  assetType: string;
+  senderName: string;
+  transactionId: string;
+  transactionDate?: string;
 }) {
-  return sendTransactionalEmail({
+  return sendTemplateEmail({
+    from: SENDERS.transfers,
     to,
-    subject: `You Received ${amount.toFixed(6)} ${asset}`,
-    html: buildEmailTemplate({
-      title: 'Incoming Transfer',
-      previewText: `You have received ${amount.toFixed(6)} ${asset} in your wallet.`,
-      body: `Amount: <strong>${amount.toFixed(6)} ${asset}</strong><br />From: <code>${senderAddress}</code>`,
-      cta: 'View Wallet',
-      ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/wallet`,
-    }),
+    templateId: TEMPLATE_IDS.transferReceived,
+    variables: {
+      userName,
+      Amount: String(amount),
+      AssetType: assetType,
+      SenderName: senderName,
+      TransactionID: transactionId,
+      TransactionDate: transactionDate || new Date().toLocaleDateString(),
+    },
   });
 }
 
-export async function sendTransferSentEmail({
+// 6. Identity Verification (KYC) Approved Email
+export async function sendKycApprovedEmail({
   to,
-  asset,
-  amount,
-  recipientAddress,
+  userName,
+  transactionDate,
 }: {
   to: string;
-  asset: string;
-  amount: number;
-  recipientAddress: string;
+  userName: string;
+  transactionDate?: string;
 }) {
-  return sendTransactionalEmail({
+  return sendTemplateEmail({
+    from: SENDERS.compliance,
     to,
-    subject: `Transfer Sent: ${amount.toFixed(6)} ${asset}`,
-    html: buildEmailTemplate({
-      title: 'Transfer Sent',
-      previewText: `You have sent ${amount.toFixed(6)} ${asset}.`,
-      body: `Amount: <strong>${amount.toFixed(6)} ${asset}</strong><br />To: <code>${recipientAddress}</code>`,
-      cta: 'View Wallet',
-      ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/wallet`,
-    }),
+    templateId: TEMPLATE_IDS.kycApproved,
+    variables: {
+      userName,
+      TransactionDate: transactionDate || new Date().toLocaleDateString(),
+    },
   });
-}
+}    
