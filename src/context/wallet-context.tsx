@@ -87,6 +87,21 @@ async function getCustomTokenForWallet(walletAddress: string): Promise<{ token: 
   return res.json();
 }
 
+// ── DEV MODE: Create a mock Firebase user for dev testing ──
+function createMockDevUser(walletAddress: string) {
+  const addressLower = walletAddress.toLowerCase();
+  const uid = `w_${addressLower.replace('0x', '').slice(0, 40)}`;
+  return {
+    uid,
+    email: `${addressLower.substring(0, 8)}@apex.dev`,
+    displayName: 'Dev User',
+    emailVerified: true,
+    isAnonymous: false,
+    metadata: { createdAt: new Date(), lastSignInTime: new Date() },
+    customClaims: null,
+  };
+}
+
 // ── provider ─────────────────────────────────────────────────────────────
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { user, isUserLoading } = useUser();
@@ -409,6 +424,17 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setIsInitializing(true);
     try {
       const newWallet = ethers.Wallet.fromPhrase(mnemonic);
+      
+      // DEV MODE: Skip server auth and use local mock user
+      if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DEV_MODE === 'true') {
+        console.warn('[confirmAndCreateWallet] DEV MODE: Using local mock auth user');
+        const mockUser = createMockDevUser(newWallet.address);
+        // Manually set user state without signing in through Firebase
+        const walletData = await setupUserAndWalletDocuments(mockUser as any, newWallet as any, true, email);
+        setPendingWallet(walletData);
+        return;
+      }
+      
       const { token, isReturningUser } = await getCustomTokenForWallet(newWallet.address);
       const firebaseUser = await signInWithToken(token);
       const walletData = await setupUserAndWalletDocuments(firebaseUser, newWallet as any, !isReturningUser, email);
@@ -458,6 +484,16 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }
 
       logger.info('Import', 'Mnemonic valid. Requesting server token...');
+      
+      // DEV MODE: Skip server auth and use local mock user
+      if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DEV_MODE === 'true') {
+        console.warn('[importWallet] DEV MODE: Using local mock auth user');
+        const mockUser = createMockDevUser(importedWallet.address);
+        const walletData = await setupUserAndWalletDocuments(mockUser as any, importedWallet as any, false, email);
+        setPendingWallet(walletData);
+        return;
+      }
+      
       const { token, isReturningUser } = await getCustomTokenForWallet(importedWallet.address);
       
       logger.info('Import', `Server responded. Returning User: ${isReturningUser}`);

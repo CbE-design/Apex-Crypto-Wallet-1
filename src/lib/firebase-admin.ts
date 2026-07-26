@@ -109,7 +109,15 @@ function initializeFirebaseAdmin() {
     console.error('[firebase-admin] WARNING: Failed to initialize with service account file.', e.message);
   }
   
-  // 3. Critical failure
+  // 3. Critical failure or dev mode bypass
+  if (process.env.NODE_ENV === 'development') {
+    console.warn(
+      '[firebase-admin] DEV MODE: Firebase Admin initialization skipped. ' +
+      'Admin SDK will not be available in dev server. Set FIREBASE_ADMIN_SDK_CONFIG or firebase-service-account.json to enable.'
+    );
+    return;
+  }
+
   console.error(
     '[firebase-admin] CRITICAL: Firebase Admin initialization failed. ' +
     'Could not find credentials. Please set FIREBASE_ADMIN_SDK_CONFIG or create a valid firebase-service-account.json file in the project root.'

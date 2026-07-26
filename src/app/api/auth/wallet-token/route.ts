@@ -11,6 +11,20 @@ export async function POST(req: NextRequest) {
 
     const db = getAdminFirestore();
     if (!db) {
+      // In dev mode, bypass admin SDK requirement and use a mock token
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[wallet-token] DEV MODE: Admin SDK not available. Using mock token for testing.');
+        const addressLower = walletAddress.toLowerCase();
+        const mockUid = `w_${addressLower.replace('0x', '').slice(0, 40)}`;
+        // Return a mock token (not valid for production, only for dev testing)
+        return NextResponse.json({ 
+          token: `dev-mock-token-${mockUid}`,
+          isReturningUser: false, 
+          uid: mockUid,
+          isDev: true 
+        });
+      }
+      
       console.error('[wallet-token] Admin SDK not initialized. Check FIREBASE_ADMIN_SDK_CONFIG.');
       return NextResponse.json(
         { error: 'Wallet verification service is starting up. Please try again in a moment.' },
@@ -57,7 +71,18 @@ export async function POST(req: NextRequest) {
     console.log(`[wallet-token] UID resolved: ${uid} (Returning: ${isReturningUser})`);
 
     // Issue a short-lived Firebase custom auth token for this UID.
-    const token = await firebaseAdmin.auth().createCustomToken(uid);
+    let token: string;
+    try {
+      token = await firebaseAdmin.auth().createCustomToken(uid);
+    } catch (e: any) {
+      // In dev mode, if admin SDK isn't available, generate a mock token
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[wallet-token] DEV MODE: Admin SDK not available. Using mock token for testing.');
+        token = `dev-mock-token-${uid}`;
+      } else {
+        throw e;
+      }
+    }
 
     return NextResponse.json({ token, isReturningUser, uid });
   } catch (error: any) {
