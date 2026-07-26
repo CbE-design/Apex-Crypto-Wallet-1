@@ -1,6 +1,11 @@
 'use server';
 
-import { resend } from '@/lib/email';
+import { Resend } from 'resend';
+
+// Initialize Resend directly from environment variables
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 
 // Dedicated sender identities under your verified domain apex-crypto.co.uk
 export const SENDERS = {
@@ -280,5 +285,6 @@ export async function sendKycApprovedEmail({
   });
 }
 
-// Alias for direct-send page compatibility
+// Aliases for page compatibility
 export { sendDepositCreditedEmail as sendWalletCreditedEmail };
+export { sendWithdrawalPendingEmail as sendWithdrawalRequestEmail };
