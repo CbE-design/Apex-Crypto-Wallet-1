@@ -98,7 +98,7 @@ try {
       return;
     }
     try {
-      await confirmAndCreateWallet(newMnemonic, newWalletEmail.trim() || undefined);
+    await confirmAndCreateWallet(newMnemonic);  
       setIsNewWalletDialogOpen(false);
     } catch {
       toast({ title: 'Creation failed', description: 'Could not finalise wallet.', variant: 'destructive' });
