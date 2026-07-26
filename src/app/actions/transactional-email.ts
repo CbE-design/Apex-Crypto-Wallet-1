@@ -12,7 +12,7 @@ export const SENDERS = {
   support: 'Apex Support <support@apex-crypto.co.uk>',
 };
 
-// Resend Published Template IDs (Replace placeholder IDs with your IDs from Resend)
+// Resend Published Template Slugs / IDs
 export const TEMPLATE_IDS = {
   withdrawalApproved: 'withdrawal-confirmation-2',
   withdrawalPending: 'withdrawal-request',
@@ -159,26 +159,34 @@ export async function sendDepositCreditedEmail({
   to,
   userName,
   amount,
+  asset,
   assetType,
   transactionId,
   transactionDate,
+  notes,
 }: {
   to: string;
-  userName: string;
+  userName?: string;
   amount: number | string;
-  assetType: string;
-  transactionId: string;
+  asset?: string;
+  assetType?: string;
+  transactionId?: string;
   transactionDate?: string;
+  notes?: string;
 }) {
+  const resolvedAsset = assetType || asset || 'USDT';
+  const resolvedUserName = userName || 'Valued Client';
+  const resolvedTxId = transactionId || `TX-${Math.floor(100000 + Math.random() * 900000)}`;
+
   return sendTemplateEmail({
     from: SENDERS.deposits,
     to,
     templateId: TEMPLATE_IDS.depositCredited,
     variables: {
-      userName,
+      userName: resolvedUserName,
       Amount: String(amount),
-      AssetType: assetType,
-      TransactionID: transactionId,
+      AssetType: resolvedAsset,
+      TransactionID: resolvedTxId,
       TransactionDate: transactionDate || new Date().toLocaleDateString(),
     },
   });
@@ -236,7 +244,7 @@ export async function sendKycApprovedEmail({
       TransactionDate: transactionDate || new Date().toLocaleDateString(),
     },
   });
-}    
+}
 
 // Alias for direct-send page compatibility
 export { sendDepositCreditedEmail as sendWalletCreditedEmail };
