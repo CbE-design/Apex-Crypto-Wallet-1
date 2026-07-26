@@ -84,12 +84,12 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
       toast({ title: 'Invalid email', description: 'Please enter a valid email or leave it blank.', variant: 'destructive' });
       return;
     }
-    try {
-      await importWallet(mnemonic, importEmail.trim() || undefined);
-    } catch (error: any) {
-      toast({ title: 'Import failed', description: 'See console for details.', variant: 'destructive' });
-    }
-  };
+try {
+  await importWallet(mnemonic);
+} catch (error: any) {
+  toast({ title: 'Import failed', description: 'See console for details.', variant: 'destructive' });
+}
+};
 
   const handleConfirmNewWallet = async () => {
     if (!newMnemonic) return;
