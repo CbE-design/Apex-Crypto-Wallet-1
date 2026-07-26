@@ -62,27 +62,36 @@ export async function sendWithdrawalApprovedEmail({
   amount,
   assetType,
   methodDetails,
+  method,
+  reference,
   transactionId,
   transactionDate,
 }: {
   to: string;
-  userName: string;
-  amount: number | string;
-  assetType: string;
-  methodDetails: string;
-  transactionId: string;
+  userName?: string;
+  amount?: number | string;
+  assetType?: string;
+  methodDetails?: string;
+  method?: string;
+  reference?: string;
+  transactionId?: string;
   transactionDate?: string;
 }) {
+  const resolvedTxId = transactionId || reference || `TX-${Math.floor(100000 + Math.random() * 900000)}`;
+  const resolvedMethod = methodDetails || method || 'Bank Transfer';
+  const resolvedUserName = userName || 'Valued Client';
+  const resolvedAsset = assetType || 'USD';
+
   return sendTemplateEmail({
     from: SENDERS.withdrawals,
     to,
     templateId: TEMPLATE_IDS.withdrawalApproved,
     variables: {
-      userName,
-      Amount: String(amount),
-      AssetType: assetType,
-      MethodDetails: methodDetails,
-      TransactionID: transactionId,
+      userName: resolvedUserName,
+      Amount: String(amount ?? 0),
+      AssetType: resolvedAsset,
+      MethodDetails: resolvedMethod,
+      TransactionID: resolvedTxId,
       TransactionDate: transactionDate || new Date().toLocaleDateString(),
     },
   });
@@ -95,27 +104,36 @@ export async function sendWithdrawalPendingEmail({
   amount,
   assetType,
   methodDetails,
+  method,
+  reference,
   transactionId,
   transactionDate,
 }: {
   to: string;
-  userName: string;
-  amount: number | string;
-  assetType: string;
-  methodDetails: string;
-  transactionId: string;
+  userName?: string;
+  amount?: number | string;
+  assetType?: string;
+  methodDetails?: string;
+  method?: string;
+  reference?: string;
+  transactionId?: string;
   transactionDate?: string;
 }) {
+  const resolvedTxId = transactionId || reference || `TX-${Math.floor(100000 + Math.random() * 900000)}`;
+  const resolvedMethod = methodDetails || method || 'Bank Transfer';
+  const resolvedUserName = userName || 'Valued Client';
+  const resolvedAsset = assetType || 'USD';
+
   return sendTemplateEmail({
     from: SENDERS.withdrawals,
     to,
     templateId: TEMPLATE_IDS.withdrawalPending,
     variables: {
-      userName,
-      Amount: String(amount),
-      AssetType: assetType,
-      MethodDetails: methodDetails,
-      TransactionID: transactionId,
+      userName: resolvedUserName,
+      Amount: String(amount ?? 0),
+      AssetType: resolvedAsset,
+      MethodDetails: resolvedMethod,
+      TransactionID: resolvedTxId,
       TransactionDate: transactionDate || new Date().toLocaleDateString(),
     },
   });
@@ -128,27 +146,36 @@ export async function sendWithdrawalRejectedEmail({
   amount,
   assetType,
   rejectionReason,
+  reason,
+  reference,
   transactionId,
   transactionDate,
 }: {
   to: string;
-  userName: string;
-  amount: number | string;
-  assetType: string;
-  rejectionReason: string;
-  transactionId: string;
+  userName?: string;
+  amount?: number | string;
+  assetType?: string;
+  rejectionReason?: string;
+  reason?: string;
+  reference?: string;
+  transactionId?: string;
   transactionDate?: string;
 }) {
+  const resolvedTxId = transactionId || reference || `TX-${Math.floor(100000 + Math.random() * 900000)}`;
+  const resolvedReason = rejectionReason || reason || 'Standard Compliance Review';
+  const resolvedUserName = userName || 'Valued Client';
+  const resolvedAsset = assetType || 'USD';
+
   return sendTemplateEmail({
     from: SENDERS.withdrawals,
     to,
     templateId: TEMPLATE_IDS.withdrawalRejected,
     variables: {
-      userName,
-      Amount: String(amount),
-      AssetType: assetType,
-      RejectionReason: rejectionReason,
-      TransactionID: transactionId,
+      userName: resolvedUserName,
+      Amount: String(amount ?? 0),
+      AssetType: resolvedAsset,
+      RejectionReason: resolvedReason,
+      TransactionID: resolvedTxId,
       TransactionDate: transactionDate || new Date().toLocaleDateString(),
     },
   });
@@ -167,7 +194,7 @@ export async function sendDepositCreditedEmail({
 }: {
   to: string;
   userName?: string;
-  amount: number | string;
+  amount?: number | string;
   asset?: string;
   assetType?: string;
   transactionId?: string;
@@ -184,7 +211,7 @@ export async function sendDepositCreditedEmail({
     templateId: TEMPLATE_IDS.depositCredited,
     variables: {
       userName: resolvedUserName,
-      Amount: String(amount),
+      Amount: String(amount ?? 0),
       AssetType: resolvedAsset,
       TransactionID: resolvedTxId,
       TransactionDate: transactionDate || new Date().toLocaleDateString(),
@@ -203,23 +230,28 @@ export async function sendTransferReceivedEmail({
   transactionDate,
 }: {
   to: string;
-  userName: string;
-  amount: number | string;
-  assetType: string;
-  senderName: string;
-  transactionId: string;
+  userName?: string;
+  amount?: number | string;
+  assetType?: string;
+  senderName?: string;
+  transactionId?: string;
   transactionDate?: string;
 }) {
+  const resolvedUserName = userName || 'Valued Client';
+  const resolvedAsset = assetType || 'USDT';
+  const resolvedSender = senderName || 'Apex User';
+  const resolvedTxId = transactionId || `TX-${Math.floor(100000 + Math.random() * 900000)}`;
+
   return sendTemplateEmail({
     from: SENDERS.transfers,
     to,
     templateId: TEMPLATE_IDS.transferReceived,
     variables: {
-      userName,
-      Amount: String(amount),
-      AssetType: assetType,
-      SenderName: senderName,
-      TransactionID: transactionId,
+      userName: resolvedUserName,
+      Amount: String(amount ?? 0),
+      AssetType: resolvedAsset,
+      SenderName: resolvedSender,
+      TransactionID: resolvedTxId,
       TransactionDate: transactionDate || new Date().toLocaleDateString(),
     },
   });
@@ -232,15 +264,17 @@ export async function sendKycApprovedEmail({
   transactionDate,
 }: {
   to: string;
-  userName: string;
+  userName?: string;
   transactionDate?: string;
 }) {
+  const resolvedUserName = userName || 'Valued Client';
+
   return sendTemplateEmail({
     from: SENDERS.compliance,
     to,
     templateId: TEMPLATE_IDS.kycApproved,
     variables: {
-      userName,
+      userName: resolvedUserName,
       TransactionDate: transactionDate || new Date().toLocaleDateString(),
     },
   });
