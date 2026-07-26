@@ -86,7 +86,7 @@ export function PortfolioOverview() {
 
   if (isLoading) {
     return (
-      <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5">
+      <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0A0C12]/60 backdrop-blur-sm p-5">
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500 animate-pulse" />
         <div className="flex items-center justify-between mb-4">
           <Skeleton className="h-5 w-36" />
@@ -111,11 +111,11 @@ export function PortfolioOverview() {
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5 h-full">
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0A0C12]/60 backdrop-blur-sm p-5 h-full">
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500" />
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h3 className="text-base font-semibold text-foreground">Portfolio Overview</h3>
+          <h3 className="text-base font-semibold text-white">Portfolio Overview</h3>
           <p className="text-xs text-muted-foreground mt-0.5">Live balances across all assets</p>
         </div>
         <div className={cn(
@@ -164,7 +164,7 @@ export function PortfolioOverview() {
           {totalBalance > 0 && (
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <p className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase mb-1">Net Worth</p>
-              <p className={cn('text-xl font-bold tracking-tight', priceError ? 'text-muted-foreground' : 'text-foreground')}>
+              <p className={cn('text-xl font-bold tracking-tight', priceError ? 'text-muted-foreground' : 'text-white')}>
                 {formatCurrency(totalBalance).split('.')[0]}
               </p>
               <p className="text-[10px] text-muted-foreground">
@@ -209,7 +209,7 @@ export function PortfolioOverview() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center bg-white/[0.02] rounded-xl p-6">
-              <h4 className="text-base font-semibold text-foreground mb-1">Your portfolio is empty</h4>
+              <h4 className="text-base font-semibold text-white mb-1">Your portfolio is empty</h4>
               <p className="text-sm text-muted-foreground mb-5">Start by adding funds to your account.</p>
               <Link href="/send-receive" className="w-full">
                 <Button size="lg" className="w-full">Receive Assets</Button>

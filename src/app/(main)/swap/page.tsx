@@ -258,7 +258,7 @@ export default function SwapPage() {
                     </div>
                     <h3 className="text-lg font-semibold">Swap Successful</h3>
                     <p className="text-sm text-muted-foreground max-w-xs">
-                      You swapped <span className="font-semibold text-foreground">{fromAmount} {fromAsset}</span> for <span className="font-semibold text-foreground">{toAmount} {toAsset}</span>.
+                      You swapped <span className="font-semibold text-white">{fromAmount} {fromAsset}</span> for <span className="font-semibold text-white">{toAmount} {toAsset}</span>.
                     </p>
                     <Button onClick={resetFlow} className="w-full mt-2 btn-premium">New Swap</Button>
                 </div>

@@ -43,14 +43,14 @@ export function MarketOverview() {
   }, [prices, changes]);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5 h-full">
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0A0C12]/60 backdrop-blur-sm p-5 h-full">
       {/* Top accent */}
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-cyan-500 to-violet-500" />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-base font-semibold text-foreground">Market</h3>
+          <h3 className="text-base font-semibold text-white">Market</h3>
           <p className={cn('text-xs mt-0.5', error ? 'text-destructive' : 'text-muted-foreground')}>
             {error ? 'Price update failed' : lastUpdated ? `Updated ${formatAppTimeShort(lastUpdated)}` : 'Live from global markets'}
           </p>

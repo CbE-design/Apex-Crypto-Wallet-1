@@ -132,7 +132,7 @@ export function PinSetupDialog({
                 <ShieldCheck className="h-4 w-4 text-primary" />
                 <span className="text-[11px] uppercase tracking-widest font-semibold text-primary">Security Setup</span>
               </div>
-              <DialogTitle className="text-[17px] font-semibold">Create your PIN</DialogTitle>
+              <DialogTitle className="text-[17px] font-semibold text-white">Create your PIN</DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
                 Choose a 6-digit PIN to lock your wallet. You will need this to access Apex on each device.
               </DialogDescription>
@@ -151,7 +151,7 @@ export function PinSetupDialog({
                 <ShieldCheck className="h-4 w-4 text-primary" />
                 <span className="text-[11px] uppercase tracking-widest font-semibold text-primary">Confirm PIN</span>
               </div>
-              <DialogTitle className="text-[17px] font-semibold">Confirm your PIN</DialogTitle>
+              <DialogTitle className="text-[17px] font-semibold text-white">Confirm your PIN</DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
                 Re-enter the same 6-digit PIN to confirm.
               </DialogDescription>
@@ -186,7 +186,7 @@ export function PinSetupDialog({
                   {passkeySupported ? 'Optional' : 'PIN Set'}
                 </span>
               </div>
-              <DialogTitle className="text-[17px] font-semibold">
+              <DialogTitle className="text-[17px] font-semibold text-white">
                 {passkeySupported ? 'Enable Biometric Unlock' : 'Your PIN is Ready'}
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
@@ -255,7 +255,7 @@ export function PinSetupDialog({
                 <CheckCircle2 className="h-4 w-4 text-accent" />
                 <span className="text-[11px] uppercase tracking-widest font-semibold text-accent">All Set</span>
               </div>
-              <DialogTitle className="text-[17px] font-semibold">
+              <DialogTitle className="text-[17px] font-semibold text-white">
                 {passkeyEnrolled ? 'Biometric Unlock Enabled' : 'Wallet Protected'}
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground leading-relaxed">

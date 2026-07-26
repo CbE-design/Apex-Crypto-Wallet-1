@@ -66,7 +66,7 @@ export function QuickActions() {
           href={action.href}
           className={cn(
             "group flex flex-col items-center gap-2.5 p-3.5 rounded-2xl",
-            "bg-card/60 backdrop-blur-sm border transition-all duration-200",
+            "bg-[#0A0C12]/60 backdrop-blur-sm border transition-all duration-200",
             "hover:scale-[1.03] hover:shadow-lg active:scale-[0.98]",
             action.border,
             action.bg,
@@ -81,7 +81,7 @@ export function QuickActions() {
             <action.icon className="h-5 w-5 text-white" strokeWidth={2} />
           </div>
           <div className="text-center">
-            <p className="text-[12px] font-semibold text-foreground leading-none mb-0.5">{action.label}</p>
+            <p className="text-[12px] font-semibold text-white leading-none mb-0.5">{action.label}</p>
             <p className="text-[10px] text-muted-foreground leading-none hidden sm:block">{action.desc}</p>
           </div>
         </Link>

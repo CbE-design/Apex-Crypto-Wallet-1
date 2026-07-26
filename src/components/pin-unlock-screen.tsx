@@ -102,7 +102,7 @@ export function PinUnlockScreen({
               <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
               <span className="text-[11px] uppercase tracking-widest font-semibold text-accent">Locked</span>
             </div>
-            <h2 className="text-[17px] font-semibold text-foreground">Enter your PIN</h2>
+            <h2 className="text-[17px] font-semibold text-white">Enter your PIN</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
               {locked ? 'Too many failed attempts.' : 'Enter your 6-digit PIN to access your wallet.'}
             </p>

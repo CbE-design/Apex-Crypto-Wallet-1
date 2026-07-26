@@ -23,6 +23,7 @@ import {
   collection, 
   getDocs,
   doc, 
+  getDoc,
   updateDoc, 
   serverTimestamp,
   runTransaction,
@@ -196,13 +197,34 @@ export default function WithdrawalApprovalsPage() {
     if (!firestore || !user || !rejectionReason.trim()) return;
     setIsProcessing(true);
     try {
-      await updateDoc(doc(firestore, 'withdrawal_requests', withdrawal.id), {
-        status: 'REJECTED',
-        processedAt: serverTimestamp(),
-        processedBy: user.uid,
-        rejectionReason: rejectionReason.trim(),
-        updatedAt: serverTimestamp(),
+      await runTransaction(firestore, async (transaction) => {
+        const withdrawalRef = doc(firestore, 'withdrawal_requests', withdrawal.id);
+        const withdrawalSnap = await transaction.get(withdrawalRef);
+
+        if (!withdrawalSnap.exists() || withdrawalSnap.data().status !== 'PENDING') {
+          throw new Error('Withdrawal already processed or not found.');
+        }
+
+        transaction.update(withdrawalRef, {
+          status: 'REJECTED',
+          processedAt: serverTimestamp(),
+          processedBy: user.uid,
+          rejectionReason: rejectionReason.trim(),
+          updatedAt: serverTimestamp(),
+        });
+
+        if (withdrawal.cryptoBreakdown) {
+          for (const crypto of withdrawal.cryptoBreakdown) {
+            const walletRef = doc(firestore, 'users', withdrawal.userId, 'wallets', crypto.symbol);
+            const walletSnap = await transaction.get(walletRef);
+            if (walletSnap.exists()) {
+              const currentReserved = walletSnap.data().reservedForWithdrawal || 0;
+              transaction.update(walletRef, { reservedForWithdrawal: Math.max(0, currentReserved - crypto.amount) });
+            }
+          }
+        }
       });
+
       toast({ title: 'Rejected', description: 'Payout declined.' });
       setIsDetailOpen(false);
 
@@ -219,8 +241,9 @@ export default function WithdrawalApprovalsPage() {
       }
 
       fetchWithdrawals();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      toast({ title: 'Failed', description: error.message || 'Could not reject withdrawal', variant: 'destructive' });
     } finally {
       setIsProcessing(false);
     }
@@ -271,12 +294,16 @@ export default function WithdrawalApprovalsPage() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3 min-w-0">
           <div className="h-10 w-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-            {withdrawal.withdrawalMethod === 'EFT' ? <Building2 className="h-5 w-5 text-violet-400" /> : <Globe className="h-5 w-5 text-violet-400" />}
+            {withdrawal.withdrawalMethod === 'EFT' ? <Building2 className="h-5 w-5 text-violet-400" /> : <Globe className="h-5 w-5 text-cyan-400" />}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-white/80 truncate">{withdrawal.accountHolder}</p>
             <p className="text-xs text-white/35 truncate">{withdrawal.userEmail}</p>
-            <p className="text-[10px] text-white/20 font-mono mt-0.5">{withdrawal.transactionReference}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-[10px] text-white/20 font-mono">{withdrawal.transactionReference}</p>
+              <span className="text-[9px] text-white/20">·</span>
+              <p className="text-[10px] text-white/20">{withdrawal.withdrawalMethod}</p>
+            </div>
           </div>
         </div>
         <div className="text-right shrink-0">
@@ -328,43 +355,91 @@ export default function WithdrawalApprovalsPage() {
       </Tabs>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-lg border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
+        <DialogContent className="max-w-2xl border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
           <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[28px] bg-gradient-to-r from-emerald-500 to-violet-500" />
-          <DialogHeader>
-            <DialogTitle className="text-white font-bold">Payout Details</DialogTitle>
-            <DialogDescription className="text-white/30">Review and settle this withdrawal request.</DialogDescription>
+          <DialogHeader className="pb-4">
+            <DialogTitle className="text-white font-bold text-lg">Withdrawal Request Review</DialogTitle>
+            <DialogDescription className="text-white/30 text-xs">Review withdrawal details and approve or reject this request.</DialogDescription>
           </DialogHeader>
           {selectedWithdrawal && (
-            <div className="space-y-4">
-              <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-4 space-y-2.5 text-sm font-medium">
-                {[
-                  { label: 'Beneficiary', value: selectedWithdrawal.accountHolder },
-                  { label: 'Bank', value: selectedWithdrawal.bankName },
-                  { label: 'Account', value: selectedWithdrawal.accountNumber },
-                  { label: 'Amount', value: formatCurrency(selectedWithdrawal.fiatAmount, selectedWithdrawal.fiatCurrency), highlight: true },
-                ].map(row => (
-                  <div key={row.label} className="flex justify-between items-center text-xs border-b border-white/[0.04] pb-2 last:border-0 last:pb-0">
-                    <span className="text-white/30 font-semibold uppercase text-[9px] tracking-widest">{row.label}</span>
-                    <span className={row.highlight ? 'text-emerald-400 font-bold' : 'text-white/60'}>{row.value}</span>
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-4 space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-white/[0.04]">
+                    <User className="h-4 w-4 text-violet-400" />
+                    <p className="text-xs font-bold uppercase tracking-wider text-white/30">Beneficiary Information</p>
                   </div>
-                ))}
+                  <div className="space-y-2 text-sm">
+                    <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Account Holder</p><p className="font-medium text-white/80">{selectedWithdrawal.accountHolder}</p></div>
+                    <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Email</p><p className="font-medium text-white/60">{selectedWithdrawal.userEmail}</p></div>
+                    <div><p className="text-[10px] text-white/30 uppercase tracking-wider">User ID</p><p className="font-medium text-white/60 font-mono">{selectedWithdrawal.userId.slice(0, 12)}...</p></div>
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-4 space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-white/[0.04]">
+                    {selectedWithdrawal.withdrawalMethod === 'EFT' ? <Building2 className="h-4 w-4 text-violet-400" /> : <Globe className="h-4 w-4 text-cyan-400" />}
+                    <p className="text-xs font-bold uppercase tracking-wider text-white/30">Banking Details</p>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Bank Name</p><p className="font-medium text-white/80">{selectedWithdrawal.bankName}</p></div>
+                    <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Account Number</p><p className="font-medium text-white/80 font-mono">{selectedWithdrawal.accountNumber}</p></div>
+                    {selectedWithdrawal.swiftCode && (
+                      <div><p className="text-[10px] text-white/30 uppercase tracking-wider">SWIFT Code</p><p className="font-medium text-white/80 font-mono">{selectedWithdrawal.swiftCode}</p></div>
+                    )}
+                    <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Transfer Method</p><p className="font-medium text-white/60">{selectedWithdrawal.withdrawalMethod}</p></div>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-4 space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b border-white/[0.04]">
+                  <DollarSign className="h-4 w-4 text-emerald-400" />
+                  <p className="text-xs font-bold uppercase tracking-wider text-white/30">Transaction Details</p>
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Reference</p><p className="font-medium text-white/80 font-mono">{selectedWithdrawal.transactionReference}</p></div>
+                  <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Requested Amount</p><p className="font-medium text-white/80">{formatCurrency(selectedWithdrawal.fiatAmount, selectedWithdrawal.fiatCurrency)}</p></div>
+                  <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Net Amount</p><p className="font-medium text-emerald-400">{formatCurrency(selectedWithdrawal.netFiatAmount || selectedWithdrawal.fiatAmount, selectedWithdrawal.fiatCurrency)}</p></div>
+                  <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Crypto Asset</p><p className="font-medium text-white/80">{selectedWithdrawal.cryptoSymbol}</p></div>
+                  <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Crypto Amount</p><p className="font-medium text-white/80">{selectedWithdrawal.cryptoAmount?.toFixed(6) || '0'}</p></div>
+                  <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Submitted</p><p className="font-medium text-white/60">{formatDate(selectedWithdrawal.createdAt)}</p></div>
+                </div>
               </div>
               {selectedWithdrawal.status === 'PENDING' && (
-                <div className="space-y-3">
-                  <Textarea
-                    placeholder="Rejection reason (required to reject)..."
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    className="bg-white/[0.04] border-white/[0.07] rounded-xl text-sm"
-                  />
-                  <DialogFooter className="gap-2">
-                    <Button variant="outline" className="rounded-xl border-red-500/25 text-red-400 hover:bg-red-500/10" onClick={() => handleReject(selectedWithdrawal)} disabled={isProcessing || !rejectionReason.trim()}>
-                      {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reject'}
+                <div className="space-y-4">
+                  <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4">
+                    <div className="flex items-center gap-2 pb-2 mb-3">
+                      <AlertTriangle className="h-4 w-4 text-amber-400" />
+                      <p className="text-xs font-bold uppercase tracking-wider text-white/30">Rejection Reason</p>
+                    </div>
+                    <Textarea
+                      placeholder="Provide a detailed reason for rejection (required if rejecting)..."
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      className="bg-white/[0.04] border-white/[0.07] rounded-xl text-sm min-h-[80px] text-white placeholder:text-white/20"
+                    />
+                  </div>
+                  <DialogFooter className="gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="rounded-xl border-red-500/25 text-red-400 hover:bg-red-500/10 h-11 px-6" 
+                      onClick={() => handleReject(selectedWithdrawal)} 
+                      disabled={isProcessing || !rejectionReason.trim()}
+                    >
+                      {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reject Request'}
                     </Button>
-                    <button className="btn-premium rounded-xl px-5 h-10 font-bold text-sm text-white flex items-center gap-2 disabled:opacity-40" onClick={() => handleApprove(selectedWithdrawal)} disabled={isProcessing}>
-                      {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Approve Payout'}
+                    <button 
+                      className="btn-premium rounded-xl px-6 h-11 font-bold text-sm text-white flex items-center gap-2 disabled:opacity-40" 
+                      onClick={() => handleApprove(selectedWithdrawal)} 
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Approve & Process'}
                     </button>
                   </DialogFooter>
+                </div>
+              )}
+              {selectedWithdrawal.status !== 'PENDING' && (
+                <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4 text-center">
+                  <p className="text-sm text-white/40">This request has already been {selectedWithdrawal.status.toLowerCase()}.</p>
                 </div>
               )}
             </div>

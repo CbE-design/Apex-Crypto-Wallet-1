@@ -31,7 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { sendWithdrawalRequestEmail } from '@/app/actions/transactional-email';
 import { marketCoins } from '@/lib/data';
 import { CryptoIcon } from '@/components/crypto-icon';
-import { Loader2, Building2, Globe, AlertTriangle, Info } from 'lucide-react';
+import { Loader2, Building2, Globe, AlertTriangle, Info, DollarSign, Wallet, ArrowDownRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const EFT_FEE_PCT = 0.015;
@@ -83,16 +83,22 @@ function FeeBreakdown({ zarAmount, method }: { zarAmount: number; method: 'EFT' 
     new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(v);
 
   return (
-    <div className="rounded-xl bg-muted/20 border border-border/30 p-3 space-y-1.5 text-xs">
-      <div className="flex justify-between text-muted-foreground">
-        <span>Gross amount</span><span>{fmt(zarAmount)}</span>
+    <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4 space-y-3">
+      <div className="flex items-center gap-2 pb-2 border-b border-white/[0.04]">
+        <DollarSign className="h-4 w-4 text-emerald-400" />
+        <p className="text-xs font-bold uppercase tracking-wider text-white/30">Fee Breakdown</p>
       </div>
-      <div className="flex justify-between text-muted-foreground">
-        <span>Fee ({(feePct * 100).toFixed(1)}% + {fmt(feeFlat)})</span>
-        <span className="text-destructive/80">-{fmt(fee)}</span>
-      </div>
-      <div className="flex justify-between font-semibold border-t border-border/30 pt-1.5">
-        <span>You receive</span><span className="text-accent">{fmt(Math.max(0, net))}</span>
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between text-white/40">
+          <span>Gross Amount</span><span className="text-white/80">{fmt(zarAmount)}</span>
+        </div>
+        <div className="flex justify-between text-white/40">
+          <span>Processing Fee ({(feePct * 100).toFixed(1)}% + {fmt(feeFlat)})</span>
+          <span className="text-red-400">-{fmt(fee)}</span>
+        </div>
+        <div className="flex justify-between font-semibold border-t border-white/[0.06] pt-2">
+          <span className="text-white/60">Net Amount</span><span className="text-emerald-400">{fmt(Math.max(0, net))}</span>
+        </div>
       </div>
     </div>
   );
@@ -202,6 +208,27 @@ export function WithdrawalForm() {
     });
   };
 
+  const restoreWithdrawalBalance = async (asset: string, amount: number) => {
+    if (!firestore || !user) return;
+    try {
+      const walletRef = doc(firestore, 'users', user.uid, 'wallets', asset);
+      await runTransaction(firestore, async (transaction: any) => {
+        const walletSnap = await transaction.get(walletRef);
+        if (walletSnap.exists()) {
+          const currentReserved = walletSnap.data().reservedForWithdrawal || 0;
+          const currentBalance = walletSnap.data().balance || 0;
+          transaction.update(walletRef, {
+            reservedForWithdrawal: Math.max(0, currentReserved - amount),
+            balance: currentBalance + amount,
+            lastSynced: serverTimestamp(),
+          });
+        }
+      });
+    } catch (err) {
+      console.error('[WithdrawalForm] Failed to restore balance:', err);
+    }
+  };
+
   const onSubmitEft = async (values: EftValues) => {
     if (!user || !firestore) return;
     if (!hasSufficientBalance) {
@@ -292,21 +319,27 @@ export function WithdrawalForm() {
 
   const renderAssetAndAmount = (form: any) => (
     <>
+      <div className="flex items-center gap-2 pb-2 border-b border-white/[0.06]">
+        <div className="h-6 w-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+          <Wallet className="h-3 w-3 text-emerald-400" />
+        </div>
+        <h4 className="text-sm font-semibold text-white">Asset Selection</h4>
+      </div>
       <FormField
         control={form.control}
         name="asset"
         render={({ field }) => (
           <FormItem>
-            <FormLabel className="text-xs font-medium text-muted-foreground">Crypto Asset to Sell</FormLabel>
+            <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-white/40">Crypto Asset to Sell</FormLabel>
             <Select value={field.value} onValueChange={field.onChange}>
               <FormControl>
-                <SelectTrigger className="h-11 rounded-xl bg-muted/30 border-border/50">
-                  <SelectValue placeholder="Select asset" />
+                <SelectTrigger className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white">
+                  <SelectValue placeholder="Select asset to withdraw" />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
                 {walletWithBalance.length === 0 && (
-                  <div className="p-2 text-xs text-muted-foreground text-center">No assets with balance</div>
+                  <div className="p-2 text-xs text-white/30 text-center">No assets with available balance</div>
                 )}
                 {walletWithBalance.map(w => {
                   const coin = marketCoins.find(c => c.symbol === w.currency);
@@ -314,8 +347,8 @@ export function WithdrawalForm() {
                     <SelectItem key={w.currency} value={w.currency}>
                       <div className="flex items-center gap-2">
                         <CryptoIcon name={coin?.name || w.currency} className="h-4 w-4" />
-                        <span>{w.currency}</span>
-                        <span className="text-muted-foreground text-xs ml-1">({w.balance.toFixed(4)})</span>
+                        <span className="text-white/80">{w.currency}</span>
+                        <span className="text-white/30 text-xs ml-1">({w.balance.toFixed(4)})</span>
                       </div>
                     </SelectItem>
                   );
@@ -332,26 +365,26 @@ export function WithdrawalForm() {
         name="zarAmount"
         render={({ field }) => (
           <FormItem>
-            <FormLabel className="text-xs font-medium text-muted-foreground">Amount (ZAR)</FormLabel>
+            <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-white/40">Withdrawal Amount (ZAR)</FormLabel>
             <FormControl>
               <Input
                 type="number"
                 step="0.01"
                 min="0"
                 placeholder="e.g. 1500.00"
-                className="h-11 rounded-xl bg-muted/30 border-border/50"
+                className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20"
                 {...field}
               />
             </FormControl>
             {watchedAsset && watchedZar > 0 && (
-              <div className="flex items-center gap-1.5 mt-1">
+              <div className="flex items-center gap-1.5 mt-2">
                 {loadingPrices ? (
-                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-3 w-3 animate-spin text-white/30" />
                 ) : (
-                  <p className="text-xs text-muted-foreground">
-                    ≈ {cryptoEquivalent.toFixed(6)} {watchedAsset}
+                  <p className="text-xs text-white/30">
+                    ≈ {cryptoEquivalent.toFixed(6)} {watchedAsset} required
                     {!hasSufficientBalance && (
-                      <span className="text-destructive ml-2 font-medium">
+                      <span className="text-red-400 ml-2 font-medium">
                         <AlertTriangle className="inline h-3 w-3 mr-0.5" />Insufficient balance
                       </span>
                     )}
@@ -365,9 +398,9 @@ export function WithdrawalForm() {
       />
 
       {watchedZar >= 25000 && (
-        <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600">
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>Withdrawals over R25,000 require Enhanced Due Diligence (EDD) under FICA. Your request will undergo additional review.</span>
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+          <span className="text-xs text-amber-300/90 leading-relaxed">Withdrawals over R25,000 require Enhanced Due Diligence (EDD) under FICA regulations. Your request will undergo additional compliance review.</span>
         </div>
       )}
     </>
@@ -375,31 +408,37 @@ export function WithdrawalForm() {
 
   const renderBankDetailsEft = () => (
     <>
+      <div className="flex items-center gap-2 pb-2 border-b border-white/[0.06]">
+        <div className="h-6 w-6 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+          <Building2 className="h-3 w-3 text-violet-400" />
+        </div>
+        <h4 className="text-sm font-semibold text-white">Banking Details (EFT)</h4>
+      </div>
       <FormField control={eftForm.control} name="bankName" render={({ field }) => (
         <FormItem>
-          <FormLabel className="text-xs font-medium text-muted-foreground">Bank Name</FormLabel>
-          <FormControl><Input className="h-11 rounded-xl bg-muted/30 border-border/50" placeholder="e.g. FNB, Standard Bank" {...field} /></FormControl>
+          <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-white/40">Bank Name</FormLabel>
+          <FormControl><Input className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20" placeholder="e.g. FNB, Standard Bank, Nedbank" {...field} /></FormControl>
           <FormMessage />
         </FormItem>
       )} />
       <FormField control={eftForm.control} name="accountHolder" render={({ field }) => (
         <FormItem>
-          <FormLabel className="text-xs font-medium text-muted-foreground">Account Holder Name</FormLabel>
-          <FormControl><Input className="h-11 rounded-xl bg-muted/30 border-border/50" placeholder="Full legal name" {...field} /></FormControl>
+          <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-white/40">Account Holder Name</FormLabel>
+          <FormControl><Input className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20" placeholder="Full legal name as per bank records" {...field} /></FormControl>
           <FormMessage />
         </FormItem>
       )} />
       <FormField control={eftForm.control} name="accountNumber" render={({ field }) => (
         <FormItem>
-          <FormLabel className="text-xs font-medium text-muted-foreground">Account Number</FormLabel>
-          <FormControl><Input className="h-11 rounded-xl bg-muted/30 border-border/50 font-mono" placeholder="Bank account number" {...field} /></FormControl>
+          <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-white/40">Account Number</FormLabel>
+          <FormControl><Input className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20 font-mono" placeholder="Your bank account number" {...field} /></FormControl>
           <FormMessage />
         </FormItem>
       )} />
       <FormField control={eftForm.control} name="branchCode" render={({ field }) => (
         <FormItem>
-          <FormLabel className="text-xs font-medium text-muted-foreground">Branch Code <span className="text-muted-foreground/50">(optional)</span></FormLabel>
-          <FormControl><Input className="h-11 rounded-xl bg-muted/30 border-border/50 font-mono" placeholder="6-digit branch code" {...field} /></FormControl>
+          <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-white/40">Branch Code <span className="text-white/20 font-normal">(optional)</span></FormLabel>
+          <FormControl><Input className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20 font-mono" placeholder="6-digit branch code" {...field} /></FormControl>
           <FormMessage />
         </FormItem>
       )} />
@@ -408,38 +447,44 @@ export function WithdrawalForm() {
 
   const renderBankDetailsSwift = () => (
     <>
+      <div className="flex items-center gap-2 pb-2 border-b border-white/[0.06]">
+        <div className="h-6 w-6 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+          <Globe className="h-3 w-3 text-cyan-400" />
+        </div>
+        <h4 className="text-sm font-semibold text-white">International Banking Details (SWIFT)</h4>
+      </div>
       <FormField control={swiftForm.control} name="bankName" render={({ field }) => (
         <FormItem>
-          <FormLabel className="text-xs font-medium text-muted-foreground">Bank Name</FormLabel>
-          <FormControl><Input className="h-11 rounded-xl bg-muted/30 border-border/50" placeholder="International bank name" {...field} /></FormControl>
+          <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-white/40">Bank Name</FormLabel>
+          <FormControl><Input className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20" placeholder="Full international bank name" {...field} /></FormControl>
           <FormMessage />
         </FormItem>
       )} />
       <FormField control={swiftForm.control} name="accountHolder" render={({ field }) => (
         <FormItem>
-          <FormLabel className="text-xs font-medium text-muted-foreground">Account Holder Name</FormLabel>
-          <FormControl><Input className="h-11 rounded-xl bg-muted/30 border-border/50" placeholder="Full legal name" {...field} /></FormControl>
+          <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-white/40">Account Holder Name</FormLabel>
+          <FormControl><Input className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20" placeholder="Full legal name as per bank records" {...field} /></FormControl>
           <FormMessage />
         </FormItem>
       )} />
       <FormField control={swiftForm.control} name="accountNumber" render={({ field }) => (
         <FormItem>
-          <FormLabel className="text-xs font-medium text-muted-foreground">Account / IBAN Number</FormLabel>
-          <FormControl><Input className="h-11 rounded-xl bg-muted/30 border-border/50 font-mono" placeholder="Account or IBAN" {...field} /></FormControl>
+          <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-white/40">Account / IBAN Number</FormLabel>
+          <FormControl><Input className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20 font-mono" placeholder="Bank account number or IBAN" {...field} /></FormControl>
           <FormMessage />
         </FormItem>
       )} />
       <FormField control={swiftForm.control} name="swiftCode" render={({ field }) => (
         <FormItem>
-          <FormLabel className="text-xs font-medium text-muted-foreground">SWIFT / BIC Code</FormLabel>
-          <FormControl><Input className="h-11 rounded-xl bg-muted/30 border-border/50 font-mono uppercase" placeholder="e.g. FIRNZAJJ" {...field} /></FormControl>
+          <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-white/40">SWIFT / BIC Code</FormLabel>
+          <FormControl><Input className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20 font-mono uppercase" placeholder="e.g. FIRNZAJJXXX" {...field} /></FormControl>
           <FormMessage />
         </FormItem>
       )} />
       <FormField control={swiftForm.control} name="routingNumber" render={({ field }) => (
         <FormItem>
-          <FormLabel className="text-xs font-medium text-muted-foreground">Routing Number <span className="text-muted-foreground/50">(optional)</span></FormLabel>
-          <FormControl><Input className="h-11 rounded-xl bg-muted/30 border-border/50 font-mono" placeholder="For US banks" {...field} /></FormControl>
+          <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-white/40">Routing Number <span className="text-white/20 font-normal">(optional)</span></FormLabel>
+          <FormControl><Input className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20 font-mono" placeholder="For US/Canadian banks" {...field} /></FormControl>
           <FormMessage />
         </FormItem>
       )} />
@@ -449,27 +494,32 @@ export function WithdrawalForm() {
   return (
     <Card className="rounded-[28px] border border-white/[0.08] bg-[#0A0C12]/90 backdrop-blur-xl overflow-hidden">
       <CardHeader className="pb-4 border-b border-white/[0.06]">
-        <CardTitle className="text-base flex items-center gap-2 text-white">
-          Request a Withdrawal
+        <CardTitle className="text-lg flex items-center gap-2 text-white">
+          <div className="h-8 w-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+            <ArrowDownRight className="h-4 w-4 text-emerald-400" />
+          </div>
+          Withdrawal Request
         </CardTitle>
-        <CardDescription className="text-xs mt-1 text-white/30">
-          Sell crypto and receive ZAR to your bank account
+        <CardDescription className="text-xs mt-2 text-white/30">
+          Sell cryptocurrency and receive ZAR to your bank account via EFT or SWIFT transfer
         </CardDescription>
       </CardHeader>
-      <CardContent className="pt-5">
+      <CardContent className="pt-6">
         <Tabs value={method} onValueChange={v => setMethod(v as 'EFT' | 'SWIFT')} className="w-full">
-          <TabsList className="grid grid-cols-2 bg-white/[0.04] rounded-xl p-1 h-11 mb-5 border border-white/[0.06]">
-            <TabsTrigger value="EFT" className="rounded-lg text-xs font-semibold gap-1.5 data-[state=active]:bg-violet-500/15 data-[state=active]:text-violet-300">
-              <Building2 className="h-3.5 w-3.5" /> EFT (1.5% + R15)
+          <TabsList className="grid grid-cols-2 bg-white/[0.04] rounded-2xl p-1 h-12 mb-6 border border-white/[0.06]">
+            <TabsTrigger value="EFT" className="rounded-xl text-xs font-semibold gap-2 data-[state=active]:bg-violet-500/15 data-[state=active]:text-violet-300 data-[state=active]:border data-[state=active]:border-violet-500/25">
+              <Building2 className="h-4 w-4" /> EFT Transfer
+              <span className="text-[9px] text-white/30">1.5% + R15</span>
             </TabsTrigger>
-            <TabsTrigger value="SWIFT" className="rounded-lg text-xs font-semibold gap-1.5 data-[state=active]:bg-cyan-500/15 data-[state=active]:text-cyan-300">
-              <Globe className="h-3.5 w-3.5" /> SWIFT (3.5% + R250)
+            <TabsTrigger value="SWIFT" className="rounded-xl text-xs font-semibold gap-2 data-[state=active]:bg-cyan-500/15 data-[state=active]:text-cyan-300 data-[state=active]:border data-[state=active]:border-cyan-500/25">
+              <Globe className="h-4 w-4" /> SWIFT Transfer
+              <span className="text-[9px] text-white/30">3.5% + R250</span>
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="EFT">
             <Form {...eftForm}>
-              <form onSubmit={eftForm.handleSubmit(onSubmitEft)} className="space-y-4">
+              <form onSubmit={eftForm.handleSubmit(onSubmitEft)} className="space-y-5">
                 {renderAssetAndAmount(eftForm)}
                 {watchedZar > 0 && (
                   <FeeBreakdown zarAmount={watchedZar} method="EFT" />
@@ -477,10 +527,10 @@ export function WithdrawalForm() {
                 {renderBankDetailsEft()}
                 <Button
                   type="submit"
-                  className="w-full h-11 rounded-xl btn-premium text-white font-semibold"
+                  className="w-full h-12 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-400 hover:to-cyan-400 text-white font-bold"
                   disabled={isSubmitting || !hasSufficientBalance && watchedZar > 0}
                 >
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit EFT Withdrawal'}
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit EFT Withdrawal Request'}
                 </Button>
               </form>
             </Form>
@@ -488,7 +538,7 @@ export function WithdrawalForm() {
 
           <TabsContent value="SWIFT">
             <Form {...swiftForm}>
-              <form onSubmit={swiftForm.handleSubmit(onSubmitSwift)} className="space-y-4">
+              <form onSubmit={swiftForm.handleSubmit(onSubmitSwift)} className="space-y-5">
                 {renderAssetAndAmount(swiftForm)}
                 {watchedZar > 0 && (
                   <FeeBreakdown zarAmount={watchedZar} method="SWIFT" />
@@ -496,21 +546,24 @@ export function WithdrawalForm() {
                 {renderBankDetailsSwift()}
                 <Button
                   type="submit"
-                  className="w-full h-11 rounded-xl btn-premium text-white font-semibold"
+                  className="w-full h-12 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-400 hover:to-cyan-400 text-white font-bold"
                   disabled={isSubmitting || !hasSufficientBalance && watchedZar > 0}
                 >
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit SWIFT Withdrawal'}
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit SWIFT Withdrawal Request'}
                 </Button>
               </form>
             </Form>
           </TabsContent>
         </Tabs>
 
-        <div className="flex items-start gap-2 mt-4 p-3 rounded-xl bg-muted/20 border border-border/30">
-          <Info className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
-            Withdrawals are subject to admin review. EFT: 1–2 business days. SWIFT: 3–5 business days. Transfers above R3,000 require FATF Travel Rule compliance.
-          </p>
+        <div className="flex items-start gap-3 mt-6 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+          <Info className="h-4 w-4 text-violet-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold text-white/60">Processing Information</p>
+            <p className="text-[10px] text-white/30 leading-relaxed">
+              All withdrawals are subject to compliance review. EFT transfers: 1–2 business days. SWIFT transfers: 3–5 business days. Transfers above R3,000 require FATF Travel Rule compliance.
+            </p>
+          </div>
         </div>
       </CardContent>
     </Card>

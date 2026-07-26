@@ -69,13 +69,13 @@ export function TransactionHistory() {
   const isLoading = isTxLoading || (transactionSymbols.length > 0 && Object.keys(prices).length === 0 && !priceError);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm h-full">
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0A0C12]/60 backdrop-blur-sm h-full">
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-cyan-500 to-violet-500" />
       
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/[0.06]">
         <div>
-          <h3 className="text-base font-semibold text-foreground">Recent Transactions</h3>
+          <h3 className="text-base font-semibold text-white">Recent Transactions</h3>
           <p className="text-xs text-muted-foreground mt-0.5">Latest activity across all wallets</p>
         </div>
         {priceError && (
@@ -111,7 +111,7 @@ export function TransactionHistory() {
         ) : (
           <div className="flex flex-col items-center justify-center h-[200px] text-center">
             <History className="h-10 w-10 text-muted-foreground/30 mb-3" />
-            <h4 className="text-sm font-semibold text-muted-foreground">No recent activity found</h4>
+            <h4 className="text-sm font-semibold text-white">No recent activity found</h4>
             <p className="text-xs text-muted-foreground/70">Your latest transactions will appear here.</p>
           </div>
         )}

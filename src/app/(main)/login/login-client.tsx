@@ -208,7 +208,7 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
                     <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
                     <span className="text-[11px] uppercase tracking-widest font-semibold text-cyan-400">Secure Connection</span>
                   </div>
-                  <h2 className="text-[17px] font-semibold text-foreground">
+                  <h2 className="text-[17px] font-semibold text-white">
                     {isImporting ? 'Import Wallet' : 'Access Your Wallet'}
                   </h2>
                   <p className="text-sm text-muted-foreground mt-0.5">
@@ -269,7 +269,7 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
                       <Button
                         variant="ghost"
                         onClick={() => setIsImporting(false)}
-                        className="w-full h-10 rounded-xl text-muted-foreground hover:text-foreground"
+                        className="w-full h-10 rounded-xl text-muted-foreground hover:text-white"
                         disabled={loading}
                       >
                         Back

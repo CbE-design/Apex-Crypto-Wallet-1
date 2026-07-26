@@ -290,7 +290,7 @@ function ExplorerContent() {
             />
           </div>
           <div className="flex items-center gap-4 text-[10px] text-muted-foreground/60">
-            <span className="hidden md:flex items-center gap-1"><Cpu className="h-3 w-3" /> Block <span className="font-mono text-foreground/80">{liveBlock.toLocaleString()}</span></span>
+            <span className="hidden md:flex items-center gap-1"><Cpu className="h-3 w-3" /> Block <span className="font-mono text-white/80">{liveBlock.toLocaleString()}</span></span>
             <span className="hidden md:flex items-center gap-1"><Zap className="h-3 w-3" /> {gasDisplay}</span>
           </div>
         </div>
@@ -338,7 +338,7 @@ function ExplorerContent() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <code className="text-xs font-mono text-foreground/90 break-all leading-relaxed">{address}</code>
+                      <code className="text-xs font-mono text-white/90 break-all leading-relaxed">{address}</code>
                       <button onClick={handleCopy} className="shrink-0 p-1 rounded hover:bg-white/[0.06] transition-colors">
                         {copied
                           ? <CheckCheck className="h-3.5 w-3.5 text-green-400" />
@@ -518,7 +518,7 @@ function ExplorerContent() {
               {transactions.length > 10 && (
                 <button
                   onClick={() => setShowAll(s => !s)}
-                  className="w-full py-3 text-[11px] text-muted-foreground/50 hover:text-foreground/70 flex items-center justify-center gap-1.5 transition-colors border-t border-white/[0.04] hover:bg-white/[0.02]"
+                  className="w-full py-3 text-[11px] text-muted-foreground/50 hover:text-white/70 flex items-center justify-center gap-1.5 transition-colors border-t border-white/[0.04] hover:bg-white/[0.02]"
                 >
                   {showAll
                     ? <><ChevronDown className="h-3.5 w-3.5 rotate-180" /> Show less</>

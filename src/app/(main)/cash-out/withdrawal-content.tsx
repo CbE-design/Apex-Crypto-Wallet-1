@@ -11,37 +11,37 @@ import { Label } from '@/components/ui/label';
 
 const FakeWithdrawalForm = () => (
   <div className="md:col-span-1">
-    <div className="rounded-2xl border border-white/[0.07] bg-card/60 p-6 space-y-6">
+    <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/60 p-6 space-y-6">
       <div className="space-y-2">
-        <h3 className="text-base font-semibold text-foreground">Initiate Withdrawal</h3>
-        <p className="text-xs text-muted-foreground">Transfer funds to an external wallet</p>
+        <h3 className="text-base font-semibold text-white">Initiate Withdrawal</h3>
+        <p className="text-xs text-white/40">Transfer funds to your bank account</p>
       </div>
       <div className="space-y-4">
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Select Asset</Label>
+          <Label className="text-xs text-white/40">Select Asset</Label>
           <div className="h-10 w-full rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-between px-3">
-            <span className="text-sm text-muted-foreground/50">Select a currency</span>
-            <ChevronDown className="h-4 w-4 text-muted-foreground/50" />
+            <span className="text-sm text-white/30">Select a currency</span>
+            <ChevronDown className="h-4 w-4 text-white/30" />
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Amount</Label>
+          <Label className="text-xs text-white/40">Amount</Label>
           <div className="relative">
             <div className="h-10 w-full rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center px-3">
-              <span className="text-sm text-muted-foreground/50">0.00</span>
+              <span className="text-sm text-white/30">0.00</span>
             </div>
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground/50">USD</span>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-white/30">ZAR</span>
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Destination Address</Label>
+          <Label className="text-xs text-white/40">Bank Details</Label>
           <div className="h-10 w-full rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center px-3">
-            <span className="text-sm text-muted-foreground/50">Enter wallet address</span>
+            <span className="text-sm text-white/30">Enter bank account details</span>
           </div>
         </div>
       </div>
-      <div className="h-10 w-full rounded-xl bg-primary/10 flex items-center justify-center text-sm font-bold text-primary/50">
-        Withdraw
+      <div className="h-10 w-full rounded-xl bg-emerald-500/10 flex items-center justify-center text-sm font-bold text-emerald-400/50">
+        Submit Request
       </div>
     </div>
   </div>
@@ -49,9 +49,9 @@ const FakeWithdrawalForm = () => (
 
 const FakeWithdrawalHistory = () => (
   <div className="md:col-span-2">
-    <div className="rounded-2xl border border-white/[0.07] bg-card/60 p-6 h-full">
+    <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/60 p-6 h-full">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-semibold text-foreground">Recent Withdrawals</h3>
+        <h3 className="text-base font-semibold text-white">Recent Withdrawals</h3>
       </div>
       <div className="space-y-3">
         {[...Array(3)].map((_, i) => (
@@ -105,7 +105,7 @@ export function WithdrawalContent() {
   if (!bannerReady) {
     return (
       <div className="flex justify-center items-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="h-8 w-8 animate-spin text-white/40" />
       </div>
     );
   }

@@ -77,7 +77,7 @@ export function PinPad({ value, onChange, maxLength = 6, disabled = false, error
                 'hover:bg-primary/10 hover:border-primary/30 hover:text-primary',
                 'active:scale-95 active:bg-primary/20',
                 'transition-all duration-100 disabled:opacity-30',
-                'text-lg font-semibold text-foreground',
+                'text-lg font-semibold text-white',
               )}
             >
               {k}

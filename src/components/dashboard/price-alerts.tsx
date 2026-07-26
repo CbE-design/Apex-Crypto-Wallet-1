@@ -63,11 +63,11 @@ export function PriceAlerts() {
   const getCoinName = (symbol: string) => marketCoins.find(c => c.symbol === symbol)?.name ?? symbol;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-card/60 backdrop-blur-sm p-5 flex flex-col h-full">
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0A0C12]/60 backdrop-blur-sm p-5 flex flex-col h-full">
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 to-cyan-500" />
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+          <h3 className="text-base font-semibold text-white flex items-center gap-2">
             <Bell className="h-4 w-4 text-muted-foreground" />
             Price Alerts
           </h3>
@@ -190,7 +190,7 @@ export function PriceAlerts() {
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-2.5 text-muted-foreground">
             <Bell className="h-10 w-10 text-muted-foreground/30" />
             <div className="text-center">
-              <h4 className="text-sm font-semibold text-muted-foreground">Get notified at target prices</h4>
+              <h4 className="text-sm font-semibold text-white">Get notified at target prices</h4>
               <p className="text-xs text-muted-foreground/70">Create your first price alert to get started.</p>
             </div>
           </div>

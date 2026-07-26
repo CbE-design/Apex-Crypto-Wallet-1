@@ -288,12 +288,12 @@ export default function KycVerificationModal({
             <Clock className="h-10 w-10 text-amber-500" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold">Verification In Progress</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+            <h3 className="text-lg font-semibold text-white">Verification In Progress</h3>
+            <p className="text-sm text-white/40 mt-1 max-w-sm">
               Our compliance team is reviewing your documents. This typically takes 1–2 business days.
             </p>
           </div>
-          <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
+          <Button variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-white/60 hover:text-white hover:bg-white/5">Close</Button>
         </div>
       );
     }
@@ -301,167 +301,301 @@ export default function KycVerificationModal({
   };
 
   const renderIntro = () => (
-    <div className="flex flex-col items-center py-4 text-center gap-5">
-      <div className="rounded-full bg-primary/10 p-4 border border-primary/20">
-        <Shield className="h-10 w-10 text-primary" />
+    <div className="flex flex-col items-center py-6 text-center gap-6">
+      <div className="rounded-2xl bg-gradient-to-br from-violet-500/10 to-cyan-500/10 p-5 border border-violet-500/20">
+        <Shield className="h-12 w-12 text-violet-400" />
       </div>
-      <div>
-        <h3 className="text-lg font-semibold">Verify Your Identity</h3>
-        <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-          To comply with regulations and ensure account security, we need to verify your identity.
+      <div className="space-y-2">
+        <h3 className="text-xl font-bold text-white">Identity Verification</h3>
+        <p className="text-sm text-white/40 max-w-sm leading-relaxed">
+          Complete our verification process to unlock withdrawals and ensure compliance with financial regulations.
         </p>
       </div>
       <WithdrawalContextBadge />
-      <div className="w-full space-y-2.5">
+      <div className="w-full space-y-3">
         {[
-          { icon: User, label: 'Personal Information', sub: 'Name, DOB, address' },
-          { icon: FileText, label: 'Identity Document', sub: 'Passport, DL, or National ID' },
-          { icon: CheckCircle2, label: 'Manual Review', sub: 'Verified by our compliance team' },
-        ].map(({ icon: Icon, label, sub }) => (
-          <div key={label} className="flex items-center gap-3 rounded-xl border border-border/50 bg-muted/20 p-3 text-left">
-            <Icon className="h-4 w-4 text-primary shrink-0" />
-            <div>
-              <p className="text-sm font-medium">{label}</p>
-              <p className="text-xs text-muted-foreground">{sub}</p>
+          { icon: User, label: 'Personal Information', sub: 'Full legal name, date of birth, residential address' },
+          { icon: FileText, label: 'Government ID', sub: 'Valid passport, driver\'s license, or national ID card' },
+          { icon: CheckCircle2, label: 'Biometric Verification', sub: 'Selfie photo for identity confirmation' },
+          { icon: Clock, label: 'Compliance Review', sub: 'Manual review by our compliance team (1-2 business days)' },
+        ].map(({ icon: Icon, label, sub }, idx) => (
+          <div key={label} className="flex items-start gap-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-left">
+            <div className="h-8 w-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+              <Icon className="h-4 w-4 text-violet-400" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-white">{label}</p>
+                <span className="text-[10px] font-bold text-violet-400/60">{idx + 1}</span>
+              </div>
+              <p className="text-xs text-white/30 mt-1">{sub}</p>
             </div>
           </div>
         ))}
       </div>
-      <Button onClick={() => setStep('personal')} className="w-full btn-premium text-white">
-        Start Verification
+      <Button onClick={() => setStep('personal')} className="w-full h-12 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-400 hover:to-cyan-400 text-white font-bold">
+        Begin Verification Process
         <ArrowRight className="ml-2 h-4 w-4" />
       </Button>
+      <p className="text-[10px] text-white/20 text-center">
+        Your information is encrypted and stored securely. We comply with POPIA and GDPR data protection standards.
+      </p>
     </div>
   );
 
   const renderPersonalInfo = () => (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label>Full Legal Name</Label>
-        <Input placeholder="As it appears on your ID" value={formData.fullName} onChange={(e) => handleInputChange('fullName', e.target.value)} />
+    <div className="space-y-5">
+      <div className="flex items-center gap-2 pb-2 border-b border-white/[0.06]">
+        <div className="h-6 w-6 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+          <User className="h-3 w-3 text-violet-400" />
+        </div>
+        <h4 className="text-sm font-semibold text-white">Personal Information</h4>
       </div>
-      <div className="space-y-2">
-        <Label>Date of Birth</Label>
-        <Input type="date" value={formData.dateOfBirth} onChange={(e) => handleInputChange('dateOfBirth', e.target.value)} />
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label className="text-[11px] font-bold uppercase tracking-wider text-white/40">Full Legal Name</Label>
+          <Input 
+            placeholder="Exactly as shown on government ID" 
+            value={formData.fullName} 
+            onChange={(e) => handleInputChange('fullName', e.target.value)}
+            className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-white/40">Date of Birth</Label>
+            <Input 
+              type="date" 
+              value={formData.dateOfBirth} 
+              onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+              className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-white/40">Nationality</Label>
+            <Select value={formData.nationality} onValueChange={(val) => handleInputChange('nationality', val)}>
+              <SelectTrigger className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white">
+                <SelectValue placeholder="Select country" />
+              </SelectTrigger>
+              <SelectContent>
+                {COUNTRIES.map(c => <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-[11px] font-bold uppercase tracking-wider text-white/40">Residential Address</Label>
+          <Input 
+            placeholder="Street address, suburb, city, postal code" 
+            value={formData.address} 
+            onChange={(e) => handleInputChange('address', e.target.value)}
+            className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20"
+          />
+        </div>
       </div>
-      <div className="space-y-2">
-        <Label>Nationality</Label>
-        <Select value={formData.nationality} onValueChange={(val) => handleInputChange('nationality', val)}>
-          <SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger>
-          <SelectContent>
-            {COUNTRIES.map(c => <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label>Residential Address</Label>
-        <Input placeholder="Street address, city, postal code" value={formData.address} onChange={(e) => handleInputChange('address', e.target.value)} />
-      </div>
-      <div className="flex gap-3 pt-2">
-        <Button variant="outline" onClick={() => setStep('intro')} className="flex-1">Back</Button>
-        <Button onClick={() => setStep('document')} disabled={!validatePersonalInfo()} className="flex-1 btn-premium text-white">Continue</Button>
+      <div className="flex gap-3 pt-4">
+        <Button variant="outline" onClick={() => setStep('intro')} className="flex-1 h-11 rounded-xl border-white/10 text-white/60 hover:text-white hover:bg-white/5">Back</Button>
+        <Button onClick={() => setStep('document')} disabled={!validatePersonalInfo()} className="flex-1 h-11 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-400 hover:to-cyan-400 text-white font-bold">Continue</Button>
       </div>
     </div>
   );
 
   const renderDocumentInfo = () => (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label>Document Type</Label>
-        <Select value={formData.documentType} onValueChange={(val) => handleInputChange('documentType', val)}>
-          <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-          <SelectContent>
-            {DOCUMENT_TYPES.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label>Document Number</Label>
-        <Input placeholder="Enter number" value={formData.documentNumber} onChange={(e) => handleInputChange('documentNumber', e.target.value)} />
-      </div>
-      {documentRequiresExpiry && (
-        <div className="space-y-2">
-          <Label>Expiry Date</Label>
-          <Input type="date" value={formData.documentExpiry} onChange={(e) => handleInputChange('documentExpiry', e.target.value)} />
+    <div className="space-y-5">
+      <div className="flex items-center gap-2 pb-2 border-b border-white/[0.06]">
+        <div className="h-6 w-6 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+          <FileText className="h-3 w-3 text-cyan-400" />
         </div>
-      )}
-      <DocumentUploadField
-        label="Upload Document Photo"
-        sublabel="ID front or Passport page"
-        accept="image/*,.pdf"
-        previewUrl={documentPreviewUrl}
-        uploading={false}
-        error={null}
-        onFileSelect={(file) => {
-          setDocumentFile(file);
-          const url = URL.createObjectURL(file);
-          setDocumentPreviewUrl(url);
-        }}
-        onClear={() => {
-          setDocumentFile(null);
-          if (documentPreviewUrl) URL.revokeObjectURL(documentPreviewUrl);
-          setDocumentPreviewUrl(null);
-        }}
-      />
-      <DocumentUploadField
-        label="Upload Selfie"
-        sublabel="Take a clear photo of your face holding your ID"
-        accept="image/*"
-        previewUrl={selfiePreviewUrl}
-        uploading={false}
-        error={null}
-        onFileSelect={(file) => {
-          setSelfieFile(file);
-          const url = URL.createObjectURL(file);
-          setSelfiePreviewUrl(url);
-        }}
-        onClear={() => {
-          setSelfieFile(null);
-          if (selfiePreviewUrl) URL.revokeObjectURL(selfiePreviewUrl);
-          setSelfiePreviewUrl(null);
-        }}
-      />
-      <div className="flex gap-3 pt-2">
-        <Button variant="outline" onClick={() => setStep('personal')} className="flex-1">Back</Button>
-        <Button onClick={() => setStep('review')} disabled={!validateDocumentInfo()} className="flex-1 btn-premium text-white">Review</Button>
+        <h4 className="text-sm font-semibold text-white">Document Verification</h4>
+      </div>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-white/40">Document Type</Label>
+            <Select value={formData.documentType} onValueChange={(val) => handleInputChange('documentType', val)}>
+              <SelectTrigger className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                {DOCUMENT_TYPES.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-white/40">Document Number</Label>
+            <Input 
+              placeholder="Enter ID number" 
+              value={formData.documentNumber} 
+              onChange={(e) => handleInputChange('documentNumber', e.target.value)}
+              className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/20 font-mono"
+            />
+          </div>
+        </div>
+        {documentRequiresExpiry && (
+          <div className="space-y-2">
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-white/40">Expiry Date</Label>
+            <Input 
+              type="date" 
+              value={formData.documentExpiry} 
+              onChange={(e) => handleInputChange('documentExpiry', e.target.value)}
+              className="h-11 rounded-xl bg-white/[0.03] border-white/[0.08] text-white"
+            />
+          </div>
+        )}
+        <div className="space-y-4">
+          <DocumentUploadField
+            label="Government ID Document"
+            sublabel="Clear photo of passport page, driver's license front, or national ID card"
+            accept="image/*,.pdf"
+            previewUrl={documentPreviewUrl}
+            uploading={false}
+            error={null}
+            onFileSelect={(file) => {
+              setDocumentFile(file);
+              const url = URL.createObjectURL(file);
+              setDocumentPreviewUrl(url);
+            }}
+            onClear={() => {
+              setDocumentFile(null);
+              if (documentPreviewUrl) URL.revokeObjectURL(documentPreviewUrl);
+              setDocumentPreviewUrl(null);
+            }}
+          />
+          <DocumentUploadField
+            label="Biometric Selfie"
+            sublabel="Clear photo of your face holding your ID document next to it"
+            accept="image/*"
+            previewUrl={selfiePreviewUrl}
+            uploading={false}
+            error={null}
+            onFileSelect={(file) => {
+              setSelfieFile(file);
+              const url = URL.createObjectURL(file);
+              setSelfiePreviewUrl(url);
+            }}
+            onClear={() => {
+              setSelfieFile(null);
+              if (selfiePreviewUrl) URL.revokeObjectURL(selfiePreviewUrl);
+              setSelfiePreviewUrl(null);
+            }}
+          />
+        </div>
+      </div>
+      <div className="flex gap-3 pt-4">
+        <Button variant="outline" onClick={() => setStep('personal')} className="flex-1 h-11 rounded-xl border-white/10 text-white/60 hover:text-white hover:bg-white/5">Back</Button>
+        <Button onClick={() => setStep('review')} disabled={!validateDocumentInfo()} className="flex-1 h-11 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-400 hover:to-cyan-400 text-white font-bold">Review & Submit</Button>
       </div>
     </div>
   );
 
   const renderReview = () => (
-    <div className="space-y-4">
-      <div className="rounded-xl border bg-muted/20 p-4 space-y-3 text-sm">
-        <div><p className="text-xs text-muted-foreground">Full Name</p><p className="font-medium">{formData.fullName}</p></div>
-        <div><p className="text-xs text-muted-foreground">Document</p><p className="font-medium">{formData.documentType} ({formData.documentNumber})</p></div>
+    <div className="space-y-5">
+      <div className="flex items-center gap-2 pb-2 border-b border-white/[0.06]">
+        <div className="h-6 w-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+          <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+        </div>
+        <h4 className="text-sm font-semibold text-white">Review & Confirm</h4>
       </div>
-      <p className="text-xs text-muted-foreground">
-        By submitting, you confirm all information is accurate.
-      </p>
+      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pb-2 border-b border-white/[0.04]">
+            <User className="h-4 w-4 text-violet-400" />
+            <p className="text-xs font-bold uppercase tracking-wider text-white/30">Personal Details</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Full Name</p><p className="font-medium text-white/80">{formData.fullName}</p></div>
+            <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Date of Birth</p><p className="font-medium text-white/80">{formData.dateOfBirth}</p></div>
+            <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Nationality</p><p className="font-medium text-white/80">{formData.nationality}</p></div>
+            <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Country Code</p><p className="font-medium text-white/80">{formData.countryCode}</p></div>
+            <div className="col-span-2"><p className="text-[10px] text-white/30 uppercase tracking-wider">Residential Address</p><p className="font-medium text-white/80">{formData.address}</p></div>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pb-2 border-b border-white/[0.04]">
+            <FileText className="h-4 w-4 text-cyan-400" />
+            <p className="text-xs font-bold uppercase tracking-wider text-white/30">Document Information</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Document Type</p><p className="font-medium text-white/80">{formData.documentType}</p></div>
+            <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Document Number</p><p className="font-medium text-white/80 font-mono">{formData.documentNumber}</p></div>
+            {documentRequiresExpiry && (
+              <div><p className="text-[10px] text-white/30 uppercase tracking-wider">Expiry Date</p><p className="font-medium text-white/80">{formData.documentExpiry}</p></div>
+            )}
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pb-2 border-b border-white/[0.04]">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <p className="text-xs font-bold uppercase tracking-wider text-white/30">Uploaded Files</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-emerald-400" />
+              <p className="font-medium text-white/80">ID Document uploaded</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-emerald-400" />
+              <p className="font-medium text-white/80">Selfie uploaded</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="rounded-xl bg-amber-500/5 border border-amber-500/10 p-3">
+        <p className="text-[11px] text-amber-300/80 leading-relaxed">
+        <strong className="text-amber-300">Declaration:</strong> I confirm that all information provided is accurate and complete. I understand that false statements may result in account suspension and legal action.
+        </p>
+      </div>
       <div className="flex gap-3 pt-2">
-        <Button variant="outline" onClick={() => setStep('document')} disabled={isSubmitting} className="flex-1">Back</Button>
-        <Button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 btn-premium text-white">
-          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit for Review'}
+        <Button variant="outline" onClick={() => setStep('document')} disabled={isSubmitting} className="flex-1 h-11 rounded-xl border-white/10 text-white/60 hover:text-white hover:bg-white/5">Edit</Button>
+        <Button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 h-11 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-400 hover:to-cyan-400 text-white font-bold">
+          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit Verification'}
         </Button>
       </div>
     </div>
   );
 
   const renderSubmitted = () => (
-    <div className="flex flex-col items-center py-6 text-center gap-4">
-      <CheckCircle2 className="h-10 w-10 text-accent" />
-      <h3 className="text-lg font-semibold">Verification Submitted</h3>
-      <p className="text-sm text-muted-foreground">Our compliance team will review your documents. This usually takes 1-2 business days.</p>
-      <Button className="btn-premium text-white w-full" onClick={() => setOpen(false)}>Done</Button>
+    <div className="flex flex-col items-center py-8 text-center gap-5">
+      <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-5">
+        <CheckCircle2 className="h-12 w-12 text-emerald-400" />
+      </div>
+      <div className="space-y-2">
+        <h3 className="text-xl font-bold text-white">Verification Submitted</h3>
+        <p className="text-sm text-white/40 max-w-sm leading-relaxed">
+          Your identity verification has been submitted for review. Our compliance team will process your application within 1-2 business days.
+        </p>
+      </div>
+      <div className="w-full space-y-2">
+        <div className="rounded-xl bg-white/[0.02] border border-white/[0.06] p-4 text-left">
+          <div className="flex items-center gap-3">
+            <Clock className="h-4 w-4 text-violet-400" />
+            <div>
+              <p className="text-xs font-semibold text-white">Expected Processing Time</p>
+              <p className="text-[10px] text-white/30">1-2 business days</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl bg-white/[0.02] border border-white/[0.06] p-4 text-left">
+          <div className="flex items-center gap-3">
+            <Shield className="h-4 w-4 text-cyan-400" />
+            <div>
+              <p className="text-xs font-semibold text-white">Security Status</p>
+              <p className="text-[10px] text-white/30">Your documents are encrypted and secure</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <Button className="w-full h-12 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-400 hover:to-cyan-400 text-white font-bold" onClick={() => setOpen(false)}>Return to Dashboard</Button>
     </div>
   );
 
   if (kycStatus === 'PENDING') {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md border-white/[0.08] bg-[#0A0C12]/95 backdrop-blur-xl">
           <DialogHeader>
-            <DialogTitle>Identity Verification</DialogTitle>
-            <DialogDescription>Your identity verification is currently being reviewed.</DialogDescription>
+            <DialogTitle className="text-white">Identity Verification</DialogTitle>
+            <DialogDescription className="text-white/30">Your identity verification is currently being reviewed.</DialogDescription>
           </DialogHeader>
           {renderStatusView()}
         </DialogContent>
@@ -471,10 +605,10 @@ export default function KycVerificationModal({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md border-white/[0.08] bg-[#0A0C12]/95 backdrop-blur-xl">
         <DialogHeader>
-          <DialogTitle>{step === 'submitted' ? 'Verification Submitted' : 'Identity Verification'}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-white">{step === 'submitted' ? 'Verification Submitted' : 'Identity Verification'}</DialogTitle>
+          <DialogDescription className="text-white/30">
             {step === 'intro' && 'Follow the steps to complete your identity verification.'}
             {step === 'personal' && 'Please provide your personal information.'}
             {step === 'document' && 'Upload your identity document.'}
