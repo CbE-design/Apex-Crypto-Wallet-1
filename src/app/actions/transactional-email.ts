@@ -14,12 +14,12 @@ export const SENDERS = {
 
 // Resend Published Template IDs (Replace placeholder IDs with your IDs from Resend)
 export const TEMPLATE_IDS = {
-  withdrawalApproved: '278c260a-a540-4f29-ba8f-7fc550ad1e7a',
-  withdrawalPending: 'YOUR_WITHDRAWAL_PENDING_TEMPLATE_ID',
-  withdrawalRejected: 'YOUR_WITHDRAWAL_REJECTED_TEMPLATE_ID',
-  depositCredited: 'YOUR_DEPOSIT_CREDITED_TEMPLATE_ID',
-  transferReceived: 'YOUR_TRANSFER_RECEIVED_TEMPLATE_ID',
-  kycApproved: 'YOUR_KYC_APPROVED_TEMPLATE_ID',
+  withdrawalApproved: 'withdrawal-confirmation-2',
+  withdrawalPending: 'withdrawal-request',
+  withdrawalRejected: 'withdrawal-declined',
+  depositCredited: 'deposit-confirmation',
+  transferReceived: 'transfer-inbound',
+  kycApproved: 'identity-verified',
 };
 
 // Generic helper to send hosted Resend templates
