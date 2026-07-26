@@ -237,3 +237,6 @@ export async function sendKycApprovedEmail({
     },
   });
 }    
+
+// Alias for direct-send page compatibility
+export { sendDepositCreditedEmail as sendWalletCreditedEmail };
