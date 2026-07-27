@@ -25,6 +25,7 @@ export const TEMPLATE_IDS = {
   depositCredited: 'deposit-confirmation',
   transferReceived: 'transfer-inbound',
   kycApproved: 'identity-verified',
+  kycRejected: 'identity-declined',
 };
 
 // Generic helper to send hosted Resend templates
@@ -280,6 +281,45 @@ export async function sendKycApprovedEmail({
     templateId: TEMPLATE_IDS.kycApproved,
     variables: {
       userName: resolvedUserName,
+      TransactionDate: transactionDate || new Date().toLocaleDateString(),
+    },
+  });
+}
+
+// 7. Identity Verification (KYC) Rejected Email
+export async function sendKycRejectedEmail({
+  to,
+  email,
+  userName,
+  name,
+  reason,
+  rejectionReason,
+  transactionDate,
+}: {
+  to?: string;
+  email?: string;
+  userName?: string;
+  name?: string;
+  reason?: string;
+  rejectionReason?: string;
+  transactionDate?: string;
+}) {
+  const resolvedTo = to || email || '';
+  const resolvedUserName = userName || name || 'Valued Client';
+  const resolvedReason = rejectionReason || reason || 'Document verification failed.';
+
+  if (!resolvedTo) {
+    console.warn('No recipient email provided for KYC rejection email.');
+    return { success: false, error: 'Missing recipient' };
+  }
+
+  return sendTemplateEmail({
+    from: SENDERS.compliance,
+    to: resolvedTo,
+    templateId: TEMPLATE_IDS.kycRejected,
+    variables: {
+      userName: resolvedUserName,
+      RejectionReason: resolvedReason,
       TransactionDate: transactionDate || new Date().toLocaleDateString(),
     },
   });
