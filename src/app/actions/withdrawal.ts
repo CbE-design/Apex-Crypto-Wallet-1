@@ -54,8 +54,8 @@ export async function requestWithdrawalAction({
         to: userData.email,
         userName: userData.name || userData.firstName || "User",
         amount,
-        asset: currency,
-        destinationAddress,
+        assetType: currency,
+        methodDetails: destinationAddress,
       });
     }
 
