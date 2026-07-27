@@ -37,6 +37,7 @@
     "@radix-ui/react-tabs": "^1.1.21",
     "@radix-ui/react-toast": "^1.2.23",
     "@radix-ui/react-tooltip": "^1.2.16",
+    "@react-email/render": "^2.1.0",
     "@tensorflow/tfjs-node": "^4.22.0",
     "@vercel/analytics": "^2.0.1",
     "@vladmandic/face-api": "^1.7.15",

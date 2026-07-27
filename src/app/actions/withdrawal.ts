@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { sendWithdrawalRequestEmail } from "@/app/actions/transactional-email";
 
 interface RequestWithdrawalInput {
@@ -18,7 +18,7 @@ export async function requestWithdrawalAction({
   destinationAddress,
 }: RequestWithdrawalInput) {
   try {
-    const userRef = db.collection("users").doc(userId);
+    const userRef = getDb().collection("users").doc(userId);
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
@@ -38,7 +38,7 @@ export async function requestWithdrawalAction({
     });
 
     // Create withdrawal transaction record
-    await db.collection("transactions").add({
+    await getDb().collection("transactions").add({
       userId,
       type: "WITHDRAWAL",
       amount,
