@@ -43,11 +43,11 @@ export async function creditUserWalletAction({
 
     if (userData?.email) {
       await sendDepositCreditedEmail({
-        email: userData.email,
-        name: userData.name || userData.firstName || "User",
+        to: userData.email,
+        userName: userData.name || userData.firstName || "User",
         amount,
-        currency,
-        txHash: description || "ADMIN_DIRECT_CREDIT",
+        asset: currency,
+        notes: description || "ADMIN_DIRECT_CREDIT",
       });
     }
 
