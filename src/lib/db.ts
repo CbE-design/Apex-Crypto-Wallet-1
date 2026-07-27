@@ -1,4 +1,3 @@
-import { getFirestore } from "firebase-admin/firestore";
-import { app } from "./firebase-admin"; // Adjust to point to your existing Firebase init file
+import { firebaseAdmin } from "./firebase-admin";
 
-export const db = getFirestore(app);
+export const db = firebaseAdmin.firestore();
