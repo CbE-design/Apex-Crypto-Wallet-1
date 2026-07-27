@@ -9,29 +9,28 @@ import {
 
 export async function approveKycAction(userId: string) {
   try {
-    const user = await db.user.findUnique({
-      where: { id: userId },
-    });
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
 
-    if (!user || !user.email) {
-      return { success: false, error: "User not found or missing email address." };
+    if (!userDoc.exists) {
+      return { success: false, error: "User profile not found." };
     }
 
-    const updatedUser = await db.user.update({
-      where: { id: userId },
-      data: {
-        kycStatus: "APPROVED",
-        isKycVerified: true,
-      },
+    await userRef.update({
+      kycStatus: "APPROVED",
+      isKycVerified: true,
     });
 
-    await sendKycApprovedEmail({
-      email: user.email,
-      name: user.name || user.firstName || "User",
-    });
+    const userData = userDoc.data();
+    if (userData?.email) {
+      await sendKycApprovedEmail({
+        to: userData.email,
+        userName: userData.name || userData.firstName || "User",
+      });
+    }
 
     revalidatePath("/admin/kyc");
-    return { success: true, data: updatedUser };
+    return { success: true };
   } catch (error) {
     console.error("Error approving KYC:", error);
     return { success: false, error: "Failed to approve KYC application." };
@@ -40,30 +39,29 @@ export async function approveKycAction(userId: string) {
 
 export async function rejectKycAction(userId: string, reason?: string) {
   try {
-    const user = await db.user.findUnique({
-      where: { id: userId },
-    });
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
 
-    if (!user || !user.email) {
-      return { success: false, error: "User not found or missing email address." };
+    if (!userDoc.exists) {
+      return { success: false, error: "User profile not found." };
     }
 
-    const updatedUser = await db.user.update({
-      where: { id: userId },
-      data: {
-        kycStatus: "REJECTED",
-        isKycVerified: false,
-      },
+    await userRef.update({
+      kycStatus: "REJECTED",
+      isKycVerified: false,
     });
 
-    await sendKycRejectedEmail({
-      email: user.email,
-      name: user.name || user.firstName || "User",
-      reason: reason || "Document verification failed.",
-    });
+    const userData = userDoc.data();
+    if (userData?.email) {
+      await sendKycRejectedEmail({
+        to: userData.email,
+        userName: userData.name || userData.firstName || "User",
+        reason: reason || "Document verification failed.",
+      });
+    }
 
     revalidatePath("/admin/kyc");
-    return { success: true, data: updatedUser };
+    return { success: true };
   } catch (error) {
     console.error("Error rejecting KYC:", error);
     return { success: false, error: "Failed to reject KYC application." };
