@@ -13,7 +13,7 @@ import { getAdminFirestore, firebaseAdmin } from '@/lib/firebase-admin';
  * /api/auth/wallet-token which is called directly by wallet-context.tsx.
  * This flow exists for server-action / Genkit pipeline usage.
  */
-export const getAuthToken = ai.defineFlow(
+const getAuthTokenFlow = ai.defineFlow(
   {
     name: 'getAuthToken',
     inputSchema: z.object({ address: z.string() }),
@@ -50,3 +50,7 @@ export const getAuthToken = ai.defineFlow(
     return { token, isReturningUser };
   },
 );
+
+export async function getAuthToken(input: { address: string }): Promise<{ token: string; isReturningUser: boolean }> {
+  return getAuthTokenFlow(input);
+}

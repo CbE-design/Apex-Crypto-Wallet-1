@@ -1,32 +1,14 @@
+'use server';
+
 import { Resend } from 'resend';
+import { SENDERS, TEMPLATE_IDS } from '@/lib/email-config';
 
 // Initialize Resend directly from environment variables
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-// Dedicated sender identities under your verified domain apex-crypto.co.uk
-export const SENDERS = {
-  withdrawals: 'Apex Withdrawals <withdrawals@apex-crypto.co.uk>',
-  deposits: 'Apex Ledger <deposits@apex-crypto.co.uk>',
-  transfers: 'Apex Transfers <transfers@apex-crypto.co.uk>',
-  compliance: 'Apex Compliance <compliance@apex-crypto.co.uk>',
-  security: 'Apex Security <security@apex-crypto.co.uk>',
-  support: 'Apex Support <support@apex-crypto.co.uk>',
-};
-
-// Resend Published Template Slugs / IDs
-export const TEMPLATE_IDS = {
-  withdrawalApproved: 'withdrawal-confirmation-2',
-  withdrawalPending: 'withdrawal-request',
-  withdrawalRejected: 'withdrawal-declined',
-  depositCredited: 'deposit-confirmation',
-  transferReceived: 'transfer-inbound',
-  kycApproved: 'identity-verified',
-  kycRejected: 'identity-declined',
-};
-
-// Generic helper to send hosted Resend templates
+// Generic helper to send hosted Resend templates (private — not exported)
 async function sendTemplateEmail({
   from,
   to,
