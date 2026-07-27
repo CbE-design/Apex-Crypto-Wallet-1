@@ -1,6 +1,6 @@
 // src/app/api/transfer/route.ts
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { sendTransferReceivedEmail } from "@/app/actions/transactional-email";
 
 export async function POST(req: Request) {
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     }
 
     // Prepare refs
-    const senderRef = db.collection("users").doc(senderId);
+    const senderRef = getDb().collection("users").doc(senderId);
 
     // Read sender doc to get email (for self-transfer check)
     const senderDocSnapshot = await senderRef.get();
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     }
 
     // Find recipient by email
-    const recipientQuery = await db
+    const recipientQuery = await getDb()
       .collection("users")
       .where("email", "==", cleanRecipientEmail)
       .limit(1)
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     const recipientRef = recipientDocSnapshot.ref;
 
     // 2. Perform Firestore transaction for atomic update + create transaction records
-    await db.runTransaction(async (transaction) => {
+    await getDb().runTransaction(async (transaction) => {
       const senderSnapshot = await transaction.get(senderRef);
       const recipientSnapshot = await transaction.get(recipientRef);
 
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
       });
 
       // Create transaction records (use new doc refs)
-      const txsCollection = db.collection("transactions");
+      const txsCollection = getDb().collection("transactions");
       const senderTxRef = txsCollection.doc();
       const recipientTxRef = txsCollection.doc();
 

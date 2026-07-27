@@ -1,6 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
+    // Prevent webpack from bundling these heavy native/CJS packages on the
+    // server — Node.js will require() them at runtime instead.
+    // (Next.js 14 uses `serverComponentsExternalPackages`; renamed in v15)
+    serverComponentsExternalPackages: [
+      '@vladmandic/face-api',
+      'canvas',
+      'tesseract.js',
+      '@tensorflow/tfjs-node',
+      '@opentelemetry/sdk-node',
+      '@opentelemetry/instrumentation',
+      'require-in-the-middle',
+      'firebase-admin',
+      '@google-cloud/firestore',
+    ],
     serverActions: {
       bodySizeLimit: '2mb',
       allowedOrigins: [

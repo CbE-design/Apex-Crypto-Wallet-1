@@ -61,7 +61,7 @@ export default function Withdrawal({
         userId: userId || "",
         amount: numericAmount,
         currency,
-        destination: `Method: ${paymentMethod.toUpperCase()} | Destination: ${destination}`,
+        destinationAddress: `Method: ${paymentMethod.toUpperCase()} | Destination: ${destination}`,
       });
 
       if (response.success) {

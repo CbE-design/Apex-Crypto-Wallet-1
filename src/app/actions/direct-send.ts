@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { sendDepositCreditedEmail } from "@/app/actions/transactional-email";
 
 interface CreditWalletInput {
@@ -18,7 +18,7 @@ export async function creditUserWalletAction({
   description,
 }: CreditWalletInput) {
   try {
-    const userRef = db.collection("users").doc(userId);
+    const userRef = getDb().collection("users").doc(userId);
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
@@ -31,7 +31,7 @@ export async function creditUserWalletAction({
 
     await userRef.update({ balance: newBalance });
 
-    await db.collection("transactions").add({
+    await getDb().collection("transactions").add({
       userId,
       type: "CREDIT",
       amount,

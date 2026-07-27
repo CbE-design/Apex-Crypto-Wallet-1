@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
   sendKycApprovedEmail,
   sendKycRejectedEmail,
@@ -9,7 +9,7 @@ import {
 
 export async function approveKycAction(userId: string) {
   try {
-    const userRef = db.collection("users").doc(userId);
+    const userRef = getDb().collection("users").doc(userId);
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
@@ -39,7 +39,7 @@ export async function approveKycAction(userId: string) {
 
 export async function rejectKycAction(userId: string, reason?: string) {
   try {
-    const userRef = db.collection("users").doc(userId);
+    const userRef = getDb().collection("users").doc(userId);
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
