@@ -126,14 +126,13 @@ export async function POST(req: Request) {
         const senderDisplayName =
           senderData.name || senderData.firstName || senderEmail || "A user";
 
-        await sendTransferReceivedEmail({
-          email: recipientData.email,
-          name: recipientData.name || recipientData.firstName || "User",
-          senderName: senderDisplayName,
-          amount: numericAmount,
-          currency,
-          note,
-        });
+      await sendTransferReceivedEmail({
+  to: recipientData.email,
+  userName: recipientData.name || recipientData.firstName || "User",
+  senderName: senderDisplayName,
+  amount: numericAmount,
+  // ... other parameters
+}); 
       } catch (emailErr) {
         console.error("Failed to send transfer received email:", emailErr);
         // Consider enqueueing a retry job or setting a flag in DB for later processing
