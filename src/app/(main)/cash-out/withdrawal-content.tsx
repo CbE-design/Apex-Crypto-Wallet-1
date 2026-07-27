@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { useKycVerification } from '@/hooks/use-kyc-verification';
-import { WithdrawalForm } from '@/components/withdrawal-form';
+import  WithdrawalForm  from '@/components/withdrawal-form';
 import { WithdrawalHistory } from '@/components/withdrawal-history';
 import { KycStatusAlert } from '@/components/kyc-status-alert';
 import { Loader2, ChevronDown } from 'lucide-react';
