@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { sendWithdrawalRequestedEmail } from "@/app/actions/transactional-email";
+import { sendWithdrawalRequestEmail } from "@/app/actions/transactional-email";
 
 interface RequestWithdrawalInput {
   userId: string;
@@ -50,7 +50,7 @@ export async function requestWithdrawalAction({
 
     // Send confirmation email if user has email address
     if (userData?.email) {
-      await sendWithdrawalRequestedEmail({
+      await sendWithdrawalRequestEmail({
         to: userData.email,
         userName: userData.name || userData.firstName || "User",
         amount,
