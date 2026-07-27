@@ -2,157 +2,69 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import {
-  sendWithdrawalPendingEmail,
-  sendWithdrawalApprovedEmail,
-  sendWithdrawalRejectedEmail,
-} from "@/app/actions/transactional-email";
+import { sendWithdrawalRequestedEmail } from "@/app/actions/transactional-email";
 
-// 1. USER ACTION: Request Withdrawal
 interface RequestWithdrawalInput {
   userId: string;
   amount: number;
   currency: string;
-  destination: string;
+  destinationAddress: string;
 }
 
 export async function requestWithdrawalAction({
   userId,
   amount,
   currency,
-  destination,
+  destinationAddress,
 }: RequestWithdrawalInput) {
   try {
-    const user = await db.user.findUnique({
-      where: { id: userId },
-    });
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
 
-    if (!user || !user.email) {
-      return { success: false, error: "User account not found." };
+    if (!userDoc.exists) {
+      return { success: false, error: "User profile not found." };
     }
 
-    if (user.balance < amount) {
+    const userData = userDoc.data();
+    const currentBalance = userData?.balance || 0;
+
+    if (currentBalance < amount) {
       return { success: false, error: "Insufficient account balance." };
     }
 
-    const transaction = await db.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: userId },
-        data: { balance: { decrement: amount } },
-      });
-
-      return await tx.transaction.create({
-        data: {
-          userId,
-          type: "WITHDRAWAL",
-          amount,
-          currency,
-          status: "PENDING",
-          description: destination,
-        },
-      });
+    // Deduct balance
+    await userRef.update({
+      balance: currentBalance - amount,
     });
 
-    await sendWithdrawalPendingEmail({
-      email: user.email,
-      name: user.name || user.firstName || "User",
+    // Create withdrawal transaction record
+    await db.collection("transactions").add({
+      userId,
+      type: "WITHDRAWAL",
       amount,
       currency,
-      destination,
+      status: "PENDING",
+      destinationAddress,
+      createdAt: new Date().toISOString(),
     });
+
+    // Send confirmation email if user has email address
+    if (userData?.email) {
+      await sendWithdrawalRequestedEmail({
+        to: userData.email,
+        userName: userData.name || userData.firstName || "User",
+        amount,
+        asset: currency,
+        destinationAddress,
+      });
+    }
 
     revalidatePath("/dashboard");
     revalidatePath("/withdraw");
 
-    return { success: true, data: transaction };
-  } catch (error) {
-    console.error("Error submitting withdrawal request:", error);
-    return { success: false, error: "Failed to submit withdrawal request." };
-  }
-}
-
-// 2. ADMIN ACTION: Approve Withdrawal
-export async function approveWithdrawalAction(withdrawalId: string) {
-  try {
-    const withdrawal = await db.transaction.findUnique({
-      where: { id: withdrawalId },
-      include: { user: true },
-    });
-
-    if (!withdrawal || !withdrawal.user?.email) {
-      return { success: false, error: "Withdrawal request or user email not found." };
-    }
-
-    if (withdrawal.status !== "PENDING") {
-      return { success: false, error: "This request has already been processed." };
-    }
-
-    const updatedWithdrawal = await db.transaction.update({
-      where: { id: withdrawalId },
-      data: { status: "COMPLETED" },
-    });
-
-    await sendWithdrawalApprovedEmail({
-      email: withdrawal.user.email,
-      name: withdrawal.user.name || withdrawal.user.firstName || "User",
-      amount: withdrawal.amount,
-      currency: withdrawal.currency || "USD",
-      destination: withdrawal.description || "External Wallet / Bank Account",
-    });
-
-    revalidatePath("/admin/withdrawals");
-    return { success: true, data: updatedWithdrawal };
-  } catch (error) {
-    console.error("Error approving withdrawal:", error);
-    return { success: false, error: "Failed to approve withdrawal." };
-  }
-}
-
-// 3. ADMIN ACTION: Reject Withdrawal
-export async function rejectWithdrawalAction(
-  withdrawalId: string,
-  reason?: string
-) {
-  try {
-    const withdrawal = await db.transaction.findUnique({
-      where: { id: withdrawalId },
-      include: { user: true },
-    });
-
-    if (!withdrawal || !withdrawal.user?.email) {
-      return { success: false, error: "Withdrawal request or user email not found." };
-    }
-
-    if (withdrawal.status !== "PENDING") {
-      return { success: false, error: "This request has already been processed." };
-    }
-
-    await db.$transaction([
-      db.user.update({
-        where: { id: withdrawal.userId },
-        data: { balance: { increment: withdrawal.amount } },
-      }),
-      db.transaction.update({
-        where: { id: withdrawalId },
-        data: {
-          status: "REJECTED",
-          description: reason ? `Rejected: ${reason}` : withdrawal.description,
-        },
-      }),
-    ]);
-
-    await sendWithdrawalRejectedEmail({
-      email: withdrawal.user.email,
-      name: withdrawal.user.name || withdrawal.user.firstName || "User",
-      amount: withdrawal.amount,
-      currency: withdrawal.currency || "USD",
-      reason: reason || "Compliance verification failure or invalid payout details.",
-    });
-
-    revalidatePath("/admin/withdrawals");
     return { success: true };
   } catch (error) {
-    console.error("Error rejecting withdrawal:", error);
-    return { success: false, error: "Failed to reject withdrawal." };
+    console.error("Error processing withdrawal request:", error);
+    return { success: false, error: "Failed to process withdrawal request." };
   }
 }
