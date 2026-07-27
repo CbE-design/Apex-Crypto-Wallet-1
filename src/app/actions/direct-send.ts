@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
+import { FieldValue } from "firebase-admin/firestore";
 import { sendDepositCreditedEmail } from "@/app/actions/transactional-email";
 
 interface CreditWalletInput {
@@ -12,31 +13,32 @@ interface CreditWalletInput {
   description?: string;
 }
 
-/** Resolve a user document by doc-ID, email, or walletAddress field. */
+/** Resolve a user document by email first, then walletAddress, then doc-ID. */
 async function resolveUserDoc(identifier: string) {
   const db = getDb();
+  const trimmed = identifier.toLowerCase().trim();
 
-  // 1. Try direct doc-ID lookup first (fast path)
-  const byId = await db.collection("users").doc(identifier).get();
-  if (byId.exists) return byId;
-
-  // 2. Email lookup
-  if (identifier.includes("@")) {
+  // 1. Email lookup (primary — most reliable for admin use)
+  if (trimmed.includes("@")) {
     const snap = await db
       .collection("users")
-      .where("email", "==", identifier.toLowerCase().trim())
+      .where("email", "==", trimmed)
       .limit(1)
       .get();
     if (!snap.empty) return snap.docs[0];
   }
 
-  // 3. Wallet address lookup (case-insensitive)
+  // 2. Wallet address lookup
   const snapWallet = await db
     .collection("users")
-    .where("walletAddress", "==", identifier)
+    .where("walletAddress", "==", identifier.trim())
     .limit(1)
     .get();
   if (!snapWallet.empty) return snapWallet.docs[0];
+
+  // 3. Fallback: direct doc-ID lookup
+  const byId = await db.collection("users").doc(identifier.trim()).get();
+  if (byId.exists) return byId;
 
   return null;
 }
@@ -48,44 +50,59 @@ export async function creditUserWalletAction({
   description,
 }: CreditWalletInput) {
   try {
+    if (!userId || !currency || !amount || amount <= 0) {
+      return { success: false, error: "Invalid input: userId, currency, and a positive amount are required." };
+    }
+
     const userDoc = await resolveUserDoc(userId);
 
     if (!userDoc) {
-      return { success: false, error: "User not found. Try the exact user ID, registered email, or wallet address." };
+      return {
+        success: false,
+        error: `No user found matching "${userId}". Try the exact email address, wallet address, or Firestore user ID.`,
+      };
     }
 
     const userData = userDoc.data();
     const resolvedId = userDoc.id;
-
-    // Credit the correct per-asset balance field (balances.<symbol>) and also
-    // keep the legacy top-level `balance` field in sync for USD-like assets.
     const db = getDb();
-    const userRef = db.collection("users").doc(resolvedId);
 
-    const balanceField = `balances.${currency}`;
-    const currentAssetBalance = userData?.[`balances`]?.[currency] ?? 0;
-    const newAssetBalance = currentAssetBalance + amount;
+    // ── 1. Credit the per-asset wallet subcollection ──────────────────────
+    // This is the exact path portfolio-overview.tsx and wallets/page.tsx read:
+    //   users/{uid}/wallets/{SYMBOL}  →  { balance, currency, ... }
+    const walletRef = db.collection("users").doc(resolvedId).collection("wallets").doc(currency);
+    await walletRef.set(
+      {
+        balance: FieldValue.increment(amount),
+        currency,
+        id: currency,
+        userId: resolvedId,
+      },
+      { merge: true },
+    );
 
-    await userRef.update({
-      [balanceField]: newAssetBalance,
-      // Keep legacy `balance` field for USD/EUR/GBP credits
-      ...(["USD", "EUR", "GBP"].includes(currency)
-        ? { balance: (userData?.balance || 0) + amount }
-        : {}),
-    });
-
-    await db.collection("transactions").add({
-      userId: resolvedId,
-      type: "CREDIT",
-      amount,
+    // ── 2. Record a transaction in the user's subcollection ───────────────
+    // transaction-history.tsx queries: users/{uid}/transactions
+    // orderBy('timestamp', 'desc'), expects type/status exactly as below.
+    const txRef = db.collection("users").doc(resolvedId).collection("transactions").doc();
+    await txRef.set({
+      type: "Internal Transfer",
       currency,
-      status: "COMPLETED",
-      description: description || "Direct admin wallet credit",
-      adminNote: description || "",
-      createdAt: new Date().toISOString(),
+      amount,
+      price: 0,                                      // fiat price unknown at credit time
+      status: "Completed",
+      timestamp: FieldValue.serverTimestamp(),
+      notes: description || "Admin direct wallet credit",
+      sender: "Apex Admin",
+      recipient: userData?.walletAddress || resolvedId,
+      metadata: {
+        travelRuleVerified: false,
+        complianceId: `ADMIN_CREDIT_${Date.now()}`,
+        protocol: "DIRECT_SEND",
+      },
     });
 
-    // Debit Whale Treasury
+    // ── 3. Debit Whale Treasury (best-effort) ─────────────────────────────
     try {
       const whalRef = db.collection("whale_treasury").doc("balances");
       const whalSnap = await whalRef.get();
@@ -98,24 +115,36 @@ export async function creditUserWalletAction({
       console.warn("[direct-send] Could not debit whale treasury:", whaleErr);
     }
 
-    // Fire email notification
+    // ── 4. Fire email notification (best-effort) ──────────────────────────
     if (userData?.email) {
-      await sendDepositCreditedEmail({
-        to: userData.email,
-        userName: userData.name || userData.firstName || "Valued Client",
-        amount,
-        asset: currency,
-        notes: description || "ADMIN_DIRECT_CREDIT",
-      });
+      try {
+        await sendDepositCreditedEmail({
+          to: userData.email,
+          userName: userData.name || userData.firstName || "Valued Client",
+          amount,
+          asset: currency,
+          notes: description || "ADMIN_DIRECT_CREDIT",
+        });
+      } catch (emailErr) {
+        console.warn("[direct-send] Email notification failed:", emailErr);
+      }
     }
 
+    // ── 5. Invalidate server-side cache so dashboards reflect new balance ──
+    revalidatePath("/dashboard");
+    revalidatePath("/wallets");
+    revalidatePath("/wallet");
     revalidatePath("/admin/direct-send");
     revalidatePath("/admin/whale");
-    revalidatePath("/dashboard");
+    revalidatePath("/admin/users");
 
-    return { success: true };
+    return {
+      success: true,
+      resolvedEmail: userData?.email,
+      resolvedUid: resolvedId,
+    };
   } catch (error) {
     console.error("[direct-send] Error crediting wallet:", error);
-    return { success: false, error: "Failed to credit user wallet." };
+    return { success: false, error: "Failed to credit user wallet. Check server logs for details." };
   }
 }
