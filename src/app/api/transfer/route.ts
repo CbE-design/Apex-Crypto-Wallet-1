@@ -1,4 +1,3 @@
-// src/app/api/transfer/route.ts
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { sendTransferReceivedEmail } from "@/app/actions/transactional-email";
@@ -28,10 +27,11 @@ export async function POST(req: Request) {
         { status: 404 }
       );
     }
+
     const senderData = senderDocSnapshot.data() || {};
     const senderEmail = (senderData.email || "").toString().toLowerCase();
-
     const cleanRecipientEmail = recipientEmail.toString().trim().toLowerCase();
+
     if (senderEmail && senderEmail === cleanRecipientEmail) {
       return NextResponse.json(
         { success: false, error: "You cannot transfer funds to yourself." },
@@ -71,24 +71,35 @@ export async function POST(req: Request) {
       const sender = senderSnapshot.data() || {};
       const recipient = recipientSnapshot.data() || {};
 
+      // Calculate flat balance updates
       const senderBalance = Number(sender.balance || 0);
       const recipientBalance = Number(recipient.balance || 0);
 
-      if (senderBalance < numericAmount) {
-        // Throwing will abort the transaction and bubble out to the catch below
+      // Calculate currency-specific wallet updates
+      const senderWallets = sender.wallets || {};
+      const recipientWallets = recipient.wallets || {};
+      const senderCurrencyBal = Number(senderWallets[currency] ?? senderBalance);
+      const recipientCurrencyBal = Number(recipientWallets[currency] ?? recipientBalance);
+
+      if (senderBalance < numericAmount && senderCurrencyBal < numericAmount) {
         throw new Error("Insufficient balance");
       }
 
-      // Update balances
-      transaction.update(senderRef, {
+      // Prepare updates for both flat balance and nested wallets object
+      const senderUpdates: Record<string, any> = {
         balance: senderBalance - numericAmount,
-      });
+        [`wallets.${currency}`]: senderCurrencyBal - numericAmount,
+      };
 
-      transaction.update(recipientRef, {
+      const recipientUpdates: Record<string, any> = {
         balance: recipientBalance + numericAmount,
-      });
+        [`wallets.${currency}`]: recipientCurrencyBal + numericAmount,
+      };
 
-      // Create transaction records (use new doc refs)
+      transaction.update(senderRef, senderUpdates);
+      transaction.update(recipientRef, recipientUpdates);
+
+      // Create transaction records
       const txsCollection = getDb().collection("transactions");
       const senderTxRef = txsCollection.doc();
       const recipientTxRef = txsCollection.doc();
@@ -99,9 +110,7 @@ export async function POST(req: Request) {
         amount: numericAmount,
         currency,
         status: "COMPLETED",
-        description: `Sent to ${recipient.email || cleanRecipientEmail}${
-          note ? ` - Note: ${note}` : ""
-        }`,
+        description: `Sent to ${recipient.email || cleanRecipientEmail}${note ? ` - Note: ${note}` : ""}`,
         createdAt: new Date().toISOString(),
       });
 
@@ -111,46 +120,37 @@ export async function POST(req: Request) {
         amount: numericAmount,
         currency,
         status: "COMPLETED",
-        description: `Received from ${sender.email || senderEmail}${
-          note ? ` - Note: ${note}` : ""
-        }`,
+        description: `Received from ${sender.email || senderEmail}${note ? ` - Note: ${note}` : ""}`,
         createdAt: new Date().toISOString(),
       });
     });
 
-    // 3. Send notification email to recipient (do not make the transaction depend on email success)
+    // 3. Send notification email to recipient
     (async () => {
       try {
-        // Use recipient snapshot from earlier query for name/email
         const recipientData = recipientDocSnapshot.data() || {};
-        const senderDisplayName =
-          senderData.name || senderData.firstName || senderEmail || "A user";
+        const senderDisplayName = senderData.name || senderData.firstName || senderEmail || "A user";
 
-      await sendTransferReceivedEmail({
-  to: recipientData.email,
-  userName: recipientData.name || recipientData.firstName || "User",
-  senderName: senderDisplayName,
-  amount: numericAmount,
-  // ... other parameters
-}); 
+        await sendTransferReceivedEmail({
+          to: recipientData.email,
+          userName: recipientData.name || recipientData.firstName || "User",
+          senderName: senderDisplayName,
+          amount: numericAmount,
+        });
       } catch (emailErr) {
         console.error("Failed to send transfer received email:", emailErr);
-        // Consider enqueueing a retry job or setting a flag in DB for later processing
       }
     })();
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Transfer API error:", error);
-
-    // Map some known errors to 400
     if (error?.message === "Insufficient balance") {
       return NextResponse.json(
         { success: false, error: "Sender not found or insufficient balance." },
         { status: 400 }
       );
     }
-
     return NextResponse.json(
       { success: false, error: "Internal server error." },
       { status: 500 }
