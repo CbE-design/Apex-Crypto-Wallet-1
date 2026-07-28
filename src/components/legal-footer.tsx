@@ -36,8 +36,8 @@ export function LegalFooter() {
             © {new Date().getFullYear()} Apex Wallet (Pty) Ltd. All rights reserved.
           </p>
           <p className="text-[9px] text-muted-foreground/30 max-w-xl mx-auto leading-relaxed">
-            Apex Wallet operates in compliance with the Financial Intelligence Centre Act (FICA) No. 38 of 2001, the Financial Sector Regulation Act (FSRA), the Protection of Personal Information Act (POPIA), and applicable FATF Travel Rule obligations. Crypto asset services are subject to regulatory oversight by the Financial Sector Conduct Authority (FSCA).
-          </p>
+  Apex Wallet operates in compliance with the Financial Intelligence Centre Act (FICA) No. 38 of 2001 and the Protection of Personal Information Act (POPIA). Apex Wallet is a non-custodial software provider and does not hold user assets.
+</p>
         </div>
       </div>
     </footer>
