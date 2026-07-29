@@ -1,11 +1,10 @@
 # Apex Wallet
-Apex Wallet public legal, compliance, and login pages.
+Apex Wallet is a non-custodial crypto wallet software application. Public legal and login pages.
 
 Canonical: https://apexwallet.app
 
 /login - Public login and wallet access page
 /coming-soon - Public placeholder page for unreleased features
-/legal/terms - Terms of Service (FICA, FSCA, SARB, POCA compliant)
-/legal/privacy - Privacy Policy (POPIA No. 4 of 2013 compliant)
-/legal/risk-disclosure - Risk Disclosure Statement (FSCA guidelines)
-/legal/aml-policy - AML, FICA and Compliance Policy (FATF Travel Rule, CARF, sanctions screening)
+/legal/terms - Terms of Service (non-custodial software; not a bank, exchange, or regulated financial provider)
+/legal/privacy - Privacy Policy (minimal data; no identity verification)
+/legal/risk-disclosure - Risk Disclosure Statement (self-custody and crypto risks)

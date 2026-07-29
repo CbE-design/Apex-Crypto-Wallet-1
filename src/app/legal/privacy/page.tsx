@@ -44,7 +44,7 @@ const jsonLd = {
       contactType: 'privacy',
     },
   },
-  about: ['Privacy Policy', 'POPIA', 'Data Protection', 'Cryptocurrency wallet', 'South Africa'],
+  about: ['Privacy Policy', 'Data Protection', 'Cryptocurrency wallet', 'Non-custodial software'],
 };
 
 export default function PrivacyPage() {
@@ -65,84 +65,71 @@ export default function PrivacyPage() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Calendar className="h-3.5 w-3.5" />
             <time dateTime="2026-01-01">Last updated: 1 January 2026</time>
-            <span>| POPIA Compliant</span>
+            <span>| Minimal data</span>
           </div>
           <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-sm text-blue-200/80">
-            <strong className="text-blue-300">POPIA Notice:</strong> This Privacy Policy is issued in compliance with the Protection of Personal Information Act (POPIA) No. 4 of 2013. Apex Wallet (Pty) Ltd is the Responsible Party for your personal information. Our Information Officer can be reached at privacy@apexwallet.co.za.
+            <strong className="text-blue-300">Privacy at a glance:</strong> Apex Wallet is non-custodial software. Your keys and funds stay on your device — we never see them. We collect only the minimal data needed to run the app and, if you opt in, to send notifications. We do not collect identity documents and do not run identity verification.
           </div>
         </div>
 
         <Section title="1. Who We Are">
-          <p><strong className="text-foreground">Apex Wallet (Pty) Ltd</strong> ("Apex Wallet", "we", "us", "our") is a South African registered company that provides a self-custodial cryptocurrency wallet and financial services platform. We are committed to protecting your privacy and processing your personal information in a lawful, fair, and transparent manner.</p>
+          <p><strong className="text-foreground">Apex Wallet</strong> ("Apex Wallet", "we", "us", "our") is the publisher of the Apex Wallet non-custodial software application. We are not a bank, exchange, or financial institution. We are committed to protecting your privacy and handling any data we do collect in a lawful, fair, and transparent way.</p>
         </Section>
 
-        <Section title="2. Personal Information We Collect">
-          <p><strong className="text-foreground">Identity Information:</strong> Full legal name, date of birth, nationality, government-issued ID number, passport details, driving licence information.</p>
-          <p><strong className="text-foreground">Contact Information:</strong> Email address, phone number, physical and postal address.</p>
-          <p><strong className="text-foreground">Financial Information:</strong> Bank account details, IBAN, SWIFT codes, transaction history, portfolio balances, wallet addresses.</p>
-          <p><strong className="text-foreground">KYC Documentation:</strong> Copies of identity documents, proof of address, selfie/liveness verification images submitted during onboarding.</p>
-          <p><strong className="text-foreground">Technical Information:</strong> IP addresses, device identifiers, browser type, operating system, access logs, cookies.</p>
-          <p><strong className="text-foreground">Behavioural Information:</strong> Platform usage patterns, feature interactions, transaction patterns (for fraud detection and compliance monitoring).</p>
+        <Section title="2. Information We Collect">
+          <p>Because Apex Wallet is non-custodial, your seed phrase, private keys, PIN, and funds are stored on your own device and are <strong className="text-foreground">never transmitted to or accessible by us</strong>. We collect only:</p>
+          <p><strong className="text-foreground">Optional Contact Information:</strong> An email address, only if you choose to provide one to receive deposit/withdrawal notifications.</p>
+          <p><strong className="text-foreground">Public Wallet Data:</strong> Public wallet addresses and on-chain activity, which are already public on the blockchain, used to display your balances and history in the app.</p>
+          <p><strong className="text-foreground">Technical Information:</strong> Basic device and app data such as app version, error logs, and access logs, used to keep the software working and secure.</p>
+          <p className="mt-2">We do <strong className="text-foreground">not</strong> collect identity documents, proof of address, selfies, bank account details, or run any KYC/identity verification.</p>
         </Section>
 
-        <Section title="3. Legal Basis for Processing (POPIA Conditions)">
-          <p>We process your personal information on the following legal grounds under POPIA:</p>
+        <Section title="3. Why We Process Data">
+          <p>We only process the limited data above to:</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li><strong className="text-foreground">Contractual necessity:</strong> To provide the services you have requested;</li>
-            <li><strong className="text-foreground">Legal obligation:</strong> To comply with FICA, POCA, FSRA, SARB regulations, and FATF Travel Rule requirements;</li>
-            <li><strong className="text-foreground">Legitimate interests:</strong> To detect fraud, prevent money laundering, and ensure platform security;</li>
-            <li><strong className="text-foreground">Consent:</strong> For marketing communications, where separately obtained.</li>
+            <li><strong className="text-foreground">Provide the software:</strong> Display your wallet balances, history, and prices;</li>
+            <li><strong className="text-foreground">Notify you (opt-in):</strong> Send transaction notifications to the email you provide;</li>
+            <li><strong className="text-foreground">Maintain security:</strong> Detect errors, prevent abuse, and keep the app reliable.</li>
           </ul>
         </Section>
 
-        <Section title="4. How We Use Your Personal Information">
+        <Section title="4. How We Use Your Information">
           <ul className="list-disc pl-5 space-y-1">
-            <li>Account creation, verification, and management;</li>
-            <li>Processing transactions and executing crypto asset operations;</li>
-            <li>Identity verification and KYC/AML compliance screening;</li>
-            <li>Risk assessment, fraud detection, and suspicious activity reporting to the FIC;</li>
-            <li>Sending transaction confirmations, security alerts, and regulatory notices;</li>
-            <li>Responding to your support queries and complaints;</li>
-            <li>Improving platform functionality and user experience;</li>
-            <li>Complying with court orders, regulatory requests, or law enforcement obligations;</li>
-            <li>Sending marketing communications (only with your explicit consent).</li>
+            <li>Running the wallet software and displaying your on-chain data;</li>
+            <li>Sending optional notifications to an email you choose to provide;</li>
+            <li>Diagnosing errors and improving app functionality and user experience;</li>
+            <li>Protecting the app and its users from abuse or security threats.</li>
           </ul>
+          <p>We do not use your data for identity verification, credit decisions, or automated profiling.</p>
         </Section>
 
-        <Section title="5. Information Sharing and Disclosure">
-          <p>We do not sell your personal information. We may share your information with:</p>
+        <Section title="5. Information Sharing">
+          <p>We do not sell your personal information. We share the limited data we hold only with:</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li><strong className="text-foreground">Regulatory Authorities:</strong> The Financial Intelligence Centre (FIC), South African Revenue Service (SARS), Financial Sector Conduct Authority (FSCA), South African Reserve Bank (SARB), and law enforcement agencies as required by law;</li>
-            <li><strong className="text-foreground">KYC Providers:</strong> Third-party identity verification and screening services (under strict data processing agreements);</li>
-            <li><strong className="text-foreground">Banking Partners:</strong> For processing EFT and SWIFT transactions;</li>
-            <li><strong className="text-foreground">Cloud Service Providers:</strong> Including Google Firebase for platform infrastructure;</li>
-            <li><strong className="text-foreground">Professional Advisors:</strong> Legal, audit, and compliance professionals under confidentiality obligations;</li>
-            <li><strong className="text-foreground">Travel Rule Recipients:</strong> Where crypto transfers trigger FATF Travel Rule obligations, beneficiary information may be shared with receiving Virtual Asset Service Providers (VASPs).</li>
+            <li><strong className="text-foreground">Infrastructure Providers:</strong> Cloud and email service providers (e.g. Google Firebase) strictly to operate the app and send notifications you opted into;</li>
+            <li><strong className="text-foreground">Legal Requests:</strong> Only where we are legally compelled by a valid court order or lawful request — and we can only ever share the minimal data we actually hold, which does not include your keys or funds.</li>
           </ul>
-          <p>International transfers of personal information are conducted only to jurisdictions with adequate data protection frameworks or under appropriate safeguards.</p>
+          <p>Note: your on-chain transactions are inherently public on the blockchain and are visible to anyone, independent of this app.</p>
         </Section>
 
         <Section title="6. Data Retention">
-          <p>We retain your personal information for the following periods:</p>
+          <p>We keep data only as long as needed:</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li><strong className="text-foreground">Account and KYC Records:</strong> 5 years after account closure (as required by FICA);</li>
-            <li><strong className="text-foreground">Transaction Records:</strong> 5 years from the date of the transaction;</li>
-            <li><strong className="text-foreground">Suspicious Activity Reports:</strong> As required by the FIC;</li>
-            <li><strong className="text-foreground">Technical Logs:</strong> Up to 12 months for security purposes.</li>
+            <li><strong className="text-foreground">Notification Email:</strong> Until you remove it or stop using the app;</li>
+            <li><strong className="text-foreground">Technical Logs:</strong> Up to 12 months for security and diagnostics.</li>
           </ul>
-          <p>After the applicable retention period, your information will be securely deleted or anonymised.</p>
+          <p>You can ask us to delete the email you provided at any time. On-chain data cannot be deleted by us as it lives on public blockchains.</p>
         </Section>
 
-        <Section title="7. Your Rights Under POPIA">
-          <p>As a data subject, you have the following rights:</p>
+        <Section title="7. Your Rights">
+          <p>You have the right to:</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li><strong className="text-foreground">Right of Access:</strong> Request a copy of the personal information we hold about you;</li>
-            <li><strong className="text-foreground">Right to Correction:</strong> Request correction of inaccurate or incomplete information;</li>
-            <li><strong className="text-foreground">Right to Deletion:</strong> Request deletion of your information (subject to legal retention obligations);</li>
-            <li><strong className="text-foreground">Right to Object:</strong> Object to processing for direct marketing purposes at any time;</li>
-            <li><strong className="text-foreground">Right to Complain:</strong> Lodge a complaint with the Information Regulator of South Africa.</li>
+            <li><strong className="text-foreground">Access:</strong> Ask what data we hold about you;</li>
+            <li><strong className="text-foreground">Correction:</strong> Ask us to correct inaccurate information;</li>
+            <li><strong className="text-foreground">Deletion:</strong> Ask us to delete the email you provided;</li>
+            <li><strong className="text-foreground">Object:</strong> Opt out of notifications at any time.</li>
           </ul>
-          <p>To exercise any of these rights, contact our Information Officer at <span className="text-foreground font-mono">privacy@apexwallet.co.za</span>.</p>
+          <p>To exercise any of these rights, contact us at <span className="text-foreground font-mono">privacy@apexwallet.app</span>.</p>
         </Section>
 
         <Section title="8. Security Measures">
@@ -166,14 +153,11 @@ export default function PrivacyPage() {
           <p>The Platform is not intended for use by individuals under 18 years of age. We do not knowingly collect personal information from minors. If we become aware that a minor has provided personal information, we will take steps to delete such information promptly.</p>
         </Section>
 
-        <Section title="11. Contact — Information Officer">
+        <Section title="11. Contact">
           <address className="not-italic p-4 rounded-xl bg-muted/20 border border-border/40 space-y-1 font-mono text-xs">
-            <p><strong className="text-foreground">Information Officer — Apex Wallet (Pty) Ltd</strong></p>
-            <p>Email: <a href="mailto:privacy@apexwallet.co.za">privacy@apexwallet.co.za</a></p>
-            <p>Postal Address: South Africa</p>
-            <p className="mt-2"><strong className="text-foreground">Information Regulator (South Africa)</strong></p>
-            <p>Website: www.justice.gov.za/inforeg</p>
-            <p>Email: <a href="mailto:inforeg@justice.gov.za">inforeg@justice.gov.za</a></p>
+            <p><strong className="text-foreground">Apex Wallet — Privacy</strong></p>
+            <p>Email: <a href="mailto:privacy@apexwallet.app">privacy@apexwallet.app</a></p>
+            <p>Non-custodial software provider</p>
           </address>
         </Section>
       </article>

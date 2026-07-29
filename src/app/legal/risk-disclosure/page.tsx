@@ -48,7 +48,7 @@ const jsonLd = {
     name: 'Apex Wallet (Pty) Ltd',
     url: 'https://apexwallet.co.za',
   },
-  about: ['Risk Disclosure', 'Cryptocurrency risk', 'FSCA', 'Investment risk', 'South Africa'],
+  about: ['Risk Disclosure', 'Cryptocurrency risk', 'Self-custody', 'Non-custodial software'],
 };
 
 export default function RiskDisclosurePage() {
@@ -76,8 +76,8 @@ export default function RiskDisclosurePage() {
         </div>
 
         <Section title="1. Nature of This Disclosure">
-          <p>This Risk Disclosure Statement is provided in compliance with the <strong className="text-foreground">Financial Sector Conduct Authority (FSCA) requirements</strong> and international best practices for crypto asset service providers. It is intended to inform you of the material risks associated with using the Apex Wallet platform and transacting in crypto assets.</p>
-          <p>This disclosure is not exhaustive. Crypto assets are novel and rapidly evolving instruments, and new risks may emerge that are not described herein. You should seek independent professional advice if you are uncertain about any aspect of crypto asset investment.</p>
+          <p>Apex Wallet is a <strong className="text-foreground">non-custodial software application</strong> — a tool that lets you manage your own crypto keys. We are not a bank, exchange, broker, or financial services provider, and we do not offer regulated financial products or advice. This statement is provided voluntarily to inform you of the material risks of self-custody and of holding or transacting in crypto assets using the software.</p>
+          <p>This disclosure is not exhaustive. Crypto assets are novel and rapidly evolving, and new risks may emerge that are not described here. You should seek independent professional advice if you are uncertain about any aspect of crypto assets.</p>
         </Section>
 
         <Section title="2. Key Risk Factors">
@@ -111,11 +111,11 @@ export default function RiskDisclosurePage() {
             </RiskBox>
 
             <RiskBox title="Tax Risk">
-              Crypto asset transactions may give rise to capital gains tax, income tax, or VAT obligations under South African law. The South African Revenue Service (SARS) treats crypto assets as assets of an intangible nature. You are responsible for determining and meeting your tax obligations. Apex Wallet does not provide tax advice.
+              Crypto asset transactions may give rise to tax obligations, such as capital gains or income tax, under the laws that apply to you. You are solely responsible for determining and meeting your own tax obligations. Apex Wallet does not track, report, or provide advice on your taxes.
             </RiskBox>
 
-            <RiskBox title="Exchange Rate & Conversion Risk">
-              When withdrawing to fiat currency, exchange rates are subject to fluctuation. Rates are locked for 30 seconds at time of quote. If a quote expires, the new rate may be materially different from the quoted rate, resulting in a different fiat amount being received.
+            <RiskBox title="Price & Rate Risk">
+              Any prices, rates, or portfolio values shown in the app are estimates sourced from third-party market data and are for information only. They may be delayed or inaccurate and can change before a transaction confirms on-chain. Apex Wallet does not convert crypto to fiat or guarantee any price.
             </RiskBox>
 
             <RiskBox title="Systemic & Macro Risk">
@@ -125,8 +125,8 @@ export default function RiskDisclosurePage() {
         </Section>
 
         <Section title="3. No Financial Advice">
-          <p>Nothing on the Apex Wallet platform constitutes financial, investment, legal, or tax advice. The information and tools provided are for informational purposes only. The AI assistant and market data provided on the Platform are not regulated financial advice and should not be relied upon as such.</p>
-          <p>Apex Wallet does not hold a Financial Services Provider (FSP) licence under the Financial Advisory and Intermediary Services (FAIS) Act. Users are strongly encouraged to seek advice from a FSCA-licensed financial advisor before making investment decisions.</p>
+          <p>Nothing in the Apex Wallet app constitutes financial, investment, legal, or tax advice. The information and tools provided are for informational purposes only. Any assistant responses and market data shown in the app are general information and should not be relied upon as advice.</p>
+          <p>Apex Wallet is a software provider, not a licensed financial services provider or advisor. You are strongly encouraged to seek advice from a qualified, licensed financial advisor before making any investment decisions.</p>
         </Section>
 
         <Section title="4. Past Performance">
@@ -137,13 +137,13 @@ export default function RiskDisclosurePage() {
           <p>Blockchain transactions are irreversible by their nature. Once a crypto asset transfer is confirmed on the blockchain, it cannot be undone. Internal ledger transactions on the Apex Wallet platform are similarly final once confirmed. You must verify all transaction details carefully before confirming any transaction. Errors cannot be corrected after the fact.</p>
         </Section>
 
-        <Section title="6. FICA Compliance Risks">
-          <p>Failure to comply with FICA requirements, including providing accurate KYC documentation, may result in:</p>
+        <Section title="6. Self-Custody &amp; No Recovery">
+          <p>Because Apex Wallet is non-custodial, you — and only you — control your wallet. This means:</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li>Suspension or termination of your account;</li>
-            <li>Freezing of funds pending compliance review;</li>
-            <li>Reporting of suspicious transactions to the Financial Intelligence Centre (FIC);</li>
-            <li>Referral to law enforcement authorities.</li>
+            <li>We cannot access, freeze, reverse, or recover your funds under any circumstances;</li>
+            <li>There is no "forgot password" or account-recovery process — losing your seed phrase means losing your assets permanently;</li>
+            <li>You are responsible for your own device security, backups, and for keeping your recovery phrase private;</li>
+            <li>You are responsible for complying with any laws and tax obligations that apply to you personally.</li>
           </ul>
         </Section>
 

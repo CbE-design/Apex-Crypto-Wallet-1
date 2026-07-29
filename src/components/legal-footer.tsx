@@ -13,12 +13,11 @@ export function LegalFooter() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {[
             { label: 'Terms of Service', href: '/legal/terms' },
             { label: 'Privacy Policy', href: '/legal/privacy' },
             { label: 'Risk Disclosure', href: '/legal/risk-disclosure' },
-            { label: 'AML & FICA Policy', href: '/legal/aml-policy' },
           ].map(({ label, href }) => (
             <Link
               key={href}
@@ -36,7 +35,7 @@ export function LegalFooter() {
             © {new Date().getFullYear()} Apex Wallet (Pty) Ltd. All rights reserved.
           </p>
           <p className="text-[9px] text-muted-foreground/30 max-w-xl mx-auto leading-relaxed">
-  Apex Wallet operates in compliance with the Financial Intelligence Centre Act (FICA) No. 38 of 2001 and the Protection of Personal Information Act (POPIA). Apex Wallet is a non-custodial software provider and does not hold user assets.
+  Apex Wallet is a non-custodial software application. It is a self-hosted tool that lets you generate and manage your own keys on your own device. Apex Wallet does not hold, control, or have access to your funds, does not act as a financial institution, exchange, broker, or money services business, and does not require licensing or regulatory registration. You are solely responsible for your keys, assets, and transactions.
 </p>
         </div>
       </div>

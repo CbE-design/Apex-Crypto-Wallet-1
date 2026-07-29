@@ -275,13 +275,12 @@ export default function SettingsPage() {
 
         {/* ── Legal & Compliance ── */}
         <section>
-          <h2 className="text-[10px] uppercase tracking-widest font-semibold text-white/25 mb-3 px-1">Legal & Compliance</h2>
+          <h2 className="text-[10px] uppercase tracking-widest font-semibold text-white/25 mb-3 px-1">Legal</h2>
           <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80 overflow-hidden divide-y divide-white/[0.05]">
             {[
-              { label: 'Terms of Service', desc: 'User agreement and platform rules', href: '/legal/terms' },
-              { label: 'Privacy Policy', desc: 'POPIA-compliant data handling', href: '/legal/privacy' },
-              { label: 'Risk Disclosure', desc: 'Investment and crypto risks', href: '/legal/risk-disclosure' },
-              { label: 'AML & FICA Policy', desc: 'Compliance obligations and KYC framework', href: '/legal/aml-policy' },
+              { label: 'Terms of Service', desc: 'User agreement and app rules', href: '/legal/terms' },
+              { label: 'Privacy Policy', desc: 'How your data is handled', href: '/legal/privacy' },
+              { label: 'Risk Disclosure', desc: 'Crypto and self-custody risks', href: '/legal/risk-disclosure' },
             ].map(({ label, desc, href }) => (
               <Link
                 key={href}

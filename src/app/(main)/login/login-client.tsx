@@ -322,18 +322,8 @@ try {
                 <a href="/legal/terms" className="underline hover:text-muted-foreground/60 transition-colors">Terms of Service</a>,{' '}
                 <a href="/legal/privacy" className="underline hover:text-muted-foreground/60 transition-colors">Privacy Policy</a>, and{' '}
                 <a href="/legal/risk-disclosure" className="underline hover:text-muted-foreground/60 transition-colors">Risk Disclosure</a>.
-                Crypto assets are high-risk instruments — you may lose your entire investment.
+                Apex Wallet is self-custody software — you are solely responsible for your keys and assets.
               </p>
-
-              <div className="flex flex-wrap items-center justify-center gap-3 mt-5 text-[9px] text-muted-foreground/30 uppercase tracking-widest">
-                <span>FICA Compliant</span>
-                <span>·</span>
-                <span>FSCA Regulated</span>
-                <span>·</span>
-                <span>POPIA Compliant</span>
-                <span>·</span>
-                <span>FATF Travel Rule</span>
-              </div>
             </>
           )}
 

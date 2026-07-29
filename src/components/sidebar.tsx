@@ -41,10 +41,9 @@ const mainNav = [
 ];
 
 const legalLinks = [
-  { href: '/legal/terms',           label: 'Terms of Service',   desc: 'User agreement & platform rules' },
-  { href: '/legal/privacy',         label: 'Privacy Policy',     desc: 'POPIA-compliant data handling'   },
-  { href: '/legal/risk-disclosure', label: 'Risk Disclosure',    desc: 'Investment & crypto risks'       },
-  { href: '/legal/aml-policy',      label: 'AML & FICA Policy',  desc: 'Compliance & KYC framework'      },
+  { href: '/legal/terms',           label: 'Terms of Service',   desc: 'User agreement & app rules'      },
+  { href: '/legal/privacy',         label: 'Privacy Policy',     desc: 'How your data is handled'        },
+  { href: '/legal/risk-disclosure', label: 'Risk Disclosure',    desc: 'Crypto & self-custody risks'     },
 ];
 
 export function AppSidebar() {

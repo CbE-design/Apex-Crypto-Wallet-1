@@ -16,16 +16,16 @@ const CONTENT: Record<NonNullable<RiskDisclaimerProps['variant']>, { title: stri
     body: 'Swapping or trading cryptocurrency involves significant risk of loss. Digital asset prices are highly volatile and may fluctuate dramatically in short periods. You may lose part or all of the value of your assets. This is not financial advice. Ensure you fully understand the risks before proceeding. Past performance is not a reliable indicator of future results.',
   },
   withdrawal: {
-    title: 'Withdrawal & Fiat Conversion Notice',
-    body: 'Withdrawals to bank accounts are subject to FICA compliance checks, SARB exchange control regulations, and may require additional verification for transactions above R25,000. Processing times may vary (1–5 business days). Apex Wallet is not responsible for delays caused by banking institutions. Exchange rates are locked at time of quote and are valid for 30 seconds only.',
+    title: 'Withdrawal Notice',
+    body: 'Apex Wallet is self-custody software and does not process, hold, or convert funds on your behalf. You initiate and broadcast all transactions yourself. Network processing times and third-party service delays are outside our control. Any displayed rates are estimates only and may change before your transaction is confirmed on-chain.',
   },
   transfer: {
-    title: 'Crypto Transfer Notice — Travel Rule Compliance',
-    body: 'Transfers of crypto assets with a value of R3,000 or more are subject to the FATF Travel Rule. Beneficiary information may be collected and reported to relevant regulatory authorities as required under the Financial Intelligence Centre Act (FICA). Apex Wallet complies with all applicable AML/CFT regulations.',
+    title: 'Crypto Transfer Notice',
+    body: 'Blockchain transactions are final and irreversible. Always verify the recipient address before sending — funds sent to an incorrect address cannot be recovered. Apex Wallet is a non-custodial tool and does not control, intercept, or reverse any transfer you make. You are solely responsible for your transactions.',
   },
   general: {
-    title: 'General Risk & Regulatory Notice',
-    body: 'Crypto assets are unregulated financial instruments. Their value may be affected by market conditions, technology failures, regulatory changes, or other factors outside our control. Apex Wallet is not a licensed financial services provider and does not provide investment advice. All transactions are final and irreversible. By using this service you acknowledge and accept these risks.',
+    title: 'General Risk Notice',
+    body: 'Crypto asset values are volatile and may be affected by market conditions, technology failures, or other factors outside our control. Apex Wallet is a non-custodial software application, not a financial institution, exchange, or advisor, and does not provide investment advice. All transactions are final and irreversible. By using this software you acknowledge and accept these risks.',
   },
 };
 
