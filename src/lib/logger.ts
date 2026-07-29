@@ -1,5 +1,5 @@
 /**
- * Standardized logging utility for Apex Wallet.
+ * Standardized logging utility for Apex Private Ledger.
  * Logs will appear in the Firebase App Hosting / Cloud Run console.
  */
 export const logger = {

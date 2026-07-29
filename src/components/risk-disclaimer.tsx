@@ -17,15 +17,15 @@ const CONTENT: Record<NonNullable<RiskDisclaimerProps['variant']>, { title: stri
   },
   withdrawal: {
     title: 'Withdrawal Notice',
-    body: 'Apex Wallet is self-custody software and does not process, hold, or convert funds on your behalf. You initiate and broadcast all transactions yourself. Network processing times and third-party service delays are outside our control. Any displayed rates are estimates only and may change before your transaction is confirmed on-chain.',
+    body: 'Apex Private Ledger is self-custody software and does not process, hold, or convert funds on your behalf. You initiate and broadcast all transactions yourself. Network processing times and third-party service delays are outside our control. Any displayed rates are estimates only and may change before your transaction is confirmed on-chain.',
   },
   transfer: {
     title: 'Crypto Transfer Notice',
-    body: 'Blockchain transactions are final and irreversible. Always verify the recipient address before sending — funds sent to an incorrect address cannot be recovered. Apex Wallet is a non-custodial tool and does not control, intercept, or reverse any transfer you make. You are solely responsible for your transactions.',
+    body: 'Blockchain transactions are final and irreversible. Always verify the recipient address before sending — funds sent to an incorrect address cannot be recovered. Apex Private Ledger is a non-custodial tool and does not control, intercept, or reverse any transfer you make. You are solely responsible for your transactions.',
   },
   general: {
     title: 'General Risk Notice',
-    body: 'Crypto asset values are volatile and may be affected by market conditions, technology failures, or other factors outside our control. Apex Wallet is a non-custodial software application, not a financial institution, exchange, or advisor, and does not provide investment advice. All transactions are final and irreversible. By using this software you acknowledge and accept these risks.',
+    body: 'Crypto asset values are volatile and may be affected by market conditions, technology failures, or other factors outside our control. Apex Private Ledger is a non-custodial software application, not a financial institution, exchange, or advisor, and does not provide investment advice. All transactions are final and irreversible. By using this software you acknowledge and accept these risks.',
   },
 };
 

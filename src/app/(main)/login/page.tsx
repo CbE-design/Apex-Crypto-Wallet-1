@@ -3,20 +3,20 @@ import { Suspense } from 'react';
 import LoginClient from './login-client';
 
 export const metadata: Metadata = {
-  title: 'Login — Apex Wallet',
-  description: 'Securely sign in to Apex Wallet to access your self-custodial crypto wallet and compliance documents.',
+  title: 'Login — Apex Private Ledger',
+  description: 'Securely sign in to Apex Private Ledger to access your self-custody crypto wallet.',
   alternates: {
     canonical: '/login',
   },
   openGraph: {
-    title: 'Login — Apex Wallet',
-    description: 'Securely sign in to Apex Wallet to access your self-custodial crypto wallet and compliance documents.',
+    title: 'Login — Apex Private Ledger',
+    description: 'Securely sign in to Apex Private Ledger to access your self-custody crypto wallet.',
     url: '/login',
     type: 'website',
   },
   twitter: {
-    title: 'Login — Apex Wallet',
-    description: 'Securely sign in to Apex Wallet to access your self-custodial crypto wallet and compliance documents.',
+    title: 'Login — Apex Private Ledger',
+    description: 'Securely sign in to Apex Private Ledger to access your self-custody crypto wallet.',
   },
 };
 

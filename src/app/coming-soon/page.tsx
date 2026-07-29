@@ -2,20 +2,20 @@ import type { Metadata } from 'next';
 import { Rocket } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: 'Coming Soon — Apex Wallet',
-  description: 'A new Apex Wallet feature is under active development. Stay tuned for updates.',
+  title: 'Coming Soon — Apex Private Ledger',
+  description: 'A new Apex Private Ledger feature is under active development. Stay tuned for updates.',
   alternates: {
     canonical: '/coming-soon',
   },
   openGraph: {
-    title: 'Coming Soon — Apex Wallet',
-    description: 'A new Apex Wallet feature is under active development. Stay tuned for updates.',
+    title: 'Coming Soon — Apex Private Ledger',
+    description: 'A new Apex Private Ledger feature is under active development. Stay tuned for updates.',
     url: '/coming-soon',
     type: 'website',
   },
   twitter: {
-    title: 'Coming Soon — Apex Wallet',
-    description: 'A new Apex Wallet feature is under active development. Stay tuned for updates.',
+    title: 'Coming Soon — Apex Private Ledger',
+    description: 'A new Apex Private Ledger feature is under active development. Stay tuned for updates.',
   },
 };
 

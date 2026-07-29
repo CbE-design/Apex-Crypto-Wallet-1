@@ -192,10 +192,10 @@ try {
 
         <div className="flex flex-col items-center mb-10 relative z-10">
           <div className="mb-4">
-            <img src="/apex-icon.png" alt="Apex Wallet" className="h-16 w-16 rounded-2xl shadow-xl shadow-primary/30" />
+            <img src="/apex-icon.png" alt="Apex Private Ledger" className="h-16 w-16 rounded-2xl shadow-xl shadow-primary/30" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Apex Wallet</h1>
-          <p className="text-sm text-muted-foreground mt-1">Institutional-grade crypto custody</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Apex Private Ledger</h1>
+          <p className="text-sm text-muted-foreground mt-1">Private self-custody crypto ledger</p>
         </div>
 
         <div className="w-full max-w-sm relative z-10">
@@ -322,7 +322,7 @@ try {
                 <a href="/legal/terms" className="underline hover:text-muted-foreground/60 transition-colors">Terms of Service</a>,{' '}
                 <a href="/legal/privacy" className="underline hover:text-muted-foreground/60 transition-colors">Privacy Policy</a>, and{' '}
                 <a href="/legal/risk-disclosure" className="underline hover:text-muted-foreground/60 transition-colors">Risk Disclosure</a>.
-                Apex Wallet is self-custody software — you are solely responsible for your keys and assets.
+                Apex Private Ledger is self-custody software — you are solely responsible for your keys and assets.
               </p>
             </>
           )}
