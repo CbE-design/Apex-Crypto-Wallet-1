@@ -31,6 +31,7 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
     createWallet, importWallet, loading, user, isAdmin, confirmAndCreateWallet,
     vaultLocked, pendingVaultSetup, hasPasskey, passkeySupported, addressHint,
     setupVault, unlockWithPin, setupPasskey, unlockWithPasskey, disconnectWallet, wallet,
+    needsEmail,
   } = useWallet();
 
   const [isImporting,            setIsImporting]            = useState(false);
@@ -54,10 +55,16 @@ export default function LoginClient({ initialAdminMode }: { initialAdminMode: bo
   }, [pendingVaultSetup]);
 
   React.useEffect(() => {
-    if (user && wallet && !vaultLocked && !pendingVaultSetup && !pinSetupOpen && !showAdminLogin) {
+    // Only grant access to the dashboard once the ENTIRE required flow is done:
+    // wallet unlocked, PIN/biometric setup closed, and the mandatory email captured.
+    // This prevents the premature dashboard flash that then bounced back to /login.
+    if (
+      user && wallet && !vaultLocked && !pendingVaultSetup &&
+      !pinSetupOpen && !showAdminLogin && !needsEmail
+    ) {
       router.push('/');
     }
-  }, [user, wallet, vaultLocked, pendingVaultSetup, pinSetupOpen, showAdminLogin, router]);
+  }, [user, wallet, vaultLocked, pendingVaultSetup, pinSetupOpen, showAdminLogin, needsEmail, router]);
 
   React.useEffect(() => {
     if (user && isAdmin && !wallet) {
@@ -515,8 +522,11 @@ try {
           toast({ title: 'Passkey enabled', description: 'Biometric unlock is ready.' });
         }}
         onSkipPasskey={() => {
+          // Close the PIN/biometric flow. If the user still owes us a real email,
+          // the mandatory email dialog takes over next; only then is login granted.
+          // Otherwise the redirect effect above routes straight to the dashboard.
           setPinSetupOpen(false);
-          router.push('/');
+          if (!needsEmail) router.push('/');
         }}
       />
     </>

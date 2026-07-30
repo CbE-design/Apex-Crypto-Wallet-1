@@ -44,6 +44,7 @@ interface WalletContextType {
   hasPasskey: boolean;
   passkeySupported: boolean;
   addressHint: string;
+  needsEmail: boolean;
 
   createWallet: () => Promise<string>;
   importWallet: (mnemonic: string) => Promise<void>;
@@ -334,15 +335,24 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [user, firestore, loading, toast]);
 
-  // Prompt existing users to add a real email if they are using a placeholder.
+  // Whether the current user still needs to supply a real email address.
+  // Placeholder emails (auto-generated `@apex.io`) or missing emails count as "needs email".
+  const needsEmail = useMemo(() => {
+    if (!user || !userProfile) return false;
+    if (userProfile.isRestricted === true) return false; // Don't gate restricted accounts.
+    const email = userProfile.email as string | undefined;
+    return !email || email.endsWith('@apex.io');
+  }, [user, userProfile]);
+
+  // Mandatory email gate. This is shown ONCE to both new and returning users,
+  // but ONLY after the wallet is fully unlocked — never during the PIN / vault
+  // setup flow (that previously popped the email banner over the PIN pad).
   useEffect(() => {
     if (typeof window === 'undefined' || loading || !user || !userProfile) return;
-    if (userProfile.isRestricted === true) return; // Don't prompt for email on restricted accounts.
-    const email = userProfile.email as string | undefined;
-    if (!email || email.endsWith('@apex.io')) {
-      setEmailCollectionOpen(true);
-    }
-  }, [user, userProfile, loading]);
+    // Wait until the wallet is fully ready: unlocked and not mid-setup.
+    if (!wallet || vaultLocked || pendingWallet !== null) return;
+    setEmailCollectionOpen(needsEmail);
+  }, [user, userProfile, loading, wallet, vaultLocked, pendingWallet, needsEmail]);
 
   // Listen for real-time transaction events (deposits, withdrawals, transfers).
   useTransactionListener(user?.uid, firestore);
@@ -527,7 +537,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     <WalletContext.Provider value={{
       wallet: wallet ?? restoredWallet, user, userProfile: userProfile as UserProfile | null,
       loading, isAdmin,
-      vaultLocked, pendingVaultSetup, hasPasskey, passkeySupported, addressHint,
+      vaultLocked, pendingVaultSetup, hasPasskey, passkeySupported, addressHint, needsEmail,
       createWallet, importWallet, confirmAndCreateWallet, disconnectWallet, syncWalletBalance,
       setupVault, unlockWithPin, setupPasskey, unlockWithPasskey,
     }}>
@@ -536,8 +546,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         <EmailCollectionDialog
           userId={user.uid}
           open={emailCollectionOpen}
+          mandatory
           onOpenChange={setEmailCollectionOpen}
-          onSaved={(email) => setNewUserEmail(email)}
+          onSaved={(email) => { setNewUserEmail(email); setEmailCollectionOpen(false); }}
         />
       )}
     </WalletContext.Provider>
