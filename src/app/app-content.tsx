@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/sidebar';
 import { AdminSidebar } from '@/components/admin/admin-sidebar';
@@ -20,6 +20,7 @@ import { useState, useEffect, useCallback } from 'react';
 export default function AppContent({ children }: { children: React.ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isAdmin, loading, wallet, vaultLocked, pendingVaultSetup, userProfile } = useWallet();
   const firestore = useFirestore();
 
@@ -83,10 +84,18 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
     ? (!!user && isAdmin)
     : (!!user && walletReady && !isRestricted);
 
+  // Perform the redirect ourselves once auth has resolved and access is denied.
+  // Previously the inner route guards did this, but they never mounted while the
+  // full-screen loader was up — so an unauthenticated visitor spun forever.
+  useEffect(() => {
+    if (isPublicPage || loading || accessGranted) return;
+    router.replace('/login');
+  }, [isPublicPage, loading, accessGranted, router]);
+
   // Keep the full-screen auth loader up on protected pages until the visitor is
   // actually authenticated and ready. This prevents the dashboard chrome from
   // flashing (the "spin into the dashboard then bounce back to login" glitch)
-  // while the route guard performs its redirect.
+  // while the redirect above runs.
   if (!isPublicPage && (loading || !accessGranted)) {
     return (
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
