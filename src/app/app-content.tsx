@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/sidebar';
 import { AdminSidebar } from '@/components/admin/admin-sidebar';
@@ -20,7 +20,8 @@ import { useState, useEffect, useCallback } from 'react';
 export default function AppContent({ children }: { children: React.ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);
   const pathname = usePathname();
-  const { user, isAdmin, loading } = useWallet();
+  const router = useRouter();
+  const { user, isAdmin, loading, wallet, vaultLocked, pendingVaultSetup, userProfile } = useWallet();
   const firestore = useFirestore();
 
   useEffect(() => { setIsMounted(true); }, []);
@@ -74,7 +75,28 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
     pathname.startsWith('/legal') ||
     pathname === '/coming-soon';
 
-  if (loading && !isPublicPage) {
+  const isAdminPage = !!pathname && pathname.startsWith('/admin');
+  const isRestricted = userProfile?.isRestricted === true;
+  const walletReady = !!wallet && !vaultLocked && !pendingVaultSetup;
+  // Access matches the inner route guards: AdminRoute needs an admin user,
+  // PrivateRoute needs an unlocked, non-restricted wallet.
+  const accessGranted = isAdminPage
+    ? (!!user && isAdmin)
+    : (!!user && walletReady && !isRestricted);
+
+  // Perform the redirect ourselves once auth has resolved and access is denied.
+  // Previously the inner route guards did this, but they never mounted while the
+  // full-screen loader was up — so an unauthenticated visitor spun forever.
+  useEffect(() => {
+    if (isPublicPage || loading || accessGranted) return;
+    router.replace('/login');
+  }, [isPublicPage, loading, accessGranted, router]);
+
+  // Keep the full-screen auth loader up on protected pages until the visitor is
+  // actually authenticated and ready. This prevents the dashboard chrome from
+  // flashing (the "spin into the dashboard then bounce back to login" glitch)
+  // while the redirect above runs.
+  if (!isPublicPage && (loading || !accessGranted)) {
     return (
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
         <div className="flex flex-col items-center gap-6">
@@ -133,8 +155,6 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
   if (isPublicPage) {
     return <div className="h-[100dvh] w-full overflow-y-auto bg-background">{children}</div>;
   }
-
-  const isAdminPage = pathname.startsWith('/admin');
 
   return (
     <SidebarProvider defaultOpen={true}>
