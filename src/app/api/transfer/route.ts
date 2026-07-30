@@ -222,6 +222,11 @@ export async function POST(req: NextRequest) {
  * Resolve a recipient user document from a shared wallet address or email.
  * The receive screen shares the top-level ETH wallet address, so we match on
  * `walletAddressLowercase` first, then `walletAddress`, then email.
+ *
+ * Additionally, as a fallback we search the `wallets` collectionGroup for a
+ * matching `address` (or `addressLowercase`) field and return its parent user
+ * document — this covers users created/seeded where only the wallet documents
+ * were populated.
  */
 async function resolveRecipientRef(
   db: FirebaseFirestore.Firestore,
@@ -250,6 +255,35 @@ async function resolveRecipientRef(
       .limit(1)
       .get();
     if (!byEmail.empty) return byEmail.docs[0].ref;
+  }
+
+  // Fallback: search the wallets collectionGroup for a wallet doc matching the
+  // provided address. Some code paths populate only the per-asset wallet docs
+  // (users/{uid}/wallets/{SYMBOL}) and not the top-level user.walletAddress.
+  try {
+    const walletsByAddress = await db
+      .collectionGroup("wallets")
+      .where("address", "==", identifier)
+      .limit(1)
+      .get();
+    if (!walletsByAddress.empty) {
+      const walletDoc = walletsByAddress.docs[0];
+      const userDocRef = walletDoc.ref.parent?.parent || null;
+      if (userDocRef) return userDocRef;
+    }
+
+    const walletsByLower = await db
+      .collectionGroup("wallets")
+      .where("addressLowercase", "==", lower)
+      .limit(1)
+      .get();
+    if (!walletsByLower.empty) {
+      const walletDoc = walletsByLower.docs[0];
+      const userDocRef = walletDoc.ref.parent?.parent || null;
+      if (userDocRef) return userDocRef;
+    }
+  } catch (err) {
+    console.warn("[transfer] collectionGroup fallback failed:", err);
   }
 
   return null;
