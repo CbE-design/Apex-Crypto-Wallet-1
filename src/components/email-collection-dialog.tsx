@@ -15,9 +15,11 @@ interface EmailCollectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved?: (email: string) => void;
+  /** When true, the dialog cannot be dismissed — the user must submit a valid email. */
+  mandatory?: boolean;
 }
 
-export function EmailCollectionDialog({ userId, open, onOpenChange, onSaved }: EmailCollectionDialogProps) {
+export function EmailCollectionDialog({ userId, open, onOpenChange, onSaved, mandatory }: EmailCollectionDialogProps) {
   const [email, setEmail] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
@@ -49,8 +51,12 @@ export function EmailCollectionDialog({ userId, open, onOpenChange, onSaved }: E
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border border-white/[0.08] bg-[#0A0C12]/95 backdrop-blur-2xl rounded-[24px] max-w-sm">
+    <Dialog open={open} onOpenChange={(next) => { if (mandatory && !next) return; onOpenChange(next); }}>
+      <DialogContent
+        className={`border border-white/[0.08] bg-[#0A0C12]/95 backdrop-blur-2xl rounded-[24px] max-w-sm${mandatory ? ' [&>button:first-of-type]:hidden' : ''}`}
+        onInteractOutside={(e) => { if (mandatory) e.preventDefault(); }}
+        onEscapeKeyDown={(e) => { if (mandatory) e.preventDefault(); }}
+      >
         <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[24px] bg-gradient-to-r from-cyan-500 to-violet-500" />
         <DialogHeader className="space-y-2">
           <div className="flex items-center gap-2">
