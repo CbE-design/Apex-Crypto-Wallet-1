@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { sendTransferReceivedEmail } from "@/app/actions/transactional-email";
+import { anchorTransfer } from "@/lib/ledger";
 
 export async function POST(req: Request) {
   try {
@@ -56,6 +57,13 @@ export async function POST(req: Request) {
     const recipientDocSnapshot = recipientQuery.docs[0];
     const recipientRef = recipientDocSnapshot.ref;
 
+    // Pre-create transaction record refs so we can reference their ids after
+    // the commit (e.g. to store the on-chain anchor hash).
+    const txsCollection = getDb().collection("transactions");
+    const senderTxRef = txsCollection.doc();
+    const recipientTxRef = txsCollection.doc();
+    const recipientId = recipientRef.id;
+
     // 2. Perform Firestore transaction for atomic update + create transaction records
     await getDb().runTransaction(async (transaction) => {
       const senderSnapshot = await transaction.get(senderRef);
@@ -99,11 +107,7 @@ export async function POST(req: Request) {
       transaction.update(senderRef, senderUpdates);
       transaction.update(recipientRef, recipientUpdates);
 
-      // Create transaction records
-      const txsCollection = getDb().collection("transactions");
-      const senderTxRef = txsCollection.doc();
-      const recipientTxRef = txsCollection.doc();
-
+      // Create transaction records (refs pre-created above)
       transaction.set(senderTxRef, {
         userId: senderId,
         type: "TRANSFER_SENT",
@@ -112,6 +116,7 @@ export async function POST(req: Request) {
         status: "COMPLETED",
         description: `Sent to ${recipient.email || cleanRecipientEmail}${note ? ` - Note: ${note}` : ""}`,
         createdAt: new Date().toISOString(),
+        ledgerStatus: "PENDING_ANCHOR",
       });
 
       transaction.set(recipientTxRef, {
@@ -122,8 +127,39 @@ export async function POST(req: Request) {
         status: "COMPLETED",
         description: `Received from ${sender.email || senderEmail}${note ? ` - Note: ${note}` : ""}`,
         createdAt: new Date().toISOString(),
+        ledgerStatus: "PENDING_ANCHOR",
       });
     });
+
+    // 2b. Anchor the transfer onto the private ledger (best-effort). Firestore
+    // is the source of truth, so an anchoring failure never blocks the transfer.
+    try {
+      const anchor = await anchorTransfer({
+        senderId,
+        recipientId,
+        amount: numericAmount,
+        currency,
+        note,
+      });
+
+      const ledgerUpdate = anchor
+        ? {
+            ledgerStatus: "ANCHORED",
+            onChainTxHash: anchor.txHash,
+            onChainBlockNumber: anchor.blockNumber,
+            onChainId: anchor.chainId,
+            ledgerAddressFrom: anchor.ledgerAddressFrom,
+            ledgerAddressTo: anchor.ledgerAddressTo,
+          }
+        : { ledgerStatus: "NOT_ANCHORED" };
+
+      await Promise.all([
+        senderTxRef.update(ledgerUpdate),
+        recipientTxRef.update(ledgerUpdate),
+      ]);
+    } catch (anchorErr) {
+      console.log("[v0][ledger] Post-commit anchor update failed:", anchorErr);
+    }
 
     // 3. Send notification email to recipient
     (async () => {

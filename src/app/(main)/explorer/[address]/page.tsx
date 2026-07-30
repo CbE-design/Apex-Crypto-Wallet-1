@@ -7,55 +7,36 @@ import { useFirestore } from '@/firebase';
 import { collectionGroup, query, where, getDocs, collection } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { CryptoIcon } from '@/components/crypto-icon';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Copy, CheckCheck, ArrowLeft, ExternalLink, Search,
   Cpu, Zap, Globe, Shield, Clock, ChevronDown, ChevronRight,
-  ArrowUpRight, ArrowDownLeft, RotateCcw, Activity,
+  ArrowUpRight, ArrowDownLeft, RotateCcw, Activity, Link2, Link2Off,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// The Apex Private Ledger is a single permissioned EVM network (Anvil).
+// Assets are internal balances anchored onto that private chain — this is NOT
+// Ethereum/Bitcoin mainnet. Per-asset entries below only drive display styling.
+const LEDGER_NAME = 'Apex Private Ledger';
+const BLOCKSCOUT_URL = (process.env.NEXT_PUBLIC_BLOCKSCOUT_URL || '').replace(/\/$/, '');
+
 const NETWORK_CONFIG: Record<string, {
-  name: string; fullName: string; symbol: string; color: string; unit: string;
-  feeLabel: string; hashPrefix: string; blockTime: number; confirmations: number;
-  tps: number; gasUnit: string;
+  name: string; symbol: string; color: string; unit: string;
 }> = {
-  ETH:  { name: 'Ethereum',  fullName: 'Ethereum Mainnet',  symbol: 'ETH',  color: '#627eea', unit: 'ETH',  feeLabel: 'Gas',       hashPrefix: '0x', blockTime: 12, confirmations: 32,   tps: 15,  gasUnit: 'Gwei' },
-  BTC:  { name: 'Bitcoin',   fullName: 'Bitcoin Mainnet',   symbol: 'BTC',  color: '#f7931a', unit: 'BTC',  feeLabel: 'Fee',       hashPrefix: '',   blockTime: 600, confirmations: 6,   tps: 7,   gasUnit: 'sat/vB' },
-  BNB:  { name: 'BSC',       fullName: 'BNB Smart Chain',   symbol: 'BNB',  color: '#f3ba2f', unit: 'BNB',  feeLabel: 'Gas',       hashPrefix: '0x', blockTime: 3,  confirmations: 15,   tps: 100, gasUnit: 'Gwei' },
-  SOL:  { name: 'Solana',    fullName: 'Solana Mainnet',    symbol: 'SOL',  color: '#9945ff', unit: 'SOL',  feeLabel: 'Priority',  hashPrefix: '',   blockTime: 0.4, confirmations: 32,  tps: 65000, gasUnit: 'lamports' },
-  ADA:  { name: 'Cardano',   fullName: 'Cardano Mainnet',   symbol: 'ADA',  color: '#0033ad', unit: 'ADA',  feeLabel: 'Fee',       hashPrefix: '',   blockTime: 20, confirmations: 20,   tps: 250, gasUnit: 'Lovelace' },
-  XRP:  { name: 'XRP',       fullName: 'XRP Ledger',        symbol: 'XRP',  color: '#346aa9', unit: 'XRP',  feeLabel: 'Fee',       hashPrefix: '',   blockTime: 3,  confirmations: 1,    tps: 1500, gasUnit: 'drops' },
-  LINK: { name: 'Ethereum',  fullName: 'Ethereum Mainnet',  symbol: 'LINK', color: '#2a5ada', unit: 'LINK', feeLabel: 'Gas',       hashPrefix: '0x', blockTime: 12, confirmations: 32,   tps: 15,  gasUnit: 'Gwei' },
-  USDT: { name: 'Ethereum',  fullName: 'Ethereum Mainnet',  symbol: 'USDT', color: '#26a17b', unit: 'USDT', feeLabel: 'Gas',       hashPrefix: '0x', blockTime: 12, confirmations: 32,   tps: 15,  gasUnit: 'Gwei' },
-  DOGE: { name: 'Dogecoin',  fullName: 'Dogecoin Mainnet',  symbol: 'DOGE', color: '#c2a633', unit: 'DOGE', feeLabel: 'Fee',       hashPrefix: '',   blockTime: 60, confirmations: 60,   tps: 40,  gasUnit: 'DOGE' },
+  ETH:  { name: 'Ether',    symbol: 'ETH',  color: '#627eea', unit: 'ETH'  },
+  BTC:  { name: 'Bitcoin',  symbol: 'BTC',  color: '#f7931a', unit: 'BTC'  },
+  BNB:  { name: 'BNB',      symbol: 'BNB',  color: '#f3ba2f', unit: 'BNB'  },
+  SOL:  { name: 'Solana',   symbol: 'SOL',  color: '#9945ff', unit: 'SOL'  },
+  ADA:  { name: 'Cardano',  symbol: 'ADA',  color: '#0033ad', unit: 'ADA'  },
+  XRP:  { name: 'XRP',      symbol: 'XRP',  color: '#346aa9', unit: 'XRP'  },
+  LINK: { name: 'Chainlink',symbol: 'LINK', color: '#2a5ada', unit: 'LINK' },
+  USDT: { name: 'Tether',   symbol: 'USDT', color: '#26a17b', unit: 'USDT' },
+  DOGE: { name: 'Dogecoin', symbol: 'DOGE', color: '#c2a633', unit: 'DOGE' },
 };
-
-function hashStr(s: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = (h * 0x01000193) >>> 0;
-  }
-  return h;
-}
-
-function seededRandom(seed: number): () => number {
-  let s = seed;
-  return () => {
-    s = (s * 1664525 + 1013904223) >>> 0;
-    return s / 0xffffffff;
-  };
-}
-
-function fmtTxHash(id: string, prefix: string, length: number): string {
-  const pad = '0123456789abcdef'.repeat(10);
-  const raw = id.replace(/[^a-f0-9]/gi, '').toLowerCase().padEnd(length, pad);
-  return prefix + raw.substring(0, length);
-}
 
 function fmtAge(ts: { toMillis?: () => number } | null | undefined): string {
   if (!ts?.toMillis) return 'N/A';
@@ -72,16 +53,23 @@ function fmtAge(ts: { toMillis?: () => number } | null | undefined): string {
 
 function fmtDate(ts: { toMillis?: () => number } | null | undefined): string {
   if (!ts?.toMillis) return '—';
-  return new Date(ts.toMillis()).toLocaleString('en-ZA', {
+  return new Date(ts.toMillis()).toLocaleString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit', second: '2-digit',
-    timeZone: 'Africa/Johannesburg',
-  }) + ' (SAST)';
+    timeZone: 'UTC',
+  }) + ' (UTC)';
 }
 
-function maskAddress(addr: string, keep = 6): string {
-  if (!addr || addr.length <= keep * 2) return addr;
-  return addr.slice(0, keep) + '…' + addr.slice(-keep);
+function maskHash(hash: string, keep = 8): string {
+  if (!hash || hash.length <= keep * 2) return hash;
+  return hash.slice(0, keep) + '…' + hash.slice(-keep);
+}
+
+interface ChainStats {
+  latestBlock: number | null;
+  gasPrice: string | null;
+  chainId: string | null;
+  reachable: boolean;
 }
 
 function ExplorerContent() {
@@ -95,62 +83,53 @@ function ExplorerContent() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading]       = useState(true);
   const [copied, setCopied]             = useState(false);
-  const [liveBlock, setLiveBlock]       = useState(0);
-  const [liveGas, setLiveGas]           = useState(0);
-  const [liveTps, setLiveTps]           = useState(0);
   const [showAll, setShowAll]           = useState(false);
+  const [chain, setChain]               = useState<ChainStats>({
+    latestBlock: null, gasPrice: null, chainId: null, reachable: false,
+  });
 
-  const seed   = useMemo(() => hashStr(address + currency), [address, currency]);
-  const rand   = useMemo(() => seededRandom(seed), [seed]);
+  // Poll real chain stats from Blockscout. Degrades gracefully to "—" when the
+  // private ledger / Blockscout instance is not reachable from the browser.
+  useEffect(() => {
+    if (!BLOCKSCOUT_URL) return;
+    let active = true;
 
-  const baseBlock = useMemo(() => {
-    if (currency === 'BTC')  return 840000 + Math.floor(rand() * 5000);
-    if (currency === 'SOL')  return 260000000 + Math.floor(rand() * 1000000);
-    if (currency === 'ADA')  return 9800000  + Math.floor(rand() * 50000);
-    if (currency === 'DOGE') return 5100000  + Math.floor(rand() * 50000);
-    return 19800000 + Math.floor(rand() * 200000);
-  }, [seed]);
+    async function loadStats() {
+      try {
+        const res = await fetch(`${BLOCKSCOUT_URL}/api/v2/stats`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`stats ${res.status}`);
+        const data = await res.json();
+        if (!active) return;
+        setChain({
+          latestBlock: data.total_blocks ? Number(data.total_blocks) : null,
+          gasPrice: data.gas_prices?.average != null ? String(data.gas_prices.average) : null,
+          chainId: data.network_id != null ? String(data.network_id) : null,
+          reachable: true,
+        });
+      } catch {
+        if (active) setChain(c => ({ ...c, reachable: false }));
+      }
+    }
 
-  const baseGas = useMemo(() => {
-    if (currency === 'SOL')  return 0.000005;
-    if (currency === 'ADA')  return 0.17;
-    if (currency === 'BTC')  return Math.floor(rand() * 30) + 10;
-    return Math.floor(rand() * 25) + 8;
-  }, [seed]);
+    loadStats();
+    const interval = setInterval(loadStats, 15000);
+    return () => { active = false; clearInterval(interval); };
+  }, []);
 
   useEffect(() => {
-    setLiveBlock(baseBlock);
-    setLiveGas(baseGas);
-    setLiveTps(Math.floor(rand() * net.tps * 0.8) + Math.floor(net.tps * 0.2));
-
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const elapsed = Math.floor((now - Date.now() + 1000) / (net.blockTime * 1000));
-      setLiveBlock(b => b + 1);
-      setLiveGas(g => parseFloat((g + (Math.random() - 0.5) * 0.5).toFixed(2)));
-      setLiveTps(t => Math.max(1, t + Math.floor((Math.random() - 0.5) * 20)));
-    }, net.blockTime * 1000);
-
-    return () => clearInterval(interval);
-  }, [baseBlock, baseGas]);
-
-  useEffect(() => {
-    async function fetch() {
+    async function fetchData() {
       if (!firestore || !address) return;
       setIsLoading(true);
       try {
-        // First, find the user who owns this wallet address
         const usersQuery = query(collection(firestore, 'users'), where('walletAddress', '==', address));
         let userSnap = await getDocs(usersQuery);
-        
-        // If not found by exact address, try lowercase comparison
+
         if (userSnap.empty) {
           const usersQueryLower = query(collection(firestore, 'users'), where('walletAddressLowercase', '==', address.toLowerCase()));
           userSnap = await getDocs(usersQueryLower);
         }
-        
-        if (userSnap.empty) { 
-          // Fallback: use collectionGroup but limit to first match for the specific currency
+
+        if (userSnap.empty) {
           const walletsQuery = query(collectionGroup(firestore, 'wallets'), where('address', '==', address));
           const walletSnap = await getDocs(walletsQuery);
           if (walletSnap.empty) { setWallets([]); setTransactions([]); return; }
@@ -168,27 +147,23 @@ function ExplorerContent() {
           ));
           return;
         }
-        
-        // Found the user - now get their specific wallets
+
         const userId = userSnap.docs[0].id;
         const walletsRef = collection(firestore, 'users', userId, 'wallets');
         const walletSnap = await getDocs(walletsRef);
-        
+
         const found = walletSnap.docs.map(d => ({ ...d.data(), id: d.id, refPath: d.ref.path, userId }));
         setWallets(found);
 
-        // Get transactions from the user's main transactions collection
         const userTxRef = collection(firestore, 'users', userId, 'transactions');
         const userTxSnap = await getDocs(userTxRef);
         const allTxs: any[] = [];
         userTxSnap.forEach(d => allTxs.push({ ...d.data(), id: d.id }));
-        
-        // Also check per-wallet transactions for legacy data
+
         for (const w of found) {
           try {
             const txSnap = await getDocs(collection(firestore, 'users', userId, 'wallets', w.id, 'transactions'));
             txSnap.forEach(d => {
-              // Avoid duplicates by checking if tx id already exists
               if (!allTxs.find(t => t.id === d.id)) {
                 allTxs.push({ ...d.data(), id: d.id });
               }
@@ -197,7 +172,7 @@ function ExplorerContent() {
             // Subcollection might not exist
           }
         }
-        
+
         setTransactions(allTxs.sort((a, b) =>
           (b.timestamp?.toMillis?.() ?? 0) - (a.timestamp?.toMillis?.() ?? 0)
         ));
@@ -207,7 +182,7 @@ function ExplorerContent() {
         setIsLoading(false);
       }
     }
-    fetch();
+    fetchData();
   }, [firestore, address]);
 
   const handleCopy = () => {
@@ -220,46 +195,10 @@ function ExplorerContent() {
   const balance = wallet?.balance ?? 0;
   const found   = wallets.length > 0;
   const displayed = showAll ? transactions : transactions.slice(0, 10);
+  const anchoredCount = transactions.filter(t => t.onChainTxHash).length;
 
-  function getTxHash(tx: any) {
-    return fmtTxHash(tx.id, net.hashPrefix, currency === 'SOL' ? 88 : currency === 'BTC' ? 64 : 66);
-  }
-
-  function getTxBlock(tx: any, idx: number): number {
-    const ms = tx.timestamp?.toMillis?.() ?? Date.now();
-    return baseBlock - idx * Math.floor(net.blockTime * 2) - Math.floor(rand() * 20);
-  }
-
-  function getTxFee(tx: any): string {
-    const r = seededRandom(hashStr(tx.id));
-    if (currency === 'ETH' || currency === 'LINK' || currency === 'BNB' || currency === 'USDT') {
-      const feeUnit = currency === 'BNB' ? 'BNB' : 'ETH';
-      return (r() * 0.003 + 0.0005).toFixed(4) + ' ' + feeUnit;
-    }
-    if (currency === 'BTC')  return (Math.floor(r() * 300) + 100) + ' sats';
-    if (currency === 'SOL')  return '0.000005 SOL';
-    if (currency === 'ADA')  return (r() * 0.3 + 0.17).toFixed(4) + ' ADA';
-    if (currency === 'XRP')  return '0.000012 XRP';
-    if (currency === 'DOGE') return (r() * 0.1 + 0.01).toFixed(4) + ' DOGE';
-    return '—';
-  }
-
-  function fromTo(tx: any, addr: string): { from: string; to: string } {
-    const outbound = ['Withdrawal', 'Sell', 'Send'].includes(tx.type);
-    const r = seededRandom(hashStr(tx.id + 'peer'));
-    const peerLen = currency === 'SOL' ? 44 : 42;
-    const peerSeed = '0123456789abcdef'.repeat(6);
-    const peer = net.hashPrefix + Array.from({ length: peerLen - net.hashPrefix.length })
-      .map((_, i) => peerSeed[(Math.floor(r() * 16))] )
-      .join('');
-    return outbound ? { from: addr, to: peer } : { from: peer, to: addr };
-  }
-
-  const gasDisplay = currency === 'SOL'
-    ? '0.000005 SOL'
-    : currency === 'ADA'
-      ? '0.1721 ADA'
-      : `${liveGas.toFixed(2)} ${net.gasUnit}`;
+  const blockDisplay = chain.latestBlock != null ? chain.latestBlock.toLocaleString() : '—';
+  const gasDisplay = chain.gasPrice != null ? `${chain.gasPrice} Gwei` : '—';
 
   return (
     <div className="min-h-screen bg-background">
@@ -276,9 +215,11 @@ function ExplorerContent() {
               <div className="h-6 w-6 rounded-full flex items-center justify-center" style={{ backgroundColor: net.color + '20', border: `1px solid ${net.color}40` }}>
                 <CryptoIcon name={net.symbol} className="h-4 w-4" />
               </div>
-              <span className="text-xs font-semibold text-muted-foreground/80">{net.fullName}</span>
-              <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-[10px] text-green-400 font-medium">Live</span>
+              <span className="text-xs font-semibold text-muted-foreground/80">{LEDGER_NAME}</span>
+              <span className={cn('h-1.5 w-1.5 rounded-full', chain.reachable ? 'bg-green-400 animate-pulse' : 'bg-muted-foreground/40')} />
+              <span className={cn('text-[10px] font-medium', chain.reachable ? 'text-green-400' : 'text-muted-foreground/50')}>
+                {chain.reachable ? 'Node connected' : 'Node offline'}
+              </span>
             </div>
           </div>
           <div className="flex-1 max-w-sm hidden sm:flex items-center gap-2 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5">
@@ -290,7 +231,7 @@ function ExplorerContent() {
             />
           </div>
           <div className="flex items-center gap-4 text-[10px] text-muted-foreground/60">
-            <span className="hidden md:flex items-center gap-1"><Cpu className="h-3 w-3" /> Block <span className="font-mono text-white/80">{liveBlock.toLocaleString()}</span></span>
+            <span className="hidden md:flex items-center gap-1"><Cpu className="h-3 w-3" /> Block <span className="font-mono text-white/80">{blockDisplay}</span></span>
             <span className="hidden md:flex items-center gap-1"><Zap className="h-3 w-3" /> {gasDisplay}</span>
           </div>
         </div>
@@ -301,15 +242,23 @@ function ExplorerContent() {
         {/* Network stat pills */}
         <div className="flex items-center gap-2 flex-wrap">
           {[
-            { icon: <Globe className="h-3 w-3" />, label: net.fullName, color: net.color },
-            { icon: <Cpu className="h-3 w-3" />,  label: `Block ${liveBlock.toLocaleString()}` },
-            { icon: <Zap className="h-3 w-3" />,  label: `${liveGas.toFixed(2)} ${net.gasUnit}` },
-            { icon: <Activity className="h-3 w-3" />, label: `${liveTps.toLocaleString()} TPS` },
+            { icon: <Globe className="h-3 w-3" />, label: LEDGER_NAME, color: net.color },
+            { icon: <Cpu className="h-3 w-3" />,  label: `Block ${blockDisplay}` },
+            { icon: <Zap className="h-3 w-3" />,  label: gasDisplay },
+            { icon: <Activity className="h-3 w-3" />, label: chain.chainId ? `Chain ${chain.chainId}` : 'Private network' },
           ].map((p, i) => (
             <div key={i} className="flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.06] rounded-full px-3 py-1 text-[10px] text-muted-foreground/70">
               {p.icon} {p.label}
             </div>
           ))}
+        </div>
+
+        {/* Disclosure banner */}
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-[11px] leading-relaxed text-muted-foreground/60">
+          Balances are recorded on the {LEDGER_NAME}, a private permissioned network. Transactions marked
+          <span className="text-green-400/80"> Anchored</span> have a verifiable record on the private chain; entries created
+          before ledger anchoring are shown as <span className="text-muted-foreground/80">Not anchored</span>. This network is
+          separate from public blockchains such as Ethereum or Bitcoin.
         </div>
 
         {/* Address card */}
@@ -319,8 +268,8 @@ function ExplorerContent() {
               <Shield className="h-3.5 w-3.5" /> Address
             </div>
             {found && (
-              <Badge className="text-[9px] bg-green-500/10 text-green-400 border border-green-500/20 rounded-full px-2 h-5 gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-green-400 inline-block" /> Verified
+              <Badge className="text-[9px] bg-primary/10 text-primary border border-primary/20 rounded-full px-2 h-5 gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary inline-block" /> Private Ledger
               </Badge>
             )}
           </div>
@@ -344,9 +293,20 @@ function ExplorerContent() {
                           ? <CheckCheck className="h-3.5 w-3.5 text-green-400" />
                           : <Copy className="h-3.5 w-3.5 text-muted-foreground/50" />}
                       </button>
+                      {BLOCKSCOUT_URL && (
+                        <a
+                          href={`${BLOCKSCOUT_URL}/address/${address}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 p-1 rounded hover:bg-white/[0.06] transition-colors"
+                          title="Open in Blockscout"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/50" />
+                        </a>
+                      )}
                     </div>
                     <p className="text-[10px] text-muted-foreground/50 mt-1">
-                      {net.name} {['ETH','LINK','USDT'].includes(currency) ? 'ERC-20' : currency === 'BNB' ? 'BEP-20' : ''} Address
+                      {LEDGER_NAME} account
                     </p>
                   </div>
                 </div>
@@ -362,19 +322,19 @@ function ExplorerContent() {
                     {
                       label: 'Transactions',
                       value: transactions.length.toString(),
-                      sub: 'total',
+                      sub: `${anchoredCount} anchored`,
                       highlight: false,
                     },
                     {
                       label: 'Network',
-                      value: net.name,
-                      sub: 'mainnet',
+                      value: 'Apex',
+                      sub: 'private ledger',
                       highlight: false,
                     },
                     {
                       label: 'Status',
                       value: found ? 'Active' : 'Inactive',
-                      sub: found ? 'on-chain' : 'no activity',
+                      sub: found ? 'private ledger' : 'no activity',
                       highlight: false,
                     },
                   ].map((s, i) => (
@@ -418,7 +378,7 @@ function ExplorerContent() {
             <div className="py-16 text-center">
               <Activity className="h-10 w-10 mx-auto mb-3 text-muted-foreground/20" />
               <p className="text-sm text-muted-foreground/50">No transactions found for this address</p>
-              <p className="text-[10px] text-muted-foreground/30 mt-1">Transactions will appear here once confirmed on the network</p>
+              <p className="text-[10px] text-muted-foreground/30 mt-1">Transfers will appear here once recorded on the private ledger</p>
             </div>
           ) : (
             <>
@@ -433,11 +393,14 @@ function ExplorerContent() {
                 <span className="text-right">Status</span>
               </div>
 
-              {displayed.map((tx, idx) => {
-                const hash = getTxHash(tx);
-                const block = getTxBlock(tx, idx);
-                const { from, to } = fromTo(tx, address as string);
-                const isOut = ['Withdrawal','Sell','Send'].includes(tx.type);
+              {displayed.map((tx) => {
+                const isOut = ['Withdrawal','Sell','Send','TRANSFER_SENT'].includes(tx.type);
+                const anchored = Boolean(tx.onChainTxHash);
+                const hash = tx.onChainTxHash as string | undefined;
+                const block = tx.onChainBlockNumber as number | undefined;
+                const from = tx.ledgerAddressFrom as string | undefined;
+                const to = tx.ledgerAddressTo as string | undefined;
+                const txLink = anchored && BLOCKSCOUT_URL ? `${BLOCKSCOUT_URL}/tx/${hash}` : null;
 
                 return (
                   <div
@@ -456,10 +419,11 @@ function ExplorerContent() {
                             : <ArrowDownLeft className="h-3.5 w-3.5 text-green-400" />}
                         </div>
                         <div>
-                          <code className="text-[10px] text-primary/80 font-mono">{hash.slice(0, 18)}…</code>
+                          {anchored
+                            ? <code className="text-[10px] text-primary/80 font-mono">{maskHash(hash!, 6)}</code>
+                            : <span className="text-[10px] text-muted-foreground/40 font-mono">Not anchored</span>}
                           <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground/50">
-                            <span>Block {block.toLocaleString()}</span>
-                            <span>·</span>
+                            {block != null && <><span>Block {block.toLocaleString()}</span><span>·</span></>}
                             <span>{fmtAge(tx.timestamp)}</span>
                           </div>
                         </div>
@@ -468,7 +432,9 @@ function ExplorerContent() {
                         <p className={cn('text-xs font-bold tabular-nums', isOut ? 'text-red-400' : 'text-green-400')}>
                           {isOut ? '−' : '+'}{(tx.amount ?? 0).toFixed(currency === 'BTC' ? 8 : 6)} {currency}
                         </p>
-                        <Badge className="text-[8px] mt-1 bg-green-500/10 text-green-400 border-green-500/20 h-4 px-1.5">Confirmed</Badge>
+                        {anchored
+                          ? <Badge className="text-[8px] mt-1 bg-green-500/10 text-green-400 border-green-500/20 h-4 px-1.5 gap-1"><Link2 className="h-2.5 w-2.5" /> Anchored</Badge>
+                          : <Badge className="text-[8px] mt-1 bg-muted-foreground/10 text-muted-foreground/60 border-muted-foreground/20 h-4 px-1.5 gap-1"><Link2Off className="h-2.5 w-2.5" /> Not anchored</Badge>}
                       </div>
                     </div>
 
@@ -483,15 +449,19 @@ function ExplorerContent() {
                             ? <ArrowUpRight className="h-3 w-3 text-red-400" />
                             : <ArrowDownLeft className="h-3 w-3 text-green-400" />}
                         </div>
-                        <code className="text-[10px] text-primary/80 font-mono truncate">{hash.slice(0, 20)}…</code>
+                        {anchored
+                          ? (txLink
+                              ? <a href={txLink} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary/80 font-mono truncate hover:underline flex items-center gap-1">{maskHash(hash!, 8)}<ExternalLink className="h-2.5 w-2.5" /></a>
+                              : <code className="text-[10px] text-primary/80 font-mono truncate">{maskHash(hash!, 8)}</code>)
+                          : <span className="text-[10px] text-muted-foreground/40 font-mono truncate">Not anchored</span>}
                       </div>
-                      <span className="text-[10px] font-mono text-muted-foreground/70">{block.toLocaleString()}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground/70">{block != null ? block.toLocaleString() : '—'}</span>
                       <span className="text-[10px] text-muted-foreground/60 whitespace-nowrap">{fmtAge(tx.timestamp)}</span>
                       <code className={cn('text-[10px] font-mono truncate', !isOut && 'text-muted-foreground/50')}>
-                        {maskAddress(from, 8)}
+                        {from ? maskHash(from, 6) : '—'}
                       </code>
                       <code className={cn('text-[10px] font-mono truncate', isOut && 'text-muted-foreground/50')}>
-                        {maskAddress(to, 8)}
+                        {to ? maskHash(to, 6) : '—'}
                       </code>
                       <div className="text-right">
                         <p className={cn('text-[11px] font-bold tabular-nums', isOut ? 'text-red-400' : 'text-green-400')}>
@@ -499,17 +469,21 @@ function ExplorerContent() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <Badge className="text-[8px] bg-green-500/10 text-green-400 border-green-500/20 h-4 px-1.5">✓ Confirmed</Badge>
+                        {anchored
+                          ? <Badge className="text-[8px] bg-green-500/10 text-green-400 border-green-500/20 h-4 px-1.5 gap-1"><Link2 className="h-2.5 w-2.5" /> Anchored</Badge>
+                          : <Badge className="text-[8px] bg-muted-foreground/10 text-muted-foreground/60 border-muted-foreground/20 h-4 px-1.5 gap-1"><Link2Off className="h-2.5 w-2.5" /> Not anchored</Badge>}
                       </div>
                     </div>
 
                     {/* Extra metadata row */}
                     <div className="mt-1.5 flex items-center gap-3 flex-wrap">
                       <span className="text-[9px] text-muted-foreground/30">{fmtDate(tx.timestamp)}</span>
-                      <span className="text-[9px] text-muted-foreground/30">·</span>
-                      <span className="text-[9px] text-muted-foreground/30">{net.confirmations} confirmations</span>
-                      <span className="text-[9px] text-muted-foreground/30">·</span>
-                      <span className="text-[9px] text-muted-foreground/30">{net.feeLabel}: {getTxFee(tx)}</span>
+                      {tx.onChainId && (
+                        <>
+                          <span className="text-[9px] text-muted-foreground/30">·</span>
+                          <span className="text-[9px] text-muted-foreground/30">Chain {tx.onChainId}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -531,7 +505,7 @@ function ExplorerContent() {
 
         {/* Footer */}
         <div className="flex items-center justify-between text-[10px] text-muted-foreground/30 pb-4">
-          <span>Apex Block Explorer · {net.fullName} · Private Ledger Node</span>
+          <span>Apex Block Explorer · {LEDGER_NAME} · Private permissioned node</span>
           <span className="flex items-center gap-1"><RotateCcw className="h-3 w-3" /> Auto-refreshing</span>
         </div>
       </div>
