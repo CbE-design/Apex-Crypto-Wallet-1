@@ -92,11 +92,13 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
     router.replace('/login');
   }, [isPublicPage, loading, accessGranted, router]);
 
-  // Keep the full-screen auth loader up on protected pages until the visitor is
-  // actually authenticated and ready. This prevents the dashboard chrome from
-  // flashing (the "spin into the dashboard then bounce back to login" glitch)
-  // while the redirect above runs.
-  if (!isPublicPage && (loading || !accessGranted)) {
+  // Keep the full-screen auth loader up until the component has mounted on the
+  // client (so the server HTML and the client's first render always match, which
+  // avoids hydration text-mismatch errors), and on protected pages until the
+  // visitor is actually authenticated and ready. This also prevents the dashboard
+  // chrome from flashing (the "spin into the dashboard then bounce back to login"
+  // glitch) while the redirect above runs.
+  if (!isMounted || (!isPublicPage && (loading || !accessGranted))) {
     return (
       <div className="flex items-center justify-center h-[100dvh] w-full bg-background z-[9999] fixed inset-0">
         <div className="flex flex-col items-center gap-6">
