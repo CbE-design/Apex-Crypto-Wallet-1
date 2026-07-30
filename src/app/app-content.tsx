@@ -114,7 +114,7 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
         </div>
         <h1 className="text-2xl font-bold tracking-tight mb-3 text-white">Scheduled Maintenance</h1>
         <p className="text-sm text-white/40 mb-8 max-w-sm leading-relaxed">
-          Apex Wallet is temporarily offline. Your funds are safe. Please check back shortly.
+          Apex Private Ledger is temporarily offline. Your funds are safe. Please check back shortly.
         </p>
         <div className="flex items-center gap-2 px-4 py-2 mb-8 bg-red-500/5 border border-red-500/15 rounded-xl">
           <Power className="h-3.5 w-3.5 text-red-400 animate-pulse" />

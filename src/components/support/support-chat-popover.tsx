@@ -81,7 +81,7 @@ export function SupportChatPopover() {
                                 <AvatarFallback><Bot /></AvatarFallback>
                             </Avatar>
                             <div className="bg-muted p-3 rounded-lg text-sm max-w-[85%]">
-                                <p>Hello! How can I help you with your Apex Wallet today?</p>
+                                <p>Hello! How can I help you with your Apex Private Ledger today?</p>
                             </div>
                         </div>
                         {messages.map((message, index) => (

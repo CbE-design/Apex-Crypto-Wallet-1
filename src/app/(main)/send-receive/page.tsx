@@ -314,10 +314,10 @@ export default function SendReceivePage() {
           </div>
         </div>
         <p className="text-[10px] text-center text-white/15 px-2">
-          Transfers above <strong className="text-white/25">R3,000</strong> are subject to FATF Travel Rule reporting.
+          Blockchain transfers are final and irreversible — always double-check the recipient address.
           By transacting you accept our{' '}
           <a href="/legal/terms" className="underline hover:text-white/30 transition-colors">Terms</a> and{' '}
-          <a href="/legal/aml-policy" className="underline hover:text-white/30 transition-colors">AML Policy</a>.
+          <a href="/legal/risk-disclosure" className="underline hover:text-white/30 transition-colors">Risk Disclosure</a>.
         </p>
         </div>
       </div>

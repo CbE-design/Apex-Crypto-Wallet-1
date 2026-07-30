@@ -93,13 +93,13 @@ export function buildEmailTemplate({
 <body>
   <div class="container">
     <div class="card">
-      <div class="logo">Apex Wallet</div>
+      <div class="logo">Apex Private Ledger</div>
       <h1>${title}</h1>
       <p>${previewText}</p>
       <div class="highlight">${body}</div>
       ${cta && ctaUrl ? `<a href="${ctaUrl}" class="button">${cta}</a>` : ''}
     </div>
-    <div class="footer">${footer ?? 'Apex Wallet · Institutional-grade crypto custody'}</div>
+    <div class="footer">${footer ?? 'Apex Private Ledger · Private self-custody crypto ledger'}</div>
   </div>
 </body>
 </html>`;

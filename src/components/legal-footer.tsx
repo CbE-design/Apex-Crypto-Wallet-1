@@ -8,17 +8,16 @@ export function LegalFooter() {
         <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/15">
           <Shield className="h-3.5 w-3.5 text-amber-400/70 shrink-0 mt-0.5" />
           <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
-            <span className="font-semibold text-amber-400/80">Risk Warning:</span> Cryptocurrency investments are highly volatile and speculative. You may lose some or all of your invested capital. Past performance is not indicative of future results. This platform does not provide financial, investment, legal, or tax advice. Please read our{' '}
+            <span className="font-semibold text-amber-400/80">Risk Warning:</span> Cryptocurrency values are highly volatile and speculative. You may lose some or all of your assets. Past performance is not indicative of future results. This app does not provide financial, investment, legal, or tax advice. Please read our{' '}
             <Link href="/legal/risk-disclosure" className="underline text-primary/70 hover:text-primary transition-colors">Risk Disclosure</Link> before transacting.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {[
             { label: 'Terms of Service', href: '/legal/terms' },
             { label: 'Privacy Policy', href: '/legal/privacy' },
             { label: 'Risk Disclosure', href: '/legal/risk-disclosure' },
-            { label: 'AML & FICA Policy', href: '/legal/aml-policy' },
           ].map(({ label, href }) => (
             <Link
               key={href}
@@ -33,10 +32,10 @@ export function LegalFooter() {
 
         <div className="text-center space-y-1">
           <p className="text-[10px] text-muted-foreground/40">
-            © {new Date().getFullYear()} Apex Wallet (Pty) Ltd. All rights reserved.
+            © {new Date().getFullYear()} Apex Private Ledger. All rights reserved.
           </p>
           <p className="text-[9px] text-muted-foreground/30 max-w-xl mx-auto leading-relaxed">
-  Apex Wallet operates in compliance with the Financial Intelligence Centre Act (FICA) No. 38 of 2001 and the Protection of Personal Information Act (POPIA). Apex Wallet is a non-custodial software provider and does not hold user assets.
+  Apex Private Ledger is a non-custodial software application. It is a self-hosted tool that lets you generate and manage your own keys on your own device. Apex Private Ledger does not hold, control, or have access to your funds, does not act as a financial institution, exchange, broker, or money services business, and does not require licensing or regulatory registration. You are solely responsible for your keys, assets, and transactions.
 </p>
         </div>
       </div>

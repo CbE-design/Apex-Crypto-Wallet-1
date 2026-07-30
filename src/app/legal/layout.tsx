@@ -12,7 +12,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
           </Link>
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-primary" />
-            <span className="text-sm font-semibold">Apex Wallet — Legal</span>
+            <span className="text-sm font-semibold">Apex Private Ledger — Legal</span>
           </div>
         </div>
       </header>
@@ -22,13 +22,12 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
       <footer className="border-t border-border/40 bg-muted/20 py-8 mt-10">
         <div className="max-w-4xl mx-auto px-4 text-center space-y-3">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Apex Wallet. All rights reserved. Registered in South Africa.
+            © {new Date().getFullYear()} Apex Private Ledger. All rights reserved. Non-custodial software.
           </p>
           <div className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
             <Link href="/legal/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
             <Link href="/legal/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
             <Link href="/legal/risk-disclosure" className="hover:text-foreground transition-colors">Risk Disclosure</Link>
-            <Link href="/legal/aml-policy" className="hover:text-foreground transition-colors">AML & FICA Policy</Link>
           </div>
         </div>
       </footer>

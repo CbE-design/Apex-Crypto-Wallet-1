@@ -38,13 +38,13 @@ export async function registerPasskey(uid: string, addressHint: string): Promise
     publicKey: {
       challenge,
       rp: {
-        name: 'Apex Wallet',
+        name: 'Apex Private Ledger',
         id: window.location.hostname,
       },
       user: {
         id: userId,
         name: addressHint,
-        displayName: 'Apex Wallet',
+        displayName: 'Apex Private Ledger',
       },
       pubKeyCredParams: [
         { type: 'public-key', alg: -7 },   // ES256
