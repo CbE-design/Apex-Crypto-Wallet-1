@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from "react";
+import Image from 'next/image';
 import { Check, ChevronsUpDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -25,10 +26,15 @@ export function CurrencySwitcher() {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-24 justify-start"
+          className="w-28 justify-start"
         >
-          {currency.symbol}
-          <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+          <div className="flex items-center gap-2 w-full">
+            <div className="relative h-3 w-4.5 overflow-hidden rounded-sm border border-white/10 shrink-0">
+              <Image src={currency.flagUrl} alt={currency.name} fill className="object-cover" />
+            </div>
+            <span className="font-medium text-sm">{currency.symbol}</span>
+            <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+          </div>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
@@ -51,7 +57,14 @@ export function CurrencySwitcher() {
                     currency.symbol === c.symbol ? "opacity-100" : "opacity-0"
                   )}
                 />
-                {c.symbol} - {c.name}
+
+                <div className="flex items-center gap-2">
+                  <div className="relative h-3 w-4.5 overflow-hidden rounded-sm border border-white/5 shrink-0">
+                    <Image src={c.flagUrl} alt={c.name} fill className="object-cover" />
+                  </div>
+                  <span className="truncate">{c.symbol} - {c.name}</span>
+                </div>
+
               </CommandItem>
             ))}
           </CommandGroup>
