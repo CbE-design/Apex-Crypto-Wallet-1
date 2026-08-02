@@ -1,5 +1,6 @@
 {pkgs}: {
   deps = [
+    pkgs.foundry
     pkgs.librsvg
     pkgs.giflib
     pkgs.libjpeg
