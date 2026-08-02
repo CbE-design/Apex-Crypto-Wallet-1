@@ -153,7 +153,7 @@ export default function MyWalletsPage() {
                 variant="outline"
                 size="sm"
                 className={cn(
-                  'flex-1 flex flex-col items-center justify-center h-16 rounded-xl bg-white/[0.03] border-white/[0.06] hover:bg-violet-500/10 hover:text-violet-300 hover:border-violet-500/30 tra[...]
+                  'flex-1 flex flex-col items-center justify-center h-16 rounded-xl bg-white/[0.03] border-white/[0.06] hover:bg-violet-500/10 hover:text-violet-300 hover:border-violet-500/30 transition-colors',
                   disabled && 'opacity-40 pointer-events-none',
                   accent && 'border-violet-500/40 bg-violet-500/5 text-violet-400 ring-1 ring-violet-500/20'
                 )}
@@ -282,162 +282,162 @@ export default function MyWalletsPage() {
                            <Skeleton className="h-4 w-20" />
                            <Skeleton className="h-3 w-10" />
                         </div>
-                    </div>
-                    <div className="space-y-2 text-right">
+                      </div>
+                      <div className="space-y-2 text-right">
                         <Skeleton className="h-4 w-24" />
                         <Skeleton className="h-3 w-12 ml-auto" />
-                    </div>
-                </div>
-                <div className="mt-5 pt-5 border-t border-white/[0.05] space-y-3">
-                    <Skeleton className="h-4 w-32" />
-                    <div className="grid grid-cols-4 gap-2">
-                       <Skeleton className="h-16 rounded-xl" />
-                       <Skeleton className="h-16 rounded-xl" />
-                       <Skeleton className="h-16 rounded-xl" />
-                       <Skeleton className="h-16 rounded-xl" />
-                    </div>
-                </div>
-            </div>
-          ))}
-        </div>
-      ) : sortedAssets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center bg-white/[0.02] rounded-2xl p-16 border border-white/[0.07] border-dashed">
-          <div className="p-4 rounded-full bg-violet-500/10 mb-4 ring-8 ring-violet-500/5"><Wallet className="h-8 w-8 text-violet-400"/></div>
-          <h4 className="text-lg font-semibold text-white mb-1">No Assets Yet</h4>
-          <p className="text-sm text-white/40 max-w-xs mx-auto">Your wallet balances will appear here once you deposit funds. Click below to get started.</p>
-          <Link href="/add-asset">
-             <Button className="mt-6 h-11 rounded-xl gap-2 bg-gradient-to-r from-violet-500 to-cyan-400 text-white font-bold">
-                <Plus className="h-4 w-4"/> Deposit Funds
-            </Button>
-          </Link>
-        </div>
-      ) : (
-        <div className={cn(
-            "grid gap-6",
-            viewMode === 'grid' ? "grid-cols-1 lg:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"
-        )}>
-          {sortedAssets.map((asset) => (
-             viewMode === 'grid' ? (
-              <AssetCard key={asset.symbol} asset={asset} />
-            ) : (
-                <div key={asset.symbol} className="bg-[#0A0C12]/80 border border-white/[0.07] rounded-2xl px-5 py-4 flex items-center justify-between group hover:border-violet-500/20 transition-a[...]
-                <div className="flex items-center gap-4">
-                  <CryptoIcon name={asset.symbol} className="w-9 h-9" />
-                  <div>
-                    <p className="font-bold text-white">{asset.name}</p>
-                    <p className="text-sm text-white/40 font-mono">
-                      {asset.amount.toFixed(6)} {asset.symbol}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-8">
-                    <div className="text-right">
-                        <p className="font-semibold text-white">{formatCurrency(asset.valueUSD)}</p>
-                         <div className={cn('text-xs font-bold flex items-center justify-end gap-1', asset.change24h >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                          {asset.change24h >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                          <span>{Math.abs(asset.change24h).toFixed(2)}%</span>
-                        </div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full data-[state=open]:bg-violet-500/10 text-white/50 hover:text-white">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-neutral-900 border-neutral-800 text-white">
-                        <DropdownMenuItem>Send</DropdownMenuItem>
-                        <DropdownMenuItem>Receive</DropdownMenuItem>
-                        <DropdownMenuItem>Swap</DropdownMenuItem>
-                        <DropdownMenuItem>Withdraw</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-              </div>
-            )
-          ))}
-        </div>
-      )}
+                      </div>
+                 </div>
+                 <div className="mt-5 pt-5 border-t border-white/[0.05] space-y-3">
+                     <Skeleton className="h-4 w-32" />
+                     <div className="grid grid-cols-4 gap-2">
+                        <Skeleton className="h-16 rounded-xl" />
+                        <Skeleton className="h-16 rounded-xl" />
+                        <Skeleton className="h-16 rounded-xl" />
+                        <Skeleton className="h-16 rounded-xl" />
+                     </div>
+                 </div>
+             </div>
+           ))}
+         </div>
+       ) : sortedAssets.length === 0 ? (
+         <div className="flex flex-col items-center justify-center text-center bg-white/[0.02] rounded-2xl p-16 border border-white/[0.07] border-dashed">
+           <div className="p-4 rounded-full bg-violet-500/10 mb-4 ring-8 ring-violet-500/5"><Wallet className="h-8 w-8 text-violet-400"/></div>
+           <h4 className="text-lg font-semibold text-white mb-1">No Assets Yet</h4>
+           <p className="text-sm text-white/40 max-w-xs mx-auto">Your wallet balances will appear here once you deposit funds. Click below to get started.</p>
+           <Link href="/add-asset">
+              <Button className="mt-6 h-11 rounded-xl gap-2 bg-gradient-to-r from-violet-500 to-cyan-400 text-white font-bold">
+                 <Plus className="h-4 w-4"/> Deposit Funds
+             </Button>
+           </Link>
+         </div>
+       ) : (
+         <div className={cn(
+             "grid gap-6",
+             viewMode === 'grid' ? "grid-cols-1 lg:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"
+         )}>
+           {sortedAssets.map((asset) => (
+              viewMode === 'grid' ? (
+               <AssetCard key={asset.symbol} asset={asset} />
+             ) : (
+                 <div key={asset.symbol} className="bg-[#0A0C12]/80 border border-white/[0.07] rounded-2xl px-5 py-4 flex items-center justify-between group hover:border-violet-500/20 transition-all">
+                 <div className="flex items-center gap-4">
+                   <CryptoIcon name={asset.symbol} className="w-9 h-9" />
+                   <div>
+                     <p className="font-bold text-white">{asset.name}</p>
+                     <p className="text-sm text-white/40 font-mono">
+                       {asset.amount.toFixed(6)} {asset.symbol}
+                     </p>
+                   </div>
+                 </div>
+                 <div className="flex items-center gap-8">
+                     <div className="text-right">
+                         <p className="font-semibold text-white">{formatCurrency(asset.valueUSD)}</p>
+                          <div className={cn('text-xs font-bold flex items-center justify-end gap-1', asset.change24h >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                           {asset.change24h >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                           <span>{Math.abs(asset.change24h).toFixed(2)}%</span>
+                         </div>
+                     </div>
+                     <DropdownMenu>
+                       <DropdownMenuTrigger asChild>
+                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full data-[state=open]:bg-violet-500/10 text-white/50 hover:text-white">
+                           <MoreHorizontal className="h-4 w-4" />
+                         </Button>
+                       </DropdownMenuTrigger>
+                       <DropdownMenuContent align="end" className="bg-neutral-900 border-neutral-800 text-white">
+                         <DropdownMenuItem>Send</DropdownMenuItem>
+                         <DropdownMenuItem>Receive</DropdownMenuItem>
+                         <DropdownMenuItem>Swap</DropdownMenuItem>
+                         <DropdownMenuItem>Withdraw</DropdownMenuItem>
+                       </DropdownMenuContent>
+                     </DropdownMenu>
+                 </div>
+               </div>
+             )
+           ))}
+         </div>
+       )}
 
-      <div className="mt-12">
-        <h2 className="text-lg font-bold text-white mb-4">Recent Activity</h2>
-         <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80">
-          <div className="grid grid-cols-4 gap-4 items-center px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-white/30 border-b border-white/[0.05]">
-            <span>Asset</span>
-            <span>Amount</span>
-            <span>Value ({nativeCurrency.symbol})</span>
-            <span className="text-right">Action</span>
-          </div>
-          {isTxLoading ? (
-            <div className="py-10 flex justify-center"><Skeleton className="h-6 w-6" /></div>
-          ) : sortedTransactions.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-sm text-white/30">No transactions yet.</p>
-            </div>
-          ) : (
-            sortedTransactions.map(tx => <TransactionRow key={tx.id} tx={tx} />)
-          )}
-        </div>
-      </div>
+       <div className="mt-12">
+         <h2 className="text-lg font-bold text-white mb-4">Recent Activity</h2>
+          <div className="rounded-2xl border border-white/[0.07] bg-[#0A0C12]/80">
+           <div className="grid grid-cols-4 gap-4 items-center px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-white/30 border-b border-white/[0.05]">
+             <span>Asset</span>
+             <span>Amount</span>
+             <span>Value ({nativeCurrency.symbol})</span>
+             <span className="text-right">Action</span>
+           </div>
+           {isTxLoading ? (
+             <div className="py-10 flex justify-center"><Skeleton className="h-6 w-6" /></div>
+           ) : sortedTransactions.length === 0 ? (
+             <div className="text-center py-12">
+               <p className="text-sm text-white/30">No transactions yet.</p>
+             </div>
+           ) : (
+             sortedTransactions.map(tx => <TransactionRow key={tx.id} tx={tx} />)
+           )}
+         </div>
+       </div>
 
-      {/* Transaction Details Dialog */}
-      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Transaction Details</DialogTitle>
-            <DialogDescription>
-              {selectedTx ? `Details for ${selectedTx.currency} transaction` : ''}
-            </DialogDescription>
-          </DialogHeader>
+       {/* Transaction Details Dialog */}
+       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+         <DialogContent>
+           <DialogHeader>
+             <DialogTitle>Transaction Details</DialogTitle>
+             <DialogDescription>
+               {selectedTx ? `Details for ${selectedTx.currency} transaction` : ''}
+             </DialogDescription>
+           </DialogHeader>
 
-          {selectedTx ? (
-            <div className="space-y-4 mt-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Type</p>
-                  <p className="font-medium text-white/80">{selectedTx.type || 'Transfer'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Date</p>
-                  <p className="font-medium text-white/80">{new Date((selectedTx.timestamp?.seconds ?? 0) * 1000).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Amount</p>
-                  <p className="font-medium text-emerald-400">{Number(selectedTx.amount || 0).toFixed(6)} {selectedTx.currency}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Value</p>
-                  <p className="font-medium text-white/80">{formatCurrency((Number(selectedTx.amount || 0)) * (Number((prices as any)[selectedTx.currency] ?? (selectedTx as any).pricePerCoinUSD ?? 0)))}</p>
-                </div>
-              </div>
+           {selectedTx ? (
+             <div className="space-y-4 mt-2">
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <p className="text-[10px] text-white/30 uppercase tracking-wider">Type</p>
+                   <p className="font-medium text-white/80">{selectedTx.type || 'Transfer'}</p>
+                 </div>
+                 <div>
+                   <p className="text-[10px] text-white/30 uppercase tracking-wider">Date</p>
+                   <p className="font-medium text-white/80">{new Date((selectedTx.timestamp?.seconds ?? 0) * 1000).toLocaleString()}</p>
+                 </div>
+                 <div>
+                   <p className="text-[10px] text-white/30 uppercase tracking-wider">Amount</p>
+                   <p className="font-medium text-emerald-400">{Number(selectedTx.amount || 0).toFixed(6)} {selectedTx.currency}</p>
+                 </div>
+                 <div>
+                   <p className="text-[10px] text-white/30 uppercase tracking-wider">Value</p>
+                   <p className="font-medium text-white/80">{formatCurrency((Number(selectedTx.amount || 0)) * (Number((prices as any)[selectedTx.currency] ?? (selectedTx as any).pricePerCoinUSD ?? 0)))}</p>
+                 </div>
+               </div>
 
-              {selectedTx.from && (
-                <div>
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider">From</p>
-                  <p className="font-mono text-sm text-white/60">{selectedTx.from}</p>
-                </div>
-              )}
+               {selectedTx.from && (
+                 <div>
+                   <p className="text-[10px] text-white/30 uppercase tracking-wider">From</p>
+                   <p className="font-mono text-sm text-white/60">{selectedTx.from}</p>
+                 </div>
+               )}
 
-              {selectedTx.to && (
-                <div>
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider">To</p>
-                  <p className="font-mono text-sm text-white/60">{selectedTx.to}</p>
-                </div>
-              )}
+               {selectedTx.to && (
+                 <div>
+                   <p className="text-[10px] text-white/30 uppercase tracking-wider">To</p>
+                   <p className="font-mono text-sm text-white/60">{selectedTx.to}</p>
+                 </div>
+               )}
 
-              {selectedTx.txHash && (
-                <div>
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Transaction</p>
-                  <p className="font-mono text-sm text-white/60 break-all">{selectedTx.txHash}</p>
-                </div>
-              )}
+               {selectedTx.txHash && (
+                 <div>
+                   <p className="text-[10px] text-white/30 uppercase tracking-wider">Transaction</p>
+                   <p className="font-mono text-sm text-white/60 break-all">{selectedTx.txHash}</p>
+                 </div>
+               )}
 
-              <div className="flex justify-end">
-                <Button variant="outline" onClick={closeDetails}>Close</Button>
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+               <div className="flex justify-end">
+                 <Button variant="outline" onClick={closeDetails}>Close</Button>
+               </div>
+             </div>
+           ) : null}
+         </DialogContent>
+       </Dialog>
+     </div>
+   );
 }
