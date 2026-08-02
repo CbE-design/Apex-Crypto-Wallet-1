@@ -35,8 +35,18 @@ export interface Transaction {
   status: 'Completed' | 'Pending' | 'Failed' | 'Reconciling';
   timestamp: any;
   notes?: string;
+
+  // canonical field names used in some parts of the codebase
   sender?: string;
   recipient?: string;
+
+  // UI-friendly aliases (keeps backward compatibility with existing DB shapes)
+  from?: string;
+  to?: string;
+
+  // transaction hash (optional)
+  txHash?: string;
+
   metadata?: {
     travelRuleVerified: boolean;
     complianceId?: string;
