@@ -31,6 +31,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 interface WalletDoc {
   id: string; // Asset symbol e.g. BTC
@@ -162,29 +169,76 @@ export default function MyWalletsPage() {
     );
   };
 
-  const TransactionRow = ({ tx }: { tx: TransactionDoc }) => (
-    <div className="grid grid-cols-4 gap-4 items-center px-4 py-3 text-xs border-b border-white/[0.05] last:border-b-0 hover:bg-violet-500/[0.03] transition-colors">
-      <div className="flex items-center gap-3">
-        <CryptoIcon name={tx.currency} className="w-7 h-7" />
-        <div>
-          <p className="font-semibold text-white/80">{tx.currency}</p>
-          <p className="text-[10px] text-white/30">{new Date(tx.timestamp?.seconds * 1000).toLocaleDateString()}</p>
+  // State for transaction details modal
+  const [selectedTx, setSelectedTx] = React.useState<TransactionDoc | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = React.useState(false);
+
+  const openDetails = (tx: TransactionDoc) => {
+    setSelectedTx(tx);
+    setIsDetailOpen(true);
+  };
+
+  const closeDetails = () => {
+    setIsDetailOpen(false);
+    setSelectedTx(null);
+  };
+
+  const TransactionRow = ({ tx }: { tx: TransactionDoc }) => {
+    // Determine debit vs credit using a more robust heuristic
+    const typeLower = (tx.type || '').toLowerCase();
+    const isDebit =
+      typeLower === 'sell' ||
+      typeLower === 'withdrawal' ||
+      typeLower === 'transfer_sent' ||
+      typeLower.includes('sent') ||
+      typeLower.includes('withdraw');
+
+    // Safe amount parsing
+    const rawAmount = Number(tx.amount || 0);
+    const safeAmount = isNaN(rawAmount) ? 0 : rawAmount;
+
+    // Price lookup from live prices or transaction payload
+    const price = Number((prices as any)[tx.currency] ?? (tx as any).pricePerCoinUSD ?? 0);
+    const safePrice = isNaN(price) || price <= 0 ? 0 : price;
+    const value = safeAmount * safePrice;
+
+    // Safe date handling
+    let dateObj = new Date();
+    if (tx.timestamp && typeof (tx as any).timestamp.toDate === 'function') {
+      dateObj = (tx as any).timestamp.toDate();
+    } else if (tx.timestamp) {
+      dateObj = new Date(tx.timestamp as any);
+    } else if ((tx as any).createdAt) {
+      dateObj = new Date((tx as any).createdAt);
+    }
+
+    return (
+      <div className="grid grid-cols-4 gap-4 items-center px-4 py-3 text-xs border-b border-white/[0.05] last:border-b-0 hover:bg-violet-500/[0.03] transition-colors">
+        <div className="flex items-center gap-3">
+          <CryptoIcon name={tx.currency} className="w-7 h-7" />
+          <div>
+            <p className="font-semibold text-white/80">{tx.currency}</p>
+            <p className="text-[10px] text-white/30">{dateObj.toLocaleDateString()}</p>
+          </div>
+        </div>
+
+        <p className={cn(
+          "font-semibold",
+          isDebit ? 'text-red-400' : 'text-emerald-400'
+        )}>
+          {isDebit ? '-' : '+'} {safeAmount.toFixed(6)}
+        </p>
+
+        <p className="font-mono text-white/40">{formatCurrency(value)}</p>
+
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" className="h-7 text-white/40 hover:text-white" onClick={() => openDetails(tx)}>
+            Details
+          </Button>
         </div>
       </div>
-      <p className={cn(
-        "font-semibold",
-        tx.type === 'Buy' ? 'text-emerald-400' : 'text-red-400'
-      )}>
-        {tx.type === 'Buy' ? '+' : '-'} {tx.amount.toFixed(6)}
-      </p>
-      <p className="font-mono text-white/40">{formatCurrency((tx as any).valueUSD)}</p>
-      <div className="flex justify-end">
-        <Button variant="ghost" size="sm" className="h-7 text-white/40 hover:text-white">
-          Details
-        </Button>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-8 p-4 md:p-6 pb-20">
@@ -324,6 +378,66 @@ export default function MyWalletsPage() {
           )}
         </div>
       </div>
+
+      {/* Transaction Details Dialog */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogDescription>
+              {selectedTx ? `Details for ${selectedTx.currency} transaction` : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTx ? (
+            <div className="space-y-4 mt-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Type</p>
+                  <p className="font-medium text-white/80">{selectedTx.type || 'Transfer'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Date</p>
+                  <p className="font-medium text-white/80">{new Date((selectedTx.timestamp?.seconds ?? 0) * 1000).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Amount</p>
+                  <p className="font-medium text-emerald-400">{Number(selectedTx.amount || 0).toFixed(6)} {selectedTx.currency}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Value</p>
+                  <p className="font-medium text-white/80">{formatCurrency((Number(selectedTx.amount || 0)) * (Number((prices as any)[selectedTx.currency] ?? (selectedTx as any).pricePerCoinUSD ?? 0)))}</p>
+                </div>
+              </div>
+
+              {selectedTx.from && (
+                <div>
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider">From</p>
+                  <p className="font-mono text-sm text-white/60">{selectedTx.from}</p>
+                </div>
+              )}
+
+              {selectedTx.to && (
+                <div>
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider">To</p>
+                  <p className="font-mono text-sm text-white/60">{selectedTx.to}</p>
+                </div>
+              )}
+
+              {selectedTx.txHash && (
+                <div>
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider">Transaction</p>
+                  <p className="font-mono text-sm text-white/60 break-all">{selectedTx.txHash}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={closeDetails}>Close</Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
