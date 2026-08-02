@@ -153,7 +153,7 @@ export default function MyWalletsPage() {
                 variant="outline"
                 size="sm"
                 className={cn(
-                  'flex-1 flex flex-col items-center justify-center h-16 rounded-xl bg-white/[0.03] border-white/[0.06] hover:bg-violet-500/10 hover:text-violet-300 hover:border-violet-500/30 transition-all text-white/50',
+                  'flex-1 flex flex-col items-center justify-center h-16 rounded-xl bg-white/[0.03] border-white/[0.06] hover:bg-violet-500/10 hover:text-violet-300 hover:border-violet-500/30 tra[...]
                   disabled && 'opacity-40 pointer-events-none',
                   accent && 'border-violet-500/40 bg-violet-500/5 text-violet-400 ring-1 ring-violet-500/20'
                 )}
@@ -320,7 +320,7 @@ export default function MyWalletsPage() {
              viewMode === 'grid' ? (
               <AssetCard key={asset.symbol} asset={asset} />
             ) : (
-                <div key={asset.symbol} className="bg-[#0A0C12]/80 border border-white/[0.07] rounded-2xl px-5 py-4 flex items-center justify-between group hover:border-violet-500/20 transition-all">
+                <div key={asset.symbol} className="bg-[#0A0C12]/80 border border-white/[0.07] rounded-2xl px-5 py-4 flex items-center justify-between group hover:border-violet-500/20 transition-a[...]
                 <div className="flex items-center gap-4">
                   <CryptoIcon name={asset.symbol} className="w-9 h-9" />
                   <div>
