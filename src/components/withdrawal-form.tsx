@@ -16,7 +16,6 @@ export default function Withdrawal({
 }: WithdrawalProps) {
   const [amount, setAmount] = useState<string>("");
   const [currency, setCurrency] = useState<string>("USD");
-  const [paymentMethod, setPaymentMethod] = useState<string>("crypto");
   const [destination, setDestination] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{
@@ -61,7 +60,7 @@ export default function Withdrawal({
         userId: userId || "",
         amount: numericAmount,
         currency,
-        destinationAddress: `Method: ${paymentMethod.toUpperCase()} | Destination: ${destination}`,
+        destinationAddress: destination,
       });
 
       if (response.success) {
@@ -97,7 +96,7 @@ export default function Withdrawal({
           Request Withdrawal
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Available Balance:{" "}
+          Available Balance: {" "}
           <span className="font-semibold text-emerald-600 dark:text-emerald-400">
             ${userBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </span>
@@ -119,52 +118,16 @@ export default function Withdrawal({
 
       {/* Form */}
       <form onSubmit={handleWithdrawalSubmit} className="space-y-5">
-        {/* Payment Method Selector */}
+        {/* Asset / Currency Selector (restored to previous dropdown UI) */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-2">
-            Withdrawal Method
+            Select Asset
           </label>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { id: "crypto", label: "Crypto Wallet" },
-              { id: "bank", label: "Bank Wire" },
-              { id: "paypal", label: "PayPal" },
-            ].map((method) => (
-              <button
-                key={method.id}
-                type="button"
-                onClick={() => setPaymentMethod(method.id)}
-                className={`py-2 px-3 text-xs font-medium rounded-lg border transition-all ${
-                  paymentMethod === method.id
-                    ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                    : "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100"
-                }`}
-              >
-                {method.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Amount & Currency Selection */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-2">
-            Amount
-          </label>
-          <div className="flex rounded-lg shadow-sm">
-            <input
-              type="number"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              required
-              className="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-l-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            />
+          <div className="h-10 w-full rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-between px-3">
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="px-3 py-2.5 bg-gray-100 dark:bg-gray-700 border border-l-0 border-gray-300 dark:border-gray-700 rounded-r-lg text-sm font-medium text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              className="w-full bg-transparent text-sm text-white/90 outline-none"
             >
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
@@ -175,28 +138,45 @@ export default function Withdrawal({
           </div>
         </div>
 
-        {/* Destination Details */}
+        {/* Amount & Currency Selection */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-2">
-            {paymentMethod === "crypto"
-              ? "Wallet Address"
-              : paymentMethod === "bank"
-              ? "Bank IBAN / Account Details"
-              : "PayPal Email Address"}
+            Amount
+          </label>
+          <div className="relative">
+            <div className="h-10 w-full rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center px-3">
+              <input
+                type="number"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                required
+                className="flex-1 bg-transparent text-sm text-white/90 outline-none"
+              />
+            </div>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-white/30">{currency}</span>
+          </div>
+        </div>
+
+        {/* Destination Details (label adapts based on asset type) */}
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-2">
+            {currency === "BTC" || currency === "USDT" ? "Wallet Address" : currency === "USD" ? "Bank IBAN / Account Details" : "Payment Details"}
           </label>
           <textarea
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
             placeholder={
-              paymentMethod === "crypto"
+              currency === "BTC" || currency === "USDT"
                 ? "e.g., 0x71C... or bc1q..."
-                : paymentMethod === "bank"
+                : currency === "USD"
                 ? "Include Account Holder, IBAN, and SWIFT/BIC"
-                : "your-paypal@email.com"
+                : "Enter payment details"
             }
             rows={3}
             required
-            className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
+            className="w-full px-4 py-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg text-sm text-white/90 outline-none"
           />
         </div>
 
@@ -204,7 +184,7 @@ export default function Withdrawal({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-semibold rounded-lg text-sm shadow transition-colors flex justify-center items-center gap-2"
+          className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-semibold rounded-lg text-sm shadow transition-colors flex justify-center items-center gap-3"
         >
           {isSubmitting ? (
             <>
