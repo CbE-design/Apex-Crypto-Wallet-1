@@ -74,6 +74,9 @@
     "zod": "^3.25.76",
     "viem": "^1.1.0"
   },
+  "overrides": {
+    "tar": "^7.0.0"
+  },
   "devDependencies": {
     "@types/node": "^20.19.43",
     "@types/qrcode": "^1.5.6",
