@@ -2,69 +2,132 @@
 
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
+import { FieldValue } from "firebase-admin/firestore";
 import { sendWithdrawalRequestEmail } from "@/app/actions/transactional-email";
 
 interface RequestWithdrawalInput {
   userId: string;
-  amount: number;
-  currency: string;
-  destinationAddress: string;
+  userEmail: string;
+  walletAddress: string;
+
+  // Asset details
+  cryptoSymbol: string;
+  cryptoAmount: number;
+  fiatCurrency: string;
+  fiatAmount: number;
+  exchangeRate: number;
+  networkFee: number;
+
+  // Bank details
+  withdrawalMethod: "EFT" | "SWIFT";
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  branchCode?: string;
+  swiftCode?: string;
+  bankAddress?: string;
+  routingNumber?: string;
 }
 
-export async function requestWithdrawalAction({
-  userId,
-  amount,
-  currency,
-  destinationAddress,
-}: RequestWithdrawalInput) {
+function generateReference(): string {
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `APX-${ts}-${rand}`;
+}
+
+export async function requestWithdrawalAction(input: RequestWithdrawalInput) {
   try {
-    const userRef = getDb().collection("users").doc(userId);
-    const userDoc = await userRef.get();
+    const db = getDb();
+    const userRef = db.collection("users").doc(input.userId);
+    const walletRef = db
+      .collection("users")
+      .doc(input.userId)
+      .collection("wallets")
+      .doc(input.cryptoSymbol);
 
-    if (!userDoc.exists) {
-      return { success: false, error: "User profile not found." };
-    }
+    const transactionReference = generateReference();
 
-    const userData = userDoc.data();
-    const currentBalance = userData?.balance || 0;
+    await db.runTransaction(async (tx) => {
+      const [userDoc, walletDoc] = await Promise.all([
+        tx.get(userRef),
+        tx.get(walletRef),
+      ]);
 
-    if (currentBalance < amount) {
-      return { success: false, error: "Insufficient account balance." };
-    }
+      if (!userDoc.exists) throw new Error("User profile not found.");
+      if (!walletDoc.exists) throw new Error("Wallet not found.");
 
-    // Deduct balance
-    await userRef.update({
-      balance: currentBalance - amount,
-    });
+      const walletData = walletDoc.data()!;
+      const currentBalance: number = walletData.balance ?? 0;
+      const currentReserved: number = walletData.reservedForWithdrawal ?? 0;
 
-    // Create withdrawal transaction record
-    await getDb().collection("transactions").add({
-      userId,
-      type: "WITHDRAWAL",
-      amount,
-      currency,
-      status: "PENDING",
-      destinationAddress,
-      createdAt: new Date().toISOString(),
-    });
+      if (currentBalance < input.cryptoAmount) {
+        throw new Error("Insufficient balance for this withdrawal.");
+      }
 
-    // Send confirmation email if user has email address
-    if (userData?.email) {
-      await sendWithdrawalRequestEmail({
-        to: userData.email,
-        userName: userData.name || userData.firstName || "User",
-        amount,
-        assetType: currency,
-        methodDetails: destinationAddress,
+      // Reserve the crypto — deduct from available, add to reserved
+      tx.update(walletRef, {
+        balance: currentBalance - input.cryptoAmount,
+        reservedForWithdrawal: currentReserved + input.cryptoAmount,
+        lastSynced: FieldValue.serverTimestamp(),
       });
+
+      // Create withdrawal request
+      const requestRef = db.collection("withdrawal_requests").doc();
+      tx.set(requestRef, {
+        id: requestRef.id,
+        userId: input.userId,
+        userEmail: input.userEmail,
+        walletAddress: input.walletAddress,
+
+        cryptoSymbol: input.cryptoSymbol,
+        cryptoAmount: input.cryptoAmount,
+        fiatCurrency: input.fiatCurrency,
+        fiatAmount: input.fiatAmount,
+        exchangeRate: input.exchangeRate,
+        networkFee: input.networkFee,
+
+        withdrawalMethod: input.withdrawalMethod,
+        bankName: input.bankName,
+        accountNumber: input.accountNumber,
+        accountHolder: input.accountHolder,
+        ...(input.branchCode ? { branchCode: input.branchCode } : {}),
+        ...(input.swiftCode ? { swiftCode: input.swiftCode } : {}),
+        ...(input.bankAddress ? { bankAddress: input.bankAddress } : {}),
+
+        // cryptoBreakdown used by admin approval flow to restore reservedForWithdrawal
+        cryptoBreakdown: [
+          {
+            symbol: input.cryptoSymbol,
+            amount: input.cryptoAmount,
+            priceUSD: input.exchangeRate,
+          },
+        ],
+
+        status: "PENDING",
+        transactionReference,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    });
+
+    // Send confirmation email (non-blocking)
+    try {
+      await sendWithdrawalRequestEmail({
+        to: input.userEmail,
+        userName: input.accountHolder,
+        amount: input.fiatAmount,
+        assetType: input.cryptoSymbol,
+        methodDetails: `${input.withdrawalMethod} — ${input.bankName} (${input.accountNumber})`,
+      });
+    } catch {
+      // email failure is non-fatal
     }
 
-    revalidatePath("/dashboard");
-    revalidatePath("/withdraw");
+    revalidatePath("/cash-out");
 
-    return { success: true };
-  } catch (error) {
-    console.error("Error processing withdrawal request:", error);
-    return { success: false, error: "Failed to process withdrawal request." };
+    return { success: true, reference: transactionReference };
+  } catch (error: any) {
+    console.error("[requestWithdrawalAction]", error);
+    return { success: false, error: error.message ?? "Failed to process withdrawal request." };
   }
 }
