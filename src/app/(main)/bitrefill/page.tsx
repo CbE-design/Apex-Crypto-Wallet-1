@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, doc, runTransaction, serverTimestamp, type Firestore } from 'firebase/firestore';
+import { collection, query, type Firestore } from 'firebase/firestore';
 import { useCurrency } from '@/context/currency-context';
 import { useLivePrices } from '@/hooks/use-live-prices';
 import { useToast } from '@/hooks/use-toast';
@@ -167,6 +167,7 @@ function PurchaseModal({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<{ orderId: string; code: string } | null>(null);
+  const [comingSoon, setComingSoon] = useState(false);
 
   // Needs recipient input for airtime
   const needsRecipient = product.category === 'airtime';
@@ -206,89 +207,58 @@ function PurchaseModal({
   }, [canProceed]);
 
   const handleConfirmOrder = useCallback(async () => {
-    if (!cryptoCost || !firestore || !userId) {
+    if (!cryptoCost) {
       toast({ title: 'Cannot process order', description: 'Session expired. Please sign in again.', variant: 'destructive' });
       return;
     }
     setConfirmOpen(false);
     setIsProcessing(true);
 
-    // Generate the (mock) redemption code + order reference up front.
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const code = Array.from({ length: 16 }, (_, i) =>
-      i > 0 && i % 4 === 0 ? '-' + chars[Math.floor(Math.random() * chars.length)] : chars[Math.floor(Math.random() * chars.length)]
-    ).join('');
-    const orderId = 'BR-' + Date.now().toString(36).toUpperCase();
+    // Run the checkout flow right up to the payment step so the experience feels
+    // real, then stop before any balance is spent — this feature is launching soon.
+    await new Promise((resolve) => setTimeout(resolve, 1600));
 
-    const sym = selectedCrypto;
-    const payAmount = cryptoCost.amount;
-    const priceUSD = cryptoCost.priceUSD;
-    const note = `Bitrefill · ${product.fullName} (${selectedDenom.label})`;
+    setIsProcessing(false);
+    setComingSoon(true);
+  }, [cryptoCost, toast]);
 
-    try {
-      // Run the real balance deduction + ledger writes, and keep the processing
-      // animation on screen for a moment so the flow feels like a real fetch.
-      await Promise.all([
-        new Promise((resolve) => setTimeout(resolve, 1600)),
-        runTransaction(firestore, async (tx) => {
-          const walletRef = doc(firestore, 'users', userId, 'wallets', sym);
-          const walletDoc = await tx.get(walletRef);
-          const currentBalance = walletDoc.exists() ? (walletDoc.data().balance ?? 0) : 0;
-          if (!walletDoc.exists() || currentBalance < payAmount) {
-            throw new Error(`Insufficient ${sym} balance for this purchase.`);
-          }
+  // ── Coming soon screen ────────────────────────────────────────────────────
+  if (comingSoon) {
+    return (
+      <div className="flex flex-col items-center text-center space-y-5 py-4">
+        <div className="h-16 w-16 rounded-full bg-amber-400/10 border border-amber-400/20 flex items-center justify-center">
+          <Clock className="h-8 w-8 text-amber-400" />
+        </div>
+        <div>
+          <h3 className="text-base font-black text-white">Coming Soon</h3>
+          <p className="text-xs text-white/50 mt-1 leading-relaxed max-w-[16rem]">
+            Purchases aren&apos;t live just yet. Your balance was not charged — checkout will be enabled here shortly.
+          </p>
+        </div>
 
-          // 1. Deduct the crypto spent from the wallet balance.
-          tx.update(walletRef, { balance: currentBalance - payAmount });
+        <div className="w-full space-y-2 text-sm">
+          {[
+            ['Product', product.fullName],
+            ['Amount', formatFiat(selectedDenom.value, selectedDenom.currency)],
+            ['Pay With', selectedCrypto || '—'],
+            ['Delivery', product.deliveryMethod],
+          ].map(([label, value]) => (
+            <div key={label} className="flex justify-between items-center text-xs">
+              <span className="text-white/40">{label}</span>
+              <span className="font-bold text-white text-right max-w-[60%] truncate">{value}</span>
+            </div>
+          ))}
+        </div>
 
-          // 2. Wallet-level ledger entry.
-          const walletTxRef = doc(collection(walletRef, 'transactions'));
-          tx.set(walletTxRef, {
-            userId, type: 'Purchase', currency: sym, amount: payAmount,
-            price: priceUSD, status: 'Completed', timestamp: serverTimestamp(), notes: note,
-          });
-
-          // 3. Top-level ledger entry so it appears in the dashboard history.
-          const dashTxRef = doc(collection(firestore, 'users', userId, 'transactions'));
-          tx.set(dashTxRef, {
-            userId, type: 'Purchase', currency: sym, amount: payAmount,
-            price: priceUSD, status: 'Completed', timestamp: serverTimestamp(),
-            notes: note, description: `${product.fullName} — ${selectedDenom.label}`,
-          });
-
-          // 4. Persist the Bitrefill order record.
-          const orderRef = doc(collection(firestore, 'users', userId, 'bitrefill_orders'));
-          tx.set(orderRef, {
-            orderId,
-            productId: product.id,
-            productName: product.fullName,
-            category: product.category,
-            denomination: selectedDenom.label,
-            faceValue: selectedDenom.value,
-            faceCurrency: selectedDenom.currency,
-            cryptoSymbol: sym,
-            cryptoAmount: payAmount,
-            priceUSD,
-            redemptionCode: code,
-            recipient: needsRecipient ? recipientInfo.trim() : null,
-            deliveryMethod: product.deliveryMethod,
-            status: 'Completed',
-            createdAt: serverTimestamp(),
-          });
-        }),
-      ]);
-
-      setIsProcessing(false);
-      setOrderSuccess({ orderId, code });
-    } catch (err: any) {
-      setIsProcessing(false);
-      toast({
-        title: 'Order Failed',
-        description: err?.message ?? 'Could not complete your purchase. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  }, [cryptoCost, firestore, userId, selectedCrypto, selectedDenom, product, needsRecipient, recipientInfo, toast]);
+        <button
+          onClick={onClose}
+          className="w-full h-11 rounded-xl border border-white/[0.1] text-[11px] font-black uppercase tracking-wider text-white/60 hover:border-primary/30 hover:text-white/80 transition-all"
+        >
+          Close
+        </button>
+      </div>
+    );
+  }
 
   // ── Success screen ──────────────────────────────────────────────────────────
   if (orderSuccess) {
@@ -529,7 +499,7 @@ function PurchaseModal({
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Main Page ────────────────────���────────────────────────────────────────────
 export default function BitrefillPage() {
   const { user } = useWallet();
   const { rates } = useCurrency();
@@ -604,8 +574,8 @@ export default function BitrefillPage() {
                   Live your life on crypto — vouchers, airtime, gift cards &amp; more
                 </p>
               </div>
-              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-lg bg-primary/10 text-primary/80 border border-primary/20 ml-1">
-                Mock
+              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-lg bg-amber-400/10 text-amber-400/90 border border-amber-400/20 ml-1">
+                Coming Soon
               </span>
             </div>
           </div>
@@ -755,14 +725,6 @@ export default function BitrefillPage() {
           </section>
         )}
 
-        {/* ── Footer disclaimer ──────────────────────────────────��──────── */}
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 flex gap-3">
-          <Info className="h-4 w-4 text-white/20 flex-shrink-0 mt-0.5" />
-          <p className="text-[10px] text-white/25 leading-relaxed">
-            This is a <strong className="text-white/40">simulated Bitrefill integration</strong>. Purchases spend your real in-app crypto balance and are recorded in your transaction history, but the voucher codes shown after checkout are randomly generated for demonstration and cannot be redeemed with a merchant. To connect the live Bitrefill API, configure your API key in Settings.{' '}
-            Bitrefill® is a registered trademark. Apex Private Ledger is not affiliated with Bitrefill AB.
-          </p>
-        </div>
       </div>
 
       {/* ── Product detail dialog ─────────────────────────────────────────── */}
