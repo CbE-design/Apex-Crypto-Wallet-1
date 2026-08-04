@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, forwardRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -107,17 +107,14 @@ const withdrawalSchema = baseSchema
 type WithdrawalFormValues = z.infer<typeof withdrawalSchema>;
 
 // ── Input component matching app style ───────────────────────────────────────
-function FormInput({
-  label,
-  sublabel,
-  error,
-  className,
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & {
-  label: string;
-  sublabel?: string;
-  error?: string;
-}) {
+const FormInput = forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & {
+    label: string;
+    sublabel?: string;
+    error?: string;
+  }
+>(function FormInput({ label, sublabel, error, className, ...props }, ref) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
@@ -130,6 +127,7 @@ function FormInput({
       </div>
       <input
         {...props}
+        ref={ref}
         className={cn(
           "w-full h-11 rounded-xl bg-white/[0.04] border border-white/[0.08] px-3.5",
           "text-sm text-white placeholder:text-white/25 outline-none",
@@ -146,7 +144,7 @@ function FormInput({
       )}
     </div>
   );
-}
+});
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function WithdrawalForm() {
@@ -440,7 +438,7 @@ export default function WithdrawalForm() {
             })}
           </div>
 
-          {/* ── Asset Selector ────────────────────────────────────────────── */}
+          {/* ── Asset Selector ─────────────────────���──────────────────────── */}
           <div className="space-y-1.5">
             <Label className="text-[11px] font-semibold uppercase tracking-wider text-white/50">
               Asset to Withdraw
@@ -571,7 +569,7 @@ export default function WithdrawalForm() {
             )}
           </div>
 
-          {/* ── Fee breakdown ─────────────────────────────────────────────── */}
+          {/* ── Fee breakdown ──────────────────────────��──────────────────── */}
           {cryptoAmount > 0 && (
             <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-3.5 space-y-2">
               <p className="text-[10px] font-black uppercase tracking-widest text-white/30">Breakdown</p>

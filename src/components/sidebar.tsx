@@ -24,6 +24,7 @@ import {
   ExternalLink,
   Sparkles,
   Zap,
+  Gift,
 } from "lucide-react";
 import { useWallet } from "@/context/wallet-context";
 import Link from "next/link";
@@ -38,6 +39,7 @@ const mainNav = [
   { href: "/swap",         label: "Swap",           icon: ArrowRightLeft,  },
   { href: "/send-receive", label: "Send / Receive", icon: Send,            },
   { href: "/cash-out",     label: "Withdrawal",     icon: Banknote,        },
+  { href: "/bitrefill",    label: "Bitrefill",      icon: Gift,            },
 ];
 
 const legalLinks = [

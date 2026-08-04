@@ -64,6 +64,11 @@ export function useTransactionListener(userId: string | undefined, firestore: Fi
             title: 'Transfer Sent',
             description: `You sent ${amount} ${currency}.`,
           });
+        } else if (type === 'purchase' || type === 'spend') {
+          toast({
+            title: 'Purchase Complete',
+            description: `You spent ${amount} ${currency}.`,
+          });
         }
       });
     }, (error) => {
