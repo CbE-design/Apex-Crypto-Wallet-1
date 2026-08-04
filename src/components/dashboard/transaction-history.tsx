@@ -30,8 +30,11 @@ function TransactionRow({
     typeLower === 'sell' ||
     typeLower === 'withdrawal' ||
     typeLower === 'transfer_sent' ||
+    typeLower === 'purchase' ||
+    typeLower === 'spend' ||
     typeLower.includes('sent') ||
-    typeLower.includes('withdraw');
+    typeLower.includes('withdraw') ||
+    typeLower.includes('bitrefill');
 
   // 2. Safe calculation preventing ZARNaN
   const rawAmount = Number(tx.amount || 0);
