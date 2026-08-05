@@ -141,17 +141,18 @@ export default function SwapPage() {
 
         await runTransaction(firestore, async (transaction) => {
             const fromWalletRef = doc(firestore, 'users', user.uid, 'wallets', fromAsset);
+            const toWalletRef = doc(firestore, 'users', user.uid, 'wallets', toAsset);
+
+            // Firestore requires all reads before any writes within a transaction.
             const fromWalletDoc = await transaction.get(fromWalletRef);
-            
+            const toWalletDoc = await transaction.get(toWalletRef);
+
             if (!fromWalletDoc.exists() || fromWalletDoc.data().balance < amountNum) {
                 throw new Error(`Insufficient balance of ${fromAsset}.`);
             }
-            
+
             const newFromBalance = fromWalletDoc.data().balance - amountNum;
             transaction.update(fromWalletRef, { balance: newFromBalance });
-
-            const toWalletRef = doc(firestore, 'users', user.uid, 'wallets', toAsset);
-            const toWalletDoc = await transaction.get(toWalletRef);
 
             const currentToBalance = toWalletDoc.exists() ? toWalletDoc.data().balance : 0;
             const newToBalance = currentToBalance + toAmountNum;
