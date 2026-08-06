@@ -71,14 +71,26 @@ function formatFiat(amount: number, currency: string) {
   }).format(amount);
 }
 
-// ── Real brand logos installed from theSVG.org (public/brand-logos/{id}.svg) ────
-// Each product id in this set has an authentic, full brand logo bundled locally.
-const PRODUCTS_WITH_LOGOS = new Set<string>([
-  'netflix', 'spotify', 'disney-plus', 'apple-tv', 'youtube-premium',
-  'playstation', 'xbox', 'steam', 'nintendo', 'roblox', 'valorant',
-  'amazon', 'google-play', 'apple-itunes', 'uber', 'uber-eats',
-  'kfc', 'mcdonalds', 'starbucks', 'airbnb', 'booking',
-]);
+// ── Brand logos bundled locally in public/brand-logos/ ─────────────────────────
+// Originals (.svg) come from theSVG.org. The South-African brands and utility
+// categories that no clean vector library carries use brand-styled icons (.png).
+const LOGO_FILES: Record<string, string> = {
+  // Authentic vector originals (theSVG.org)
+  'netflix': 'netflix.svg', 'spotify': 'spotify.svg', 'disney-plus': 'disney-plus.svg',
+  'apple-tv': 'apple-tv.svg', 'youtube-premium': 'youtube-premium.svg',
+  'playstation': 'playstation.svg', 'xbox': 'xbox.svg', 'steam': 'steam.svg',
+  'nintendo': 'nintendo.svg', 'roblox': 'roblox.svg', 'valorant': 'valorant.svg',
+  'amazon': 'amazon.svg', 'google-play': 'google-play.svg', 'apple-itunes': 'apple-itunes.svg',
+  'uber': 'uber.svg', 'uber-eats': 'uber-eats.svg', 'kfc': 'kfc.svg',
+  'mcdonalds': 'mcdonalds.svg', 'starbucks': 'starbucks.svg', 'airbnb': 'airbnb.svg',
+  'booking': 'booking.svg',
+  // Brand-styled icons (generated)
+  'mtn-sa': 'mtn-sa.png', 'vodacom-sa': 'vodacom-sa.png', 'cellc-sa': 'cellc-sa.png',
+  'telkom-sa': 'telkom-sa.png', 'dstv': 'dstv.png', 'showmax': 'showmax.png',
+  'takealot': 'takealot.png', 'woolworths': 'woolworths.png', 'one-voucher': 'one-voucher.png',
+  'blue-voucher': 'blue-voucher.png', 'kazang': 'kazang.png', 'onecard': 'onecard.png',
+  'eskom-prepaid': 'eskom-prepaid.png', 'sa-water': 'sa-water.png',
+};
 
 // The international flag shown on a product is derived from the currency the
 // product is denominated in (public/flags/{code}.svg).
@@ -98,7 +110,7 @@ function BrandLogo({ product, size = 'md' }: { product: BitrefillProduct; size?:
   const logoMaxW = { sm: 'max-w-[64px]', md: 'max-w-[104px]', lg: 'max-w-[150px]' };
   const flagSize = { sm: 'w-4', md: 'w-5', lg: 'w-6' };
 
-  const hasLogo = PRODUCTS_WITH_LOGOS.has(product.id);
+  const logoFile = LOGO_FILES[product.id];
   const flag = CURRENCY_FLAG[product.denominations[0]?.currency ?? ''];
 
   return (
@@ -113,11 +125,11 @@ function BrandLogo({ product, size = 'md' }: { product: BitrefillProduct; size?:
         }}
       />
 
-      {hasLogo ? (
+      {logoFile ? (
         <div className={cn('relative z-10 flex items-center justify-center rounded-xl bg-white shadow-lg shadow-black/25 ring-1 ring-black/5', chipPad[size])}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/brand-logos/${product.id}.svg`}
+            src={`/brand-logos/${logoFile}`}
             alt={`${product.fullName} logo`}
             className={cn('w-auto object-contain', logoHeights[size], logoMaxW[size])}
             loading="lazy"
@@ -191,7 +203,7 @@ function ProductCard({ product, onClick }: { product: BitrefillProduct; onClick:
   );
 }
 
-// ── Purchase Modal ────────────────────────────────────────────────────────────
+// ── Purchase Modal ───────────────────────────────────���────────────────────────
 function PurchaseModal({
   product,
   onClose,
