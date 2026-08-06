@@ -71,10 +71,35 @@ function formatFiat(amount: number, currency: string) {
   }).format(amount);
 }
 
+// ── Real brand logos installed from theSVG.org (public/brand-logos/{id}.svg) ────
+// Each product id in this set has an authentic, full brand logo bundled locally.
+const PRODUCTS_WITH_LOGOS = new Set<string>([
+  'netflix', 'spotify', 'disney-plus', 'apple-tv', 'youtube-premium',
+  'playstation', 'xbox', 'steam', 'nintendo', 'roblox', 'valorant',
+  'amazon', 'google-play', 'apple-itunes', 'uber', 'uber-eats',
+  'kfc', 'mcdonalds', 'starbucks', 'airbnb', 'booking',
+]);
+
+// The international flag shown on a product is derived from the currency the
+// product is denominated in (public/flags/{code}.svg).
+const CURRENCY_FLAG: Record<string, { code: string; label: string }> = {
+  ZAR: { code: 'za', label: 'South Africa' },
+  USD: { code: 'us', label: 'United States' },
+  GBP: { code: 'gb', label: 'United Kingdom' },
+  EUR: { code: 'eu', label: 'European Union' },
+};
+
 // ── Brand Logo Card ───────────────────────────────────────────────────────────
 function BrandLogo({ product, size = 'md' }: { product: BitrefillProduct; size?: 'sm' | 'md' | 'lg' }) {
   const heights = { sm: 'h-14', md: 'h-20', lg: 'h-28' };
   const textSizes = { sm: 'text-lg', md: 'text-2xl', lg: 'text-3xl' };
+  const logoHeights = { sm: 'h-4', md: 'h-6', lg: 'h-9' };
+  const chipPad = { sm: 'px-2.5 py-1.5', md: 'px-3.5 py-2.5', lg: 'px-5 py-3.5' };
+  const logoMaxW = { sm: 'max-w-[64px]', md: 'max-w-[104px]', lg: 'max-w-[150px]' };
+  const flagSize = { sm: 'w-4', md: 'w-5', lg: 'w-6' };
+
+  const hasLogo = PRODUCTS_WITH_LOGOS.has(product.id);
+  const flag = CURRENCY_FLAG[product.denominations[0]?.currency ?? ''];
 
   return (
     <div
@@ -87,19 +112,45 @@ function BrandLogo({ product, size = 'md' }: { product: BitrefillProduct; size?:
           backgroundImage: 'radial-gradient(circle at 20% 80%, rgba(255,255,255,0.15) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%)',
         }}
       />
-      <span
-        className={cn('font-black tracking-tight select-none relative z-10', textSizes[size])}
-        style={{ color: product.textColor, textShadow: product.textColor === '#FFFFFF' ? '0 1px 8px rgba(0,0,0,0.4)' : 'none' }}
-      >
-        {product.abbrev}
-      </span>
-      {(product.popular || product.saFeatured) && size !== 'sm' && (
-        <div className="absolute top-2 right-2">
-          {product.saFeatured && (
-            <span className="text-[8px] font-black uppercase bg-black/30 text-white/90 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
-              🇿🇦 SA
-            </span>
-          )}
+
+      {hasLogo ? (
+        <div className={cn('relative z-10 flex items-center justify-center rounded-xl bg-white shadow-lg shadow-black/25 ring-1 ring-black/5', chipPad[size])}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/brand-logos/${product.id}.svg`}
+            alt={`${product.fullName} logo`}
+            className={cn('w-auto object-contain', logoHeights[size], logoMaxW[size])}
+            loading="lazy"
+          />
+        </div>
+      ) : (
+        <span
+          className={cn('font-black tracking-tight select-none relative z-10', textSizes[size])}
+          style={{ color: product.textColor, textShadow: product.textColor === '#FFFFFF' ? '0 1px 8px rgba(0,0,0,0.4)' : 'none' }}
+        >
+          {product.abbrev}
+        </span>
+      )}
+
+      {/* Country flag — derived from the product's currency */}
+      {flag && (
+        <div className="absolute top-2 left-2 z-10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/flags/${flag.code}.svg`}
+            alt={`${flag.label} flag`}
+            title={flag.label}
+            className={cn('h-auto rounded-[3px] shadow-md ring-1 ring-black/25 object-cover', flagSize[size])}
+            loading="lazy"
+          />
+        </div>
+      )}
+
+      {product.saFeatured && size !== 'sm' && (
+        <div className="absolute top-2 right-2 z-10">
+          <span className="text-[8px] font-black uppercase bg-black/30 text-white/90 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
+            SA
+          </span>
         </div>
       )}
     </div>
