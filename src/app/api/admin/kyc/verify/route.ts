@@ -32,8 +32,8 @@ function assertSafeExternalImageUrl(rawUrl: string): void {
     throw new Error('Invalid image URL');
   }
 
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    throw new Error('Only http/https image URLs are allowed');
+  if (parsed.protocol !== 'https:') {
+    throw new Error('Only https image URLs are allowed');
   }
 
   const hostname = parsed.hostname.toLowerCase();
