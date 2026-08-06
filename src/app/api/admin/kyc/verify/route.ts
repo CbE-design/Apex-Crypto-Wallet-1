@@ -17,6 +17,42 @@ import { firebaseAdmin } from '@/lib/firebase-admin';
 
 const ADMIN_EMAILS = ['admin@apexwallet.io', 'corrie@apex-crypto.co.uk'];
 
+// Restrict remote image fetching to trusted hosts to prevent SSRF.
+// Update this list to match your actual storage/CDN domains.
+const ALLOWED_IMAGE_HOSTNAMES = new Set<string>([
+  'firebasestorage.googleapis.com',
+  'storage.googleapis.com',
+]);
+
+function assertSafeExternalImageUrl(rawUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error('Invalid image URL');
+  }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error('Only http/https image URLs are allowed');
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Reject obvious local/private targets.
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname.endsWith('.local')
+  ) {
+    throw new Error('Disallowed image host');
+  }
+
+  if (!ALLOWED_IMAGE_HOSTNAMES.has(hostname)) {
+    throw new Error('Image host is not allowed');
+  }
+}
+
 async function verifyAdminToken(request: NextRequest) {
   const authHeader = request.headers.get('Authorization') ?? '';
   const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -36,7 +72,9 @@ async function fetchImageBuffer(url: string): Promise<Buffer> {
     if (!base64) throw new Error('Invalid data URL');
     return Buffer.from(base64, 'base64');
   }
-  // Handle HTTP URLs (legacy storage or external URLs)
+
+  // Handle HTTP URLs (legacy storage or external URLs) with SSRF protections.
+  assertSafeExternalImageUrl(url);
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
