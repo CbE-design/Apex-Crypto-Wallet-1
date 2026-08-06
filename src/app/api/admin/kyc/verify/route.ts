@@ -124,8 +124,15 @@ export async function POST(request: NextRequest) {
       modelsLoaded = true;
     }
 
+    // Fetch (and SSRF-validate) both images up front so the raw, attacker-supplied
+    // URL is never handed to a network-capable sink such as Tesseract.recognize.
+    const docBuffer = await fetchImageBuffer(documentImageUrl);
+    const selfieBuffer = await fetchImageBuffer(selfieImageUrl);
+
     // ── OCR ──────────────────────────────────────────────────────────────────────────────────────────
-    const ocrResult = await Tesseract.recognize(documentImageUrl, 'eng', {
+    // Pass the already-validated buffer instead of the raw URL: in Node, tesseract.js
+    // will fetch remote URL strings itself, which would bypass the SSRF allowlist.
+    const ocrResult = await Tesseract.recognize(docBuffer, 'eng', {
       logger: () => {},
     });
     const rawOcrText = ocrResult.data.text;
@@ -136,8 +143,6 @@ export async function POST(request: NextRequest) {
     const extractedDob = extractDateOfBirth(rawOcrText) || '';
 
     // ── Face matching ─────────────────────────────────────────────────────────────────────────────────────────────
-    const docBuffer = await fetchImageBuffer(documentImageUrl);
-    const selfieBuffer = await fetchImageBuffer(selfieImageUrl);
 
     const docImg = await loadImage(docBuffer);
     const selfieImg = await loadImage(selfieBuffer);
