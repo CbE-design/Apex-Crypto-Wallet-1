@@ -17,6 +17,42 @@ import { firebaseAdmin } from '@/lib/firebase-admin';
 
 const ADMIN_EMAILS = ['admin@apexwallet.io', 'corrie@apex-crypto.co.uk'];
 
+// Restrict remote image fetching to trusted hosts to prevent SSRF.
+// Update this list to match your actual storage/CDN domains.
+const ALLOWED_IMAGE_HOSTNAMES = new Set<string>([
+  'firebasestorage.googleapis.com',
+  'storage.googleapis.com',
+]);
+
+function assertSafeExternalImageUrl(rawUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error('Invalid image URL');
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error('Only https image URLs are allowed');
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Reject obvious local/private targets.
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname.endsWith('.local')
+  ) {
+    throw new Error('Disallowed image host');
+  }
+
+  if (!ALLOWED_IMAGE_HOSTNAMES.has(hostname)) {
+    throw new Error('Image host is not allowed');
+  }
+}
+
 async function verifyAdminToken(request: NextRequest) {
   const authHeader = request.headers.get('Authorization') ?? '';
   const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -36,7 +72,9 @@ async function fetchImageBuffer(url: string): Promise<Buffer> {
     if (!base64) throw new Error('Invalid data URL');
     return Buffer.from(base64, 'base64');
   }
-  // Handle HTTP URLs (legacy storage or external URLs)
+
+  // Handle HTTP URLs (legacy storage or external URLs) with SSRF protections.
+  assertSafeExternalImageUrl(url);
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
@@ -86,8 +124,15 @@ export async function POST(request: NextRequest) {
       modelsLoaded = true;
     }
 
+    // Fetch (and SSRF-validate) both images up front so the raw, attacker-supplied
+    // URL is never handed to a network-capable sink such as Tesseract.recognize.
+    const docBuffer = await fetchImageBuffer(documentImageUrl);
+    const selfieBuffer = await fetchImageBuffer(selfieImageUrl);
+
     // ── OCR ──────────────────────────────────────────────────────────────────────────────────────────
-    const ocrResult = await Tesseract.recognize(documentImageUrl, 'eng', {
+    // Pass the already-validated buffer instead of the raw URL: in Node, tesseract.js
+    // will fetch remote URL strings itself, which would bypass the SSRF allowlist.
+    const ocrResult = await Tesseract.recognize(docBuffer, 'eng', {
       logger: () => {},
     });
     const rawOcrText = ocrResult.data.text;
@@ -98,8 +143,6 @@ export async function POST(request: NextRequest) {
     const extractedDob = extractDateOfBirth(rawOcrText) || '';
 
     // ── Face matching ─────────────────────────────────────────────────────────────────────────────────────────────
-    const docBuffer = await fetchImageBuffer(documentImageUrl);
-    const selfieBuffer = await fetchImageBuffer(selfieImageUrl);
 
     const docImg = await loadImage(docBuffer);
     const selfieImg = await loadImage(selfieBuffer);
