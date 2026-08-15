@@ -1,15 +1,15 @@
 import { ethers } from 'ethers';
 
 /**
- * APEX is the on-chain representation of the virtual Apex ledger.
+ * APEX is the on-chain representation of the Apex ledger.
  *
- * The application remains a virtual ledger, but external settlement is backed
- * by a real ERC-20 transfer from the configured Apex settlement treasury. That
+ * External settlement is backed by a real ERC-20 transfer from the configured
+ * Apex settlement treasury. That
  * distinction is intentionally exposed in the UI and transaction metadata.
  */
 export const APEX_ASSET = 'APEX' as const;
 export const APEX_DECIMALS = 18;
-export const APEX_DEFAULT_CHAIN_ID = 11155111; // Sepolia; safe testnet default.
+export const APEX_DEFAULT_CHAIN_ID = 11155111; // Sepolia default.
 export const APEX_DEFAULT_CHAIN_NAME = 'Sepolia';
 export const APEX_DEFAULT_EXPLORER_URL = 'https://sepolia.etherscan.io';
 

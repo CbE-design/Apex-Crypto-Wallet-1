@@ -196,7 +196,7 @@ export default function SendReceivePage() {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white">Send & Receive</h2>
-                <p className="text-xs text-white/30">Move virtual balances internally or settle APEX publicly on chain</p>
+                <p className="text-xs text-white/30">Send APEX to Apex wallets or external addresses</p>
               </div>
             </div>
           </div>
@@ -247,7 +247,7 @@ export default function SendReceivePage() {
                           </span>
                         </div>
                         <p className="text-[11px] leading-relaxed text-white/40">
-                          Your virtual APEX balance is reserved, then the Apex settlement treasury sends a real ERC-20 transfer. The confirmed hash and explorer link are saved to your activity.
+                          Your APEX balance is reserved while the Apex settlement service sends a real ERC-20 transfer. The confirmed hash and explorer link are saved to your activity.
                         </p>
                         {!apexOnchainConfig.configured && (
                           <p className="text-[11px] text-amber-300/80">
@@ -342,7 +342,7 @@ export default function SendReceivePage() {
                                  {destinationType === 'external' && (
                                    <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
                                      <p className="text-[11px] leading-relaxed text-violet-200/70">
-                                       This is a custodial settlement of your virtual balance. After confirmation, anyone can verify the recipient, token contract, block, and amount from the public explorer.
+                                        Your APEX balance is processed by the Apex settlement service. After confirmation, anyone can verify the recipient, token contract, block, and amount from the public explorer.
                                      </p>
                                    </div>
                                  )}

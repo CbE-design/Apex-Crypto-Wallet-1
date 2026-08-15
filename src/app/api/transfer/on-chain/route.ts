@@ -26,11 +26,11 @@ function isValidAmount(value: string): boolean {
 }
 
 /**
- * Settles a virtual APEX balance to an external EVM wallet.
+ * Settles an APEX balance to an external EVM wallet.
  *
- * The virtual balance is reserved before the chain transaction is broadcast
+ * The balance is reserved before the chain transaction is broadcast
  * and only finalized after the ERC-20 receipt confirms. If the chain fails,
- * the reservation is returned to the user's virtual balance.
+ * the reservation is returned to the user's balance.
  */
 export async function POST(req: NextRequest) {
   let db: ReturnType<typeof getDb> | null = null;
@@ -69,13 +69,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'A valid transfer request ID is required.' }, { status: 400 });
     }
 
-    // Validate the chain/treasury before touching the user's virtual balance.
+    // Validate the chain/treasury before touching the user's balance.
     const serverConfig = getApexServerConfig();
     if (!serverConfig.rpcUrl || !serverConfig.tokenAddress || !serverConfig.settlementPrivateKey) {
       return NextResponse.json({
         success: false,
         code: 'ONCHAIN_NOT_CONFIGURED',
-        error: 'APEX on-chain settlement is not configured yet.',
+        error: 'External APEX transfers are not available yet.',
       }, { status: 503 });
     }
 
@@ -113,14 +113,14 @@ export async function POST(req: NextRequest) {
     const numericAmount = Number(amount);
     const reservedField = 'reservedForOnchainTransfer';
 
-    // Reserve the virtual balance atomically so concurrent requests cannot
+    // Reserve the balance atomically so concurrent requests cannot
     // spend the same APEX twice.
     await db.runTransaction(async (transaction) => {
       const walletSnap = await transaction.get(walletRef);
       const currentBalance = Number(walletSnap.data()?.balance || 0);
       const currentReserved = Number(walletSnap.data()?.[reservedField] || 0);
       if (!walletSnap.exists || currentBalance < numericAmount) {
-        throw new Error('INSUFFICIENT_VIRTUAL_BALANCE');
+        throw new Error('INSUFFICIENT_APEX_BALANCE');
       }
 
       transaction.set(walletRef, {
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
         complianceId: body.complianceId || `APEX_EXT_${requestId}`,
         travelRuleVerified: Boolean(body.travelRuleVerified),
         note: body.note || null,
-        settlementMode: 'virtual-ledger-treasury',
+        settlementMode: 'apex-treasury',
       }, { merge: true });
     });
 
@@ -174,12 +174,12 @@ export async function POST(req: NextRequest) {
           to: recipientAddress,
           recipient: recipientAddress,
           txHash: settlement.txHash,
-          notes: body.note || 'Public on-chain settlement of virtual APEX balance',
+        notes: body.note || 'Public on-chain APEX transfer',
           metadata: {
             travelRuleVerified: Boolean(body.travelRuleVerified),
             complianceId: body.complianceId || `APEX_EXT_${requestId}`,
             protocol: 'APEX_ONCHAIN_SETTLEMENT',
-            settlementMode: 'virtual-ledger-treasury',
+            settlementMode: 'apex-treasury',
             chainId: settlement.chainId,
             chainName: settlement.chainName,
             tokenAddress: settlement.tokenAddress,
@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
         settlementAddress: settlement.settlementAddress,
       });
     } catch (chainError: any) {
-      // Return the virtual balance if the chain transaction was never
+      // Return the balance if the chain transaction was never
       // confirmed. The transfer intent remains auditable as FAILED.
       await db.runTransaction(async (transaction) => {
         const walletSnap = await transaction.get(walletRef);
@@ -232,8 +232,8 @@ export async function POST(req: NextRequest) {
       throw chainError;
     }
   } catch (error: any) {
-    if (error?.message === 'INSUFFICIENT_VIRTUAL_BALANCE') {
-      return NextResponse.json({ success: false, error: 'Insufficient virtual APEX balance.' }, { status: 400 });
+    if (error?.message === 'INSUFFICIENT_APEX_BALANCE') {
+      return NextResponse.json({ success: false, error: 'Insufficient APEX balance.' }, { status: 400 });
     }
     console.error('[on-chain transfer] Failed:', error);
     return NextResponse.json({ success: false, error: error?.message || 'On-chain transfer failed.' }, { status: 500 });
