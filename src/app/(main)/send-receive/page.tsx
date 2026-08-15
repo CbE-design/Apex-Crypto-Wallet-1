@@ -242,18 +242,10 @@ export default function SendReceivePage() {
                             <p className="text-[10px] uppercase tracking-widest font-semibold text-violet-300/70">Public settlement</p>
                             <p className="text-sm font-semibold text-white">{apexOnchainConfig.chainName} · APEX</p>
                           </div>
-                          <span className={`text-[10px] font-semibold uppercase tracking-wider ${apexOnchainConfig.configured ? 'text-emerald-400' : 'text-amber-400'}`}>
-                            {apexOnchainConfig.configured ? 'Ready' : 'Setup required'}
-                          </span>
                         </div>
                         <p className="text-[11px] leading-relaxed text-white/40">
                           Your APEX balance is reserved while the Apex settlement service sends a real ERC-20 transfer. The confirmed hash and explorer link are saved to your activity.
                         </p>
-                        {!apexOnchainConfig.configured && (
-                          <p className="text-[11px] text-amber-300/80">
-                            Add the APEX RPC URL and deployed token address to enable this route.
-                          </p>
-                        )}
                       </div>
                     )}
 

@@ -22,7 +22,11 @@ export interface ApexServerConfig {
 
 export function getApexServerConfig(): ApexServerConfig {
   const rpcUrl = process.env.APEX_ONCHAIN_RPC_URL || process.env.SEPOLIA_RPC_URL || process.env.NEXT_PUBLIC_APEX_RPC_URL || '';
-  const tokenAddress = process.env.APEX_ONCHAIN_TOKEN_ADDRESS || process.env.NEXT_PUBLIC_APEX_TOKEN_ADDRESS || '';
+  const tokenAddress =
+    process.env.APEX_ONCHAIN_TOKEN_ADDRESS ||
+    process.env.USDT_TOKEN_CONTRACT_ADDRESS ||
+    process.env.NEXT_PUBLIC_APEX_TOKEN_ADDRESS ||
+    '';
   const settlementPrivateKey = process.env.APEX_ONCHAIN_PRIVATE_KEY || '';
   const chainId = Number(process.env.APEX_ONCHAIN_CHAIN_ID || process.env.NEXT_PUBLIC_APEX_CHAIN_ID || APEX_DEFAULT_CHAIN_ID);
   const chainName = process.env.APEX_ONCHAIN_CHAIN_NAME || process.env.NEXT_PUBLIC_APEX_CHAIN_NAME || APEX_DEFAULT_CHAIN_NAME;
