@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 const CDN = 'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color';
 
 const NAME_TO_SYMBOL: Record<string, string> = {
+  'apex coin': 'apex',
+  apex: 'apex',
   bitcoin: 'btc',
   ethereum: 'eth',
   solana: 'sol',
@@ -29,6 +31,7 @@ const NAME_TO_SYMBOL: Record<string, string> = {
 };
 
 const SYMBOL_COLORS: Record<string, string> = {
+  apex: '#22D3EE',
   btc: '#F7931A', eth: '#627EEA', sol: '#9945FF', bnb: '#F0B90B',
   ada: '#0033AD', xrp: '#00AAE4', link: '#2A5ADA', doge: '#C2A633',
   usdt: '#26A17B', usdc: '#2775CA', dot: '#E6007A', avax: '#E84142',

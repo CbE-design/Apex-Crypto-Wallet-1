@@ -15,20 +15,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ArrowRight, Copy, ExternalLink, Loader2, ShieldCheck, Send, ArrowDownToLine, QrCode } from 'lucide-react';
+import { ArrowRight, Copy, Loader2, ShieldCheck, Send, ArrowDownToLine, QrCode } from 'lucide-react';
 import { RiskDisclaimer } from '@/components/risk-disclaimer';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { useWallet } from '@/context/wallet-context';
 import Image from 'next/image';
 import { PrivateRoute } from '@/components/private-route';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { addDoc, collection, query, serverTimestamp } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { marketCoins } from '@/lib/data';
 import { useCurrency } from '@/context/currency-context';
-import { ethers } from 'ethers';
-import { getSepoliaProvider, getSepoliaTransactionUrl, SEPOLIA_CHAIN_ID } from '@/lib/sepolia';
+import { APEX_ASSET, getApexOnchainConfig, isValidExternalEvmAddress } from '@/lib/apex-onchain';
 
 const sendSchema = z.object({
   recipientAddress: z.string().min(1, "Recipient address is required."),
@@ -40,14 +39,6 @@ const sendSchema = z.object({
 });
 
 type SendFormValues = z.infer<typeof sendSchema>;
-type SendMode = 'internal' | 'external';
-
-type OnchainReceipt = {
-  hash: string;
-  blockNumber: number | null;
-  amount: string;
-  recipient: string;
-};
 
 export default function SendReceivePage() {
   const { toast } = useToast();
@@ -60,15 +51,14 @@ export default function SendReceivePage() {
   const paramAction = searchParams.get('action');
   const initialAsset = paramCurrency && marketCoins.some(c => c.symbol === paramCurrency) ? paramCurrency : 'ETH';
   const initialTab = paramAction === 'receive' ? 'receive' : 'send';
+  const apexOnchainConfig = getApexOnchainConfig();
 
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const [selectedAsset, setSelectedAsset] = useState(initialAsset);
-  const [sendMode, setSendMode] = useState<SendMode>('internal');
+  const [destinationType, setDestinationType] = useState<'internal' | 'external'>('internal');
   const [isComplianceRequired, setIsComplianceRequired] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [sepoliaBalance, setSepoliaBalance] = useState(0);
-  const [isSepoliaBalanceLoading, setIsSepoliaBalanceLoading] = useState(false);
-  const [onchainReceipt, setOnchainReceipt] = useState<OnchainReceipt | null>(null);
+  const [lastOnchainTransfer, setLastOnchainTransfer] = useState<{ txHash: string; explorerUrl: string; network: string } | null>(null);
 
   const userAddress = wallet?.address || '...';
   
@@ -84,31 +74,6 @@ export default function SendReceivePage() {
     const w = userWallets.find(w => w.currency === selectedAsset);
     return w ? w.balance : 0;
   }, [userWallets, selectedAsset]);
-
-  useEffect(() => {
-    if (sendMode !== 'external' || !wallet?.address) return;
-
-    let cancelled = false;
-    const refreshBalance = async () => {
-      setIsSepoliaBalanceLoading(true);
-      try {
-        const balance = await getSepoliaProvider().getBalance(wallet.address);
-        if (!cancelled) setSepoliaBalance(Number(ethers.formatEther(balance)));
-      } catch (error) {
-        console.warn('[sepolia] Could not read testnet balance:', error);
-        if (!cancelled) setSepoliaBalance(0);
-      } finally {
-        if (!cancelled) setIsSepoliaBalanceLoading(false);
-      }
-    };
-
-    refreshBalance();
-    const interval = window.setInterval(refreshBalance, 20_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [sendMode, wallet?.address]);
 
   const { 
       register, 
@@ -167,116 +132,47 @@ export default function SendReceivePage() {
     }
 
     try {
-      if (sendMode === 'external') {
-        if (data.asset !== 'ETH') {
-          throw new Error('Sepolia external sends currently support native ETH only.');
-        }
-        if (!ethers.isAddress(data.recipientAddress)) {
-          throw new Error('Enter a valid Ethereum wallet address beginning with 0x.');
-        }
+      // Get the user's Firebase ID token to authenticate the server-side transfer
+      const auth = getAuth();
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('Not authenticated. Please reconnect your wallet.');
 
-        const provider = getSepoliaProvider();
-        const network = await provider.getNetwork();
-        if (network.chainId !== BigInt(SEPOLIA_CHAIN_ID)) {
-          throw new Error('The Sepolia network could not be verified.');
-        }
-
-        const amountWei = ethers.parseEther(data.amount);
-        const currentBalance = await provider.getBalance(wallet.address);
-        const feeData = await provider.getFeeData();
-        const estimatedGas = await provider.estimateGas({
-          from: wallet.address,
-          to: data.recipientAddress,
-          value: amountWei,
-        });
-        const gasPrice = feeData.maxFeePerGas ?? feeData.gasPrice;
-        const estimatedFee = gasPrice ? estimatedGas * gasPrice : 0n;
-
-        if (currentBalance < amountWei + estimatedFee) {
-          throw new Error('Insufficient Sepolia ETH for the amount plus network fee. Get testnet ETH from a Sepolia faucet.');
-        }
-
-        // The private key never leaves the browser. This is a direct,
-        // self-custodial transaction signed by the unlocked local wallet.
-        const signer = new ethers.Wallet(wallet.privateKey, provider);
-        const tx = await signer.sendTransaction({
-          to: data.recipientAddress,
-          value: amountWei,
-        });
-        const receipt = await tx.wait(1);
-        if (!receipt || receipt.status !== 1) {
-          throw new Error('The Sepolia transaction was reverted and no funds were sent.');
-        }
-        const explorerUrl = getSepoliaTransactionUrl(tx.hash);
-
-        if (firestore) {
-          try {
-            await addDoc(collection(firestore, 'users', user.uid, 'transactions'), {
-              userId: user.uid,
-              type: 'Transfer Sent',
-              currency: 'ETH',
-              amount: Number(data.amount),
-              price: 0,
-              status: 'Completed',
-              timestamp: serverTimestamp(),
-              sender: wallet.address,
-              recipient: data.recipientAddress,
-              description: `Sent ${data.amount} ETH on Ethereum Sepolia`,
-              notes: 'Publicly verifiable Sepolia testnet transfer',
-              txHash: tx.hash,
-              metadata: {
-                protocol: 'ETHEREUM_SEPOLIA_EXTERNAL_TRANSFER',
-                network: 'sepolia',
-                chainId: SEPOLIA_CHAIN_ID,
-                explorerUrl,
-              },
-            });
-          } catch (historyError) {
-            // A confirmed blockchain transaction remains successful even if
-            // the optional local history write is unavailable.
-            console.warn('[sepolia] Transaction confirmed but history write failed:', historyError);
-          }
-        }
-
-        setOnchainReceipt({
-          hash: tx.hash,
-          blockNumber: receipt?.blockNumber ?? null,
-          amount: data.amount,
-          recipient: data.recipientAddress,
-        });
-        setSepoliaBalance(Number(ethers.formatEther(await provider.getBalance(wallet.address))));
-        toast({
-          title: 'Sepolia Transfer Confirmed',
-          description: 'The transaction is now publicly verifiable on Etherscan.',
-        });
-      } else {
-        // Get the user's Firebase ID token to authenticate the server-side transfer
-        const auth = getAuth();
-        const idToken = await auth.currentUser?.getIdToken();
-        if (!idToken) throw new Error('Not authenticated. Please reconnect your wallet.');
-
-        const res = await fetch('/api/transfer', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({
-            recipientAddress: data.recipientAddress,
-            asset: data.asset,
-            amount: parseFloat(data.amount),
-            complianceId: data.complianceId,
-            travelRuleVerified: isComplianceRequired,
-          }),
-        });
-
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'Transfer failed.');
-
-        toast({ title: 'Transfer Complete', description: `Successfully sent ${data.amount} ${data.asset}.` });
+      if (destinationType === 'external' && !isValidExternalEvmAddress(data.recipientAddress)) {
+        throw new Error('Enter a valid external EVM wallet address beginning with 0x.');
       }
 
-      reset({ asset: sendMode === 'external' ? 'ETH' : selectedAsset, amount: '', recipientAddress: '' });
+      const res = await fetch(destinationType === 'external' ? '/api/transfer/on-chain' : '/api/transfer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          recipientAddress: data.recipientAddress,
+          asset: destinationType === 'external' ? APEX_ASSET : data.asset,
+          amount: parseFloat(data.amount),
+          complianceId: data.complianceId,
+          travelRuleVerified: isComplianceRequired,
+          ...(destinationType === 'external' ? {
+            clientRequestId: crypto.randomUUID().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80),
+          } : {}),
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Transfer failed.');
+
+      if (destinationType === 'external') {
+        setLastOnchainTransfer({
+          txHash: json.txHash,
+          explorerUrl: json.explorerUrl,
+          network: json.network || apexOnchainConfig.chainName,
+        });
+        toast({ title: 'On-chain transfer confirmed', description: `${data.amount} APEX is publicly verifiable on ${json.network || apexOnchainConfig.chainName}.` });
+      } else {
+        toast({ title: 'Transfer Complete', description: `Successfully sent ${data.amount} ${data.asset}.` });
+      }
+      reset({ asset: destinationType === 'external' ? APEX_ASSET : selectedAsset, amount: '', recipientAddress: '' });
 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
@@ -300,7 +196,7 @@ export default function SendReceivePage() {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white">Send & Receive</h2>
-                <p className="text-xs text-white/30">Transfer crypto to any Apex wallet</p>
+                <p className="text-xs text-white/30">Move virtual balances internally or settle APEX publicly on chain</p>
               </div>
             </div>
           </div>
@@ -310,68 +206,68 @@ export default function SendReceivePage() {
                 <TabsTrigger value="send" className="rounded-lg text-sm font-medium data-[state=active]:bg-cyan-500/15 data-[state=active]:text-cyan-300 data-[state=active]:border data-[state=active]:border-cyan-500/25">Send</TabsTrigger>
                 <TabsTrigger value="receive" className="rounded-lg text-sm font-medium data-[state=active]:bg-violet-500/15 data-[state=active]:text-violet-300 data-[state=active]:border data-[state=active]:border-violet-500/25">Receive</TabsTrigger>
               </TabsList>
-               <TabsContent value="send" className="pt-6 space-y-5">
-                 <div className="grid grid-cols-2 gap-2 rounded-xl bg-white/[0.03] border border-white/[0.06] p-1">
-                   <button
-                     type="button"
-                     onClick={() => setSendMode('internal')}
-                     className={`rounded-lg px-3 py-2.5 text-left transition-all ${
-                       sendMode === 'internal'
-                         ? 'bg-cyan-500/15 border border-cyan-500/25'
-                         : 'border border-transparent hover:bg-white/[0.04]'
-                     }`}
-                   >
-                     <p className={`text-xs font-semibold ${sendMode === 'internal' ? 'text-cyan-300' : 'text-white/60'}`}>
-                       Apex wallet
-                     </p>
-                     <p className="mt-0.5 text-[10px] text-white/30">Instant internal ledger transfer</p>
-                   </button>
-                   <button
-                     type="button"
-                     onClick={() => {
-                       setSendMode('external');
-                       setSelectedAsset('ETH');
-                       setValue('asset', 'ETH', { shouldValidate: true });
-                     }}
-                     className={`rounded-lg px-3 py-2.5 text-left transition-all ${
-                       sendMode === 'external'
-                         ? 'bg-violet-500/15 border border-violet-500/25'
-                         : 'border border-transparent hover:bg-white/[0.04]'
-                     }`}
-                   >
-                     <p className={`text-xs font-semibold ${sendMode === 'external' ? 'text-violet-300' : 'text-white/60'}`}>
-                       External wallet
-                     </p>
-                     <p className="mt-0.5 text-[10px] text-white/30">Public Ethereum Sepolia testnet</p>
-                   </button>
-                 </div>
-
-                 {sendMode === 'external' && (
-                   <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3.5 space-y-1.5">
-                     <div className="flex items-center gap-2 text-violet-300">
-                       <ExternalLink className="h-3.5 w-3.5" />
-                       <span className="text-xs font-semibold">On-chain testnet transfer</span>
-                     </div>
-                     <p className="text-[10px] leading-relaxed text-white/40">
-                       Sends native ETH on Ethereum Sepolia. Your Firestore virtual balance is not used.
-                       You need Sepolia ETH for the amount and gas.
-                     </p>
-                   </div>
-                 )}
-
+              <TabsContent value="send" className="pt-6 space-y-5">
                 <form onSubmit={e => e.preventDefault()} className="space-y-5">
+                    <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDestinationType('internal');
+                          if (selectedAsset === APEX_ASSET) {
+                            setSelectedAsset(initialAsset);
+                            setValue('asset', initialAsset, { shouldValidate: true });
+                          }
+                        }}
+                        className={`h-10 rounded-lg text-xs font-semibold transition-all ${destinationType === 'internal' ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/25' : 'text-white/35 hover:text-white/60'}`}
+                      >
+                        Apex wallet
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDestinationType('external');
+                          setSelectedAsset(APEX_ASSET);
+                          setValue('asset', APEX_ASSET, { shouldValidate: true });
+                        }}
+                        className={`h-10 rounded-lg text-xs font-semibold transition-all ${destinationType === 'external' ? 'bg-violet-500/15 text-violet-300 border border-violet-500/25' : 'text-white/35 hover:text-white/60'}`}
+                      >
+                        External on-chain
+                      </button>
+                    </div>
+
+                    {destinationType === 'external' && (
+                      <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-widest font-semibold text-violet-300/70">Public settlement</p>
+                            <p className="text-sm font-semibold text-white">{apexOnchainConfig.chainName} · APEX</p>
+                          </div>
+                          <span className={`text-[10px] font-semibold uppercase tracking-wider ${apexOnchainConfig.configured ? 'text-emerald-400' : 'text-amber-400'}`}>
+                            {apexOnchainConfig.configured ? 'Ready' : 'Setup required'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] leading-relaxed text-white/40">
+                          Your virtual APEX balance is reserved, then the Apex settlement treasury sends a real ERC-20 transfer. The confirmed hash and explorer link are saved to your activity.
+                        </p>
+                        {!apexOnchainConfig.configured && (
+                          <p className="text-[11px] text-amber-300/80">
+                            Add the APEX RPC URL and deployed token address to enable this route.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     <div className="space-y-2">
                         <Label className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Asset</Label>
-                         <Select
-                           value={selectedAsset}
-                           disabled={sendMode === 'external'}
-                           onValueChange={(val) => { setSelectedAsset(val); setValue('asset', val, { shouldValidate: true }); }}
-                         >
+                        <Select value={selectedAsset} onValueChange={(val) => { setSelectedAsset(val); setValue('asset', val, { shouldValidate: true }); }} disabled={destinationType === 'external'}>
                             <SelectTrigger className="h-12 bg-white/[0.04] border-white/[0.08] rounded-xl">
                                 <SelectValue placeholder="Select cryptocurrency" />
                             </SelectTrigger>
                             <SelectContent>
-                                {marketCoins.map(coin => (
+                                {(destinationType === 'external'
+                                  ? [{ symbol: APEX_ASSET, name: 'Apex Coin' }]
+                                  : marketCoins
+                                ).map(coin => (
                                     <SelectItem key={coin.symbol} value={coin.symbol}>
                                         <div className="flex items-center gap-2">
                                             <CryptoIcon name={coin.name} className="h-4 w-4" />
@@ -384,18 +280,14 @@ export default function SendReceivePage() {
                     </div>
 
                     <div className="space-y-2">
-                         <Label className="text-[10px] font-semibold uppercase tracking-widest text-white/30">
-                           {sendMode === 'external' ? 'External Ethereum Address' : 'Recipient Address'}
-                         </Label>
-                         <Input
-                           className="h-12 bg-white/[0.04] border-white/[0.08] rounded-xl font-mono text-sm"
-                           placeholder="0x..."
-                           {...register('recipientAddress')}
-                         />
+                        <Label className="text-[10px] font-semibold uppercase tracking-widest text-white/30">
+                          {destinationType === 'external' ? 'External EVM Wallet Address' : 'Recipient Apex Wallet Address'}
+                        </Label>
+                        <Input className="h-12 bg-white/[0.04] border-white/[0.08] rounded-xl font-mono text-sm" placeholder="0x..." autoComplete="off" {...register('recipientAddress')} />
                         {errors.recipientAddress && <p className="text-xs text-red-400">{errors.recipientAddress.message}</p>}
-                         {sendMode === 'external' && (
-                           <p className="text-[10px] text-white/30">Use a Sepolia-compatible 0x address. ENS and email recipients are not supported.</p>
-                         )}
+                        {destinationType === 'external' && (
+                          <p className="text-[10px] text-white/30">Ethereum-compatible address only. Check the network and address before confirming.</p>
+                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -404,14 +296,8 @@ export default function SendReceivePage() {
                             <Input className="h-14 bg-white/[0.04] border-white/[0.08] rounded-xl text-lg font-semibold pr-16" type="number" step="any" placeholder="0.00" {...register('amount')} />
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-cyan-400">{selectedAsset}</div>
                         </div>
-                         <p className="text-[10px] text-white/30">
-                             Available: <span className="text-white/60 font-semibold">
-                               {sendMode === 'external'
-                                 ? isSepoliaBalanceLoading
-                                   ? 'Checking Sepolia…'
-                                   : `${sepoliaBalance.toFixed(6)} ETH`
-                                 : `${(selectedAssetBalance ?? 0).toFixed(6)} ${selectedAsset}`}
-                             </span>
+                        <p className="text-[10px] text-white/30">
+                            Available: <span className="text-white/60 font-semibold">{(selectedAssetBalance ?? 0).toFixed(6)} {selectedAsset}</span>
                         </p>
                         {errors.amount && <p className="text-xs text-red-400">{errors.amount.message}</p>}
                     </div>
@@ -437,64 +323,52 @@ export default function SendReceivePage() {
                         <AlertDialogContent className="border-white/[0.08] bg-[#07090F]/95 backdrop-blur-3xl rounded-[28px] shadow-2xl shadow-black/60">
                             <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[28px] bg-gradient-to-r from-cyan-500 to-violet-500" />
                             <AlertDialogHeader>
-                                 <AlertDialogTitle className="text-white font-bold">
-                                   {sendMode === 'external' ? 'Confirm Sepolia Transfer' : 'Confirm Transfer'}
-                                 </AlertDialogTitle>
-                                <AlertDialogDescription className="text-white/30">
-                                     {sendMode === 'external'
-                                       ? 'This creates a real, irreversible Sepolia blockchain transaction.'
-                                       : 'Please review the details below. This transfer cannot be reversed.'}
+                                <AlertDialogTitle className="text-white font-bold">Confirm Transfer</AlertDialogTitle>
+                            <AlertDialogDescription className="text-white/30">
+                                    {destinationType === 'external'
+                                      ? 'This creates a real on-chain transfer from the Apex settlement treasury and cannot be reversed.'
+                                      : 'Please review the details below. This transfer cannot be reversed.'}
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <div className="py-2 space-y-2">
                                 <div className="flex justify-between items-center bg-white/[0.03] p-4 rounded-xl border border-white/[0.06]">
                                     <span className="text-[10px] font-semibold text-white/30 uppercase">Amount</span>
-                                     <span className="font-bold text-lg text-cyan-400">{formValues.amount} {selectedAsset}</span>
+                                    <span className="font-bold text-lg text-cyan-400">{formValues.amount} {selectedAsset}</span>
                                 </div>
                                 <div className="space-y-1.5">
                                     <p className="text-[10px] font-semibold text-white/25 uppercase">Recipient</p>
                                     <p className="text-xs font-mono break-all bg-white/[0.03] p-3 rounded-xl border border-white/[0.06] text-white/50">{formValues.recipientAddress}</p>
                                 </div>
+                                 {destinationType === 'external' && (
+                                   <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+                                     <p className="text-[11px] leading-relaxed text-violet-200/70">
+                                       This is a custodial settlement of your virtual balance. After confirmation, anyone can verify the recipient, token contract, block, and amount from the public explorer.
+                                     </p>
+                                   </div>
+                                 )}
                             </div>
                             <AlertDialogFooter>
                                 <AlertDialogCancel className="rounded-xl border-white/10 bg-white/[0.04] text-white/40" disabled={isSending}>Cancel</AlertDialogCancel>
                                 <AlertDialogAction onClick={handleSubmit(executeSend)} className="rounded-xl btn-cyan" disabled={isSending}>
-                                     {isSending ? <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Sending...</> : 'Confirm & Send'}
+                                    {isSending ? <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Sending...</> : 'Confirm'}
                                 </AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
-
-                     {onchainReceipt && sendMode === 'external' && (
-                       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
-                         <div className="flex items-center gap-2">
-                           <div className="h-2 w-2 rounded-full bg-emerald-400" />
-                           <p className="text-xs font-semibold text-emerald-300">Transaction publicly verified</p>
-                         </div>
-                         <div className="space-y-1.5 text-[10px]">
-                           <div className="flex justify-between gap-3">
-                             <span className="text-white/35">Amount</span>
-                             <span className="font-mono text-white/70">{onchainReceipt.amount} ETH</span>
-                           </div>
-                           <div className="flex justify-between gap-3">
-                             <span className="text-white/35">Block</span>
-                             <span className="font-mono text-white/70">{onchainReceipt.blockNumber ?? 'Pending index'}</span>
-                           </div>
-                           <div className="flex justify-between gap-3">
-                             <span className="text-white/35">Hash</span>
-                             <span className="font-mono text-white/50 truncate max-w-[230px]">{onchainReceipt.hash}</span>
-                           </div>
-                         </div>
-                         <a
-                           href={getSepoliaTransactionUrl(onchainReceipt.hash)}
-                           target="_blank"
-                           rel="noreferrer"
-                           className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-300 hover:text-emerald-200"
-                         >
-                           View on Sepolia Etherscan <ExternalLink className="h-3 w-3" />
-                         </a>
-                       </div>
-                     )}
+                    {lastOnchainTransfer && (
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
+                        <p className="text-xs font-semibold text-emerald-300">Public proof saved</p>
+                        <p className="text-[11px] text-white/40 break-all font-mono">{lastOnchainTransfer.txHash}</p>
+                        <a
+                          href={lastOnchainTransfer.explorerUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex text-xs font-semibold text-emerald-300 hover:text-emerald-200 underline underline-offset-4"
+                        >
+                          Verify on {lastOnchainTransfer.network} explorer
+                        </a>
+                      </div>
+                    )}
                   </form>
               </TabsContent>
               <TabsContent value="receive" className="pt-6 space-y-5">
@@ -533,7 +407,7 @@ export default function SendReceivePage() {
                         </DialogContent>
                     </Dialog>
                     <p className="text-xs text-white/25 text-center">
-                        Share your address or QR code to receive crypto from other Apex wallets.
+                         Share your address or QR code to receive crypto from other Apex wallets. External on-chain deposits must use the configured APEX token contract and network.
                     </p>
               </TabsContent>
             </Tabs>

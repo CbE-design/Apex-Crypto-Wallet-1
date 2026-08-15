@@ -428,6 +428,16 @@ export default function MyWalletsPage() {
                  <div>
                    <p className="text-[10px] text-white/30 uppercase tracking-wider">Transaction</p>
                    <p className="font-mono text-sm text-white/60 break-all">{selectedTx.txHash}</p>
+                    {selectedTx.metadata?.explorerUrl && (
+                      <a
+                        href={selectedTx.metadata.explorerUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex mt-2 text-xs font-semibold text-cyan-300 hover:text-cyan-200 underline underline-offset-4"
+                      >
+                        Verify publicly on explorer
+                      </a>
+                    )}
                  </div>
                )}
 

@@ -15,6 +15,7 @@ import Link from "next/link";
 // ─── Asset definitions ───────────────────────────────────────────────────────
 
 const ASSETS = [
+  { symbol: "APEX", name: "Apex Coin",         isCrypto: true  },
   { symbol: "ETH",  name: "Ethereum",        isCrypto: true  },
   { symbol: "BTC",  name: "Bitcoin",          isCrypto: true  },
   { symbol: "USDT", name: "Tether",           isCrypto: true  },
