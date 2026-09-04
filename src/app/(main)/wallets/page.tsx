@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { ethers } from 'ethers';
 import {
   Wallet,
   ArrowUpRight,
@@ -15,7 +16,7 @@ import {
   List,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { USDT_ADDRESS } from '@/config/usdt';
+import { USDT_ABI, USDT_ADDRESS } from '@/config/usdt';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
@@ -54,6 +55,8 @@ declare global {
   interface Window {
     ethereum?: {
       request: (args: { method: string; params?: unknown[] | Record<string, unknown> }) => Promise<unknown>;
+      on?: (event: string, handler: (...args: unknown[]) => void) => void;
+      removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
     };
   }
 }
@@ -66,6 +69,53 @@ export default function MyWalletsPage() {
   const [watchAssetMessage, setWatchAssetMessage] = React.useState<string | null>(null);
   const [metamaskAccount, setMetamaskAccount] = React.useState<string | null>(null);
   const [isMetamaskConnecting, setIsMetamaskConnecting] = React.useState(false);
+  const [liveUsdtBalance, setLiveUsdtBalance] = React.useState<number | null>(null);
+  const [liveUsdtError, setLiveUsdtError] = React.useState<string | null>(null);
+  const [isLiveUsdtLoading, setIsLiveUsdtLoading] = React.useState(false);
+
+  const refreshLiveUsdtBalance = React.useCallback(async (account: string) => {
+    if (!window.ethereum || !ethers.isAddress(account)) return;
+    setIsLiveUsdtLoading(true);
+    setLiveUsdtError(null);
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum as any);
+      const network = await provider.getNetwork();
+      if (network.chainId !== 1n) {
+        setLiveUsdtBalance(null);
+        setLiveUsdtError('Switch MetaMask to Ethereum Mainnet to read live USDT.');
+        return;
+      }
+      const contract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, provider);
+      const rawBalance = await contract.balanceOf(account);
+      setLiveUsdtBalance(Number(ethers.formatUnits(rawBalance, 6)));
+    } catch (error) {
+      console.error('[v0] Failed to read live USDT balance:', error);
+      setLiveUsdtBalance(null);
+      setLiveUsdtError('Live USDT balance is temporarily unavailable.');
+    } finally {
+      setIsLiveUsdtLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!metamaskAccount || !window.ethereum) return;
+    void refreshLiveUsdtBalance(metamaskAccount);
+    const handleAccountsChanged = (accounts: unknown) => {
+      const account = Array.isArray(accounts) ? String(accounts[0] ?? '') : '';
+      setMetamaskAccount(account || null);
+      if (account) void refreshLiveUsdtBalance(account);
+      else setLiveUsdtBalance(null);
+    };
+    const handleChainChanged = () => void refreshLiveUsdtBalance(metamaskAccount);
+    window.ethereum.on?.('accountsChanged', handleAccountsChanged);
+    window.ethereum.on?.('chainChanged', handleChainChanged);
+    const interval = window.setInterval(() => void refreshLiveUsdtBalance(metamaskAccount), 15000);
+    return () => {
+      window.ethereum?.removeListener?.('accountsChanged', handleAccountsChanged);
+      window.ethereum?.removeListener?.('chainChanged', handleChainChanged);
+      window.clearInterval(interval);
+    };
+  }, [metamaskAccount, refreshLiveUsdtBalance]);
 
   const connectMetamask = async () => {
     setWatchAssetMessage(null);
@@ -79,6 +129,7 @@ export default function MyWalletsPage() {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }) as string[];
       const account = accounts?.[0] ?? null;
       setMetamaskAccount(account);
+      if (account) void refreshLiveUsdtBalance(account);
       if (!account) setWatchAssetMessage('MetaMask did not return an account.');
       return account;
     } catch (error) {
@@ -139,17 +190,19 @@ export default function MyWalletsPage() {
     return walletData.map(walletDoc => {
       const priceUSD = prices[walletDoc.currency] ?? 0;
       const change24h = changes[walletDoc.currency] ?? 0;
+      const isUsdt = walletDoc.currency.toUpperCase() === 'USDT';
+      const amount = isUsdt && liveUsdtBalance !== null ? liveUsdtBalance : walletDoc.balance;
       return {
         symbol: walletDoc.currency,
         name: walletDoc.currency,
-        amount: walletDoc.balance,
-        valueUSD: walletDoc.balance * priceUSD,
+        amount,
+        valueUSD: amount * priceUSD,
         priceUSD,
         change24h,
         icon: '',
       };
     });
-  }, [walletData, prices, changes]);
+  }, [walletData, prices, changes, liveUsdtBalance]);
 
   const sortedAssets = React.useMemo(
     () => [...assets].sort((a, b) => b.valueUSD - a.valueUSD),
@@ -221,9 +274,9 @@ export default function MyWalletsPage() {
             </div>
           </div>
         </div>
-        {asset.symbol.toUpperCase() === 'USDT' && watchAssetMessage && (
+        {asset.symbol.toUpperCase() === 'USDT' && (watchAssetMessage || liveUsdtError || isLiveUsdtLoading || metamaskAccount) && (
           <p role="status" className="mt-3 text-xs text-white/50">
-            {watchAssetMessage}
+            {watchAssetMessage || liveUsdtError || (isLiveUsdtLoading ? 'Reading live Ethereum USDT balance…' : metamaskAccount ? 'Live balance from Ethereum Mainnet' : null)}
           </p>
         )}
 
