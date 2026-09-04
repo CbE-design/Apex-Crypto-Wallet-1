@@ -13,8 +13,10 @@ import {
   Plus,
   LayoutGrid,
   List,
+  Coins,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { USDT_ADDRESS } from '@/config/usdt';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
@@ -49,11 +51,47 @@ interface TransactionDoc extends Transaction {
   id: string;
 }
 
+declare global {
+  interface Window {
+    ethereum?: {
+      request: (args: { method: string; params?: unknown[] | Record<string, unknown> }) => Promise<unknown>;
+    };
+  }
+}
+
 export default function MyWalletsPage() {
   const { user } = useWallet();
   const firestore = useFirestore();
   const { formatCurrency, currency: nativeCurrency } = useCurrency();
   const [viewMode, setViewMode] = React.useState<'grid' | 'list'>('grid');
+  const [watchAssetMessage, setWatchAssetMessage] = React.useState<string | null>(null);
+
+  const addTokenToMetamask = async () => {
+    setWatchAssetMessage(null);
+    if (!window.ethereum) {
+      setWatchAssetMessage('MetaMask is not installed in this browser.');
+      return;
+    }
+
+    try {
+      const wasAdded = await window.ethereum.request({
+        method: 'wallet_watchAsset',
+        params: {
+          type: 'ERC20',
+          options: {
+            address: USDT_ADDRESS,
+            symbol: 'USDT',
+            decimals: 6,
+            image: 'https://cryptologos.cc/logos/tether-usdt-logo.png?v=040',
+          },
+        },
+      });
+      setWatchAssetMessage(wasAdded ? 'USDT was added to MetaMask.' : 'MetaMask did not add USDT.');
+    } catch (error) {
+      console.error('[v0] Failed to add USDT to MetaMask:', error);
+      setWatchAssetMessage('MetaMask canceled the request or could not add USDT.');
+    }
+  };
 
   const walletsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -260,8 +298,25 @@ export default function MyWalletsPage() {
         </div>
       </div>
       
-      <div className="flex justify-end gap-2">
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+      <div className="flex flex-col items-stretch justify-end gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addTokenToMetamask}
+            className="h-9 rounded-xl border-emerald-500/25 bg-emerald-500/5 text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200"
+          >
+            <Coins className="mr-2 h-4 w-4" />
+            Add USDT to MetaMask
+          </Button>
+          {watchAssetMessage && (
+            <p role="status" className="text-xs text-white/50 sm:text-right">
+              {watchAssetMessage}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-1 self-end rounded-xl border border-white/[0.06] bg-white/[0.04] p-1">
+          <span className="sr-only">Change portfolio view</span>
           <Button size="icon" variant={viewMode === 'grid' ? 'secondary' : 'ghost'} onClick={() => setViewMode('grid')} className="h-7 w-7 rounded-lg">
             <LayoutGrid className="h-4 w-4" />
           </Button>
