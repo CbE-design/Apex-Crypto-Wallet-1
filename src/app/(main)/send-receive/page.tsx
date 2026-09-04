@@ -27,6 +27,7 @@ import { getAuth } from 'firebase/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { marketCoins } from '@/lib/data';
 import { useCurrency } from '@/context/currency-context';
+import { APEX_ASSET, getApexOnchainConfig, isValidExternalEvmAddress } from '@/lib/apex-onchain';
 
 const sendSchema = z.object({
   recipientAddress: z.string().min(1, "Recipient address is required."),
@@ -50,11 +51,14 @@ export default function SendReceivePage() {
   const paramAction = searchParams.get('action');
   const initialAsset = paramCurrency && marketCoins.some(c => c.symbol === paramCurrency) ? paramCurrency : 'ETH';
   const initialTab = paramAction === 'receive' ? 'receive' : 'send';
+  const apexOnchainConfig = getApexOnchainConfig();
 
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const [selectedAsset, setSelectedAsset] = useState(initialAsset);
+  const [destinationType, setDestinationType] = useState<'internal' | 'external'>('internal');
   const [isComplianceRequired, setIsComplianceRequired] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [lastOnchainTransfer, setLastOnchainTransfer] = useState<{ txHash: string; explorerUrl: string; network: string } | null>(null);
 
   const userAddress = wallet?.address || '...';
   
@@ -133,7 +137,11 @@ export default function SendReceivePage() {
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) throw new Error('Not authenticated. Please reconnect your wallet.');
 
-      const res = await fetch('/api/transfer', {
+      if (destinationType === 'external' && !isValidExternalEvmAddress(data.recipientAddress)) {
+        throw new Error('Enter a valid external EVM wallet address beginning with 0x.');
+      }
+
+      const res = await fetch(destinationType === 'external' ? '/api/transfer/on-chain' : '/api/transfer', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,18 +149,30 @@ export default function SendReceivePage() {
         },
         body: JSON.stringify({
           recipientAddress: data.recipientAddress,
-          asset: data.asset,
+          asset: destinationType === 'external' ? APEX_ASSET : data.asset,
           amount: parseFloat(data.amount),
           complianceId: data.complianceId,
           travelRuleVerified: isComplianceRequired,
+          ...(destinationType === 'external' ? {
+            clientRequestId: crypto.randomUUID().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80),
+          } : {}),
         }),
       });
 
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Transfer failed.');
 
-      toast({ title: 'Transfer Complete', description: `Successfully sent ${data.amount} ${data.asset}.` });
-      reset({ asset: selectedAsset, amount: '', recipientAddress: '' });
+      if (destinationType === 'external') {
+        setLastOnchainTransfer({
+          txHash: json.txHash,
+          explorerUrl: json.explorerUrl,
+          network: json.network || apexOnchainConfig.chainName,
+        });
+        toast({ title: 'On-chain transfer confirmed', description: `${data.amount} APEX is publicly verifiable on ${json.network || apexOnchainConfig.chainName}.` });
+      } else {
+        toast({ title: 'Transfer Complete', description: `Successfully sent ${data.amount} ${data.asset}.` });
+      }
+      reset({ asset: destinationType === 'external' ? APEX_ASSET : selectedAsset, amount: '', recipientAddress: '' });
 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
@@ -176,7 +196,7 @@ export default function SendReceivePage() {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white">Send & Receive</h2>
-                <p className="text-xs text-white/30">Transfer crypto to any Apex wallet</p>
+                <p className="text-xs text-white/30">Send APEX to Apex wallets or external addresses</p>
               </div>
             </div>
           </div>
@@ -188,14 +208,58 @@ export default function SendReceivePage() {
               </TabsList>
               <TabsContent value="send" className="pt-6 space-y-5">
                 <form onSubmit={e => e.preventDefault()} className="space-y-5">
+                    <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDestinationType('internal');
+                          if (selectedAsset === APEX_ASSET) {
+                            setSelectedAsset(initialAsset);
+                            setValue('asset', initialAsset, { shouldValidate: true });
+                          }
+                        }}
+                        className={`h-10 rounded-lg text-xs font-semibold transition-all ${destinationType === 'internal' ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/25' : 'text-white/35 hover:text-white/60'}`}
+                      >
+                        Apex wallet
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDestinationType('external');
+                          setSelectedAsset(APEX_ASSET);
+                          setValue('asset', APEX_ASSET, { shouldValidate: true });
+                        }}
+                        className={`h-10 rounded-lg text-xs font-semibold transition-all ${destinationType === 'external' ? 'bg-violet-500/15 text-violet-300 border border-violet-500/25' : 'text-white/35 hover:text-white/60'}`}
+                      >
+                        External on-chain
+                      </button>
+                    </div>
+
+                    {destinationType === 'external' && (
+                      <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-widest font-semibold text-violet-300/70">Public settlement</p>
+                            <p className="text-sm font-semibold text-white">{apexOnchainConfig.chainName} · APEX</p>
+                          </div>
+                        </div>
+                        <p className="text-[11px] leading-relaxed text-white/40">
+                          Your APEX balance is reserved while the Apex settlement service sends a real ERC-20 transfer. The confirmed hash and explorer link are saved to your activity.
+                        </p>
+                      </div>
+                    )}
+
                     <div className="space-y-2">
                         <Label className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Asset</Label>
-                        <Select value={selectedAsset} onValueChange={(val) => { setSelectedAsset(val); setValue('asset', val, { shouldValidate: true }); }}>
+                        <Select value={selectedAsset} onValueChange={(val) => { setSelectedAsset(val); setValue('asset', val, { shouldValidate: true }); }} disabled={destinationType === 'external'}>
                             <SelectTrigger className="h-12 bg-white/[0.04] border-white/[0.08] rounded-xl">
                                 <SelectValue placeholder="Select cryptocurrency" />
                             </SelectTrigger>
                             <SelectContent>
-                                {marketCoins.map(coin => (
+                                {(destinationType === 'external'
+                                  ? [{ symbol: APEX_ASSET, name: 'Apex Coin' }]
+                                  : marketCoins
+                                ).map(coin => (
                                     <SelectItem key={coin.symbol} value={coin.symbol}>
                                         <div className="flex items-center gap-2">
                                             <CryptoIcon name={coin.name} className="h-4 w-4" />
@@ -208,9 +272,14 @@ export default function SendReceivePage() {
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Recipient Address</Label>
-                        <Input className="h-12 bg-white/[0.04] border-white/[0.08] rounded-xl font-mono text-sm" placeholder="0x..." {...register('recipientAddress')} />
+                        <Label className="text-[10px] font-semibold uppercase tracking-widest text-white/30">
+                          {destinationType === 'external' ? 'External EVM Wallet Address' : 'Recipient Apex Wallet Address'}
+                        </Label>
+                        <Input className="h-12 bg-white/[0.04] border-white/[0.08] rounded-xl font-mono text-sm" placeholder="0x..." autoComplete="off" {...register('recipientAddress')} />
                         {errors.recipientAddress && <p className="text-xs text-red-400">{errors.recipientAddress.message}</p>}
+                        {destinationType === 'external' && (
+                          <p className="text-[10px] text-white/30">Ethereum-compatible address only. Check the network and address before confirming.</p>
+                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -247,8 +316,10 @@ export default function SendReceivePage() {
                             <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[28px] bg-gradient-to-r from-cyan-500 to-violet-500" />
                             <AlertDialogHeader>
                                 <AlertDialogTitle className="text-white font-bold">Confirm Transfer</AlertDialogTitle>
-                                <AlertDialogDescription className="text-white/30">
-                                    Please review the details below. This transfer cannot be reversed.
+                            <AlertDialogDescription className="text-white/30">
+                                    {destinationType === 'external'
+                                      ? 'This creates a real on-chain transfer from the Apex settlement treasury and cannot be reversed.'
+                                      : 'Please review the details below. This transfer cannot be reversed.'}
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <div className="py-2 space-y-2">
@@ -260,6 +331,13 @@ export default function SendReceivePage() {
                                     <p className="text-[10px] font-semibold text-white/25 uppercase">Recipient</p>
                                     <p className="text-xs font-mono break-all bg-white/[0.03] p-3 rounded-xl border border-white/[0.06] text-white/50">{formValues.recipientAddress}</p>
                                 </div>
+                                 {destinationType === 'external' && (
+                                   <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+                                     <p className="text-[11px] leading-relaxed text-violet-200/70">
+                                        Your APEX balance is processed by the Apex settlement service. After confirmation, anyone can verify the recipient, token contract, block, and amount from the public explorer.
+                                     </p>
+                                   </div>
+                                 )}
                             </div>
                             <AlertDialogFooter>
                                 <AlertDialogCancel className="rounded-xl border-white/10 bg-white/[0.04] text-white/40" disabled={isSending}>Cancel</AlertDialogCancel>
@@ -269,6 +347,20 @@ export default function SendReceivePage() {
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
+                    {lastOnchainTransfer && (
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
+                        <p className="text-xs font-semibold text-emerald-300">Public proof saved</p>
+                        <p className="text-[11px] text-white/40 break-all font-mono">{lastOnchainTransfer.txHash}</p>
+                        <a
+                          href={lastOnchainTransfer.explorerUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex text-xs font-semibold text-emerald-300 hover:text-emerald-200 underline underline-offset-4"
+                        >
+                          Verify on {lastOnchainTransfer.network} explorer
+                        </a>
+                      </div>
+                    )}
                   </form>
               </TabsContent>
               <TabsContent value="receive" className="pt-6 space-y-5">
@@ -307,7 +399,7 @@ export default function SendReceivePage() {
                         </DialogContent>
                     </Dialog>
                     <p className="text-xs text-white/25 text-center">
-                        Share your address or QR code to receive crypto from other Apex wallets.
+                         Share your address or QR code to receive crypto from other Apex wallets. External on-chain deposits must use the configured APEX token contract and network.
                     </p>
               </TabsContent>
             </Tabs>

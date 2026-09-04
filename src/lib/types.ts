@@ -51,6 +51,13 @@ export interface Transaction {
     travelRuleVerified: boolean;
     complianceId?: string;
     protocol?: string;
+    settlementMode?: string;
+    chainId?: number;
+    chainName?: string;
+    tokenAddress?: string;
+    explorerUrl?: string;
+    blockNumber?: number;
+    requestId?: string;
   };
 }
 

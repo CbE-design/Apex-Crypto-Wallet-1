@@ -229,6 +229,22 @@ export function TransactionHistory() {
                   <span className="text-zinc-300 truncate max-w-[180px]">{(selectedTx as any).description}</span>
                 </div>
               )}
+              {selectedTx.txHash && (
+                <div className="py-1.5 border-b border-white/5">
+                  <span className="text-muted-foreground block mb-1">Public transaction</span>
+                  <p className="font-mono text-[11px] text-zinc-300 break-all">{selectedTx.txHash}</p>
+                  {selectedTx.metadata?.explorerUrl && (
+                    <a
+                      href={selectedTx.metadata.explorerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex mt-2 text-xs font-semibold text-cyan-300 hover:text-cyan-200 underline underline-offset-4"
+                    >
+                      Verify publicly on explorer
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
 
             <button

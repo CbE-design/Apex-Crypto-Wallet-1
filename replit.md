@@ -38,6 +38,15 @@ npm run build      # Production build
 npm run start      # Start production server on port 5000
 ```
 
+### External On-Chain Sends
+
+The Send & Receive screen has two send modes:
+
+- **Apex wallet** — the existing instant internal transfer using Firestore virtual balances.
+- **External wallet** — a self-custodial native ETH transfer on the Ethereum Sepolia testnet. The unlocked wallet signs locally in the browser; the private key is not sent to the server. Confirmed transactions are recorded with their hash and linked to Sepolia Etherscan.
+
+External sends require Sepolia ETH for both the amount and gas. The public RPC fallback is `ethereum-sepolia-rpc.publicnode.com`; deployments can optionally set `NEXT_PUBLIC_SEPOLIA_RPC_URL` to a dedicated Sepolia RPC endpoint. Sepolia ETH can be obtained from a Sepolia faucet. This path does not debit Firestore virtual balances.
+
 ## Required Environment Variables
 
 Set these in Replit Secrets:
