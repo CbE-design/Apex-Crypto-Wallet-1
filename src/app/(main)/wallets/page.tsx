@@ -13,7 +13,6 @@ import {
   Plus,
   LayoutGrid,
   List,
-  Coins,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { USDT_ADDRESS } from '@/config/usdt';
@@ -65,9 +64,35 @@ export default function MyWalletsPage() {
   const { formatCurrency, currency: nativeCurrency } = useCurrency();
   const [viewMode, setViewMode] = React.useState<'grid' | 'list'>('grid');
   const [watchAssetMessage, setWatchAssetMessage] = React.useState<string | null>(null);
+  const [metamaskAccount, setMetamaskAccount] = React.useState<string | null>(null);
+  const [isMetamaskConnecting, setIsMetamaskConnecting] = React.useState(false);
+
+  const connectMetamask = async () => {
+    setWatchAssetMessage(null);
+    if (!window.ethereum) {
+      setWatchAssetMessage('Install MetaMask or open this page in its browser extension.');
+      return null;
+    }
+
+    setIsMetamaskConnecting(true);
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }) as string[];
+      const account = accounts?.[0] ?? null;
+      setMetamaskAccount(account);
+      if (!account) setWatchAssetMessage('MetaMask did not return an account.');
+      return account;
+    } catch (error) {
+      console.error('[v0] Failed to connect MetaMask:', error);
+      setWatchAssetMessage('MetaMask connection was canceled or unavailable.');
+      return null;
+    } finally {
+      setIsMetamaskConnecting(false);
+    }
+  };
 
   const addTokenToMetamask = async () => {
     setWatchAssetMessage(null);
+    if (!metamaskAccount && !(await connectMetamask())) return;
     if (!window.ethereum) {
       setWatchAssetMessage('MetaMask is not installed in this browser.');
       return;
@@ -169,7 +194,22 @@ export default function MyWalletsPage() {
           <div className="flex items-center gap-3">
             <CryptoIcon name={asset.symbol} className="w-9 h-9" />
             <div>
-              <p className="font-bold text-white text-base">{asset.name}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-bold text-white text-base">{asset.name}</p>
+                {asset.symbol.toUpperCase() === 'USDT' && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addTokenToMetamask}
+                    disabled={isMetamaskConnecting}
+                    aria-label={metamaskAccount ? 'Add USDT to MetaMask' : 'Connect MetaMask and add USDT'}
+                    className="h-6 rounded-md border-emerald-500/25 bg-emerald-500/5 px-2 text-[10px] font-semibold text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200"
+                  >
+                    {isMetamaskConnecting ? 'Connecting…' : metamaskAccount ? 'MetaMask' : 'Connect MetaMask'}
+                  </Button>
+                )}
+              </div>
               <p className="text-xs text-white/40 font-mono">{asset.symbol}</p>
             </div>
           </div>
@@ -181,6 +221,11 @@ export default function MyWalletsPage() {
             </div>
           </div>
         </div>
+        {asset.symbol.toUpperCase() === 'USDT' && watchAssetMessage && (
+          <p role="status" className="mt-3 text-xs text-white/50">
+            {watchAssetMessage}
+          </p>
+        )}
 
         <div className="mt-5 pt-5 border-t border-white/[0.05]">
            <p className="text-sm text-white/80 font-mono">{asset.amount.toFixed(6)} {asset.symbol}</p>
@@ -298,24 +343,8 @@ export default function MyWalletsPage() {
         </div>
       </div>
       
-      <div className="flex flex-col items-stretch justify-end gap-3 sm:flex-row sm:items-center">
-        <div className="flex flex-col items-stretch gap-2 sm:items-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={addTokenToMetamask}
-            className="h-9 rounded-xl border-emerald-500/25 bg-emerald-500/5 text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200"
-          >
-            <Coins className="mr-2 h-4 w-4" />
-            Add USDT to MetaMask
-          </Button>
-          {watchAssetMessage && (
-            <p role="status" className="text-xs text-white/50 sm:text-right">
-              {watchAssetMessage}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-1 self-end rounded-xl border border-white/[0.06] bg-white/[0.04] p-1">
+      <div className="flex justify-end">
+        <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.04] p-1">
           <span className="sr-only">Change portfolio view</span>
           <Button size="icon" variant={viewMode === 'grid' ? 'secondary' : 'ghost'} onClick={() => setViewMode('grid')} className="h-7 w-7 rounded-lg">
             <LayoutGrid className="h-4 w-4" />
