@@ -1,16 +1,6 @@
 {
-  "name": "apexusdt",
+  "name": "removed-apexusdt",
   "version": "1.0.0",
   "private": true,
-  "scripts": {
-    "compile": "hardhat compile",
-    "deploy:base": "hardhat run scripts/deploy.js --network base"
-  },
-  "devDependencies": {
-    "hardhat": "^2.16.0",
-    "@nomiclabs/hardhat-ethers": "^3.0.0",
-    "@openzeppelin/contracts": "^4.9.0",
-    "dotenv": "^16.0.0",
-    "ethers": "^5.7.2"
-  }
+  "description": "This package.json was removed by a revert commit. See repository history for the original file."
 }

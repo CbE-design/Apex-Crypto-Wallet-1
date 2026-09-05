@@ -1,13 +1,6 @@
 {
-  "name": "apexusdt-backend",
+  "name": "removed-apexusdt-backend",
   "version": "1.0.0",
   "private": true,
-  "scripts": {
-    "start": "node backend/index.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "ethers": "^5.7.2",
-    "dotenv": "^16.0.0"
-  }
+  "description": "This backend/package.json was removed by a revert commit. See repository history for the original file."
 }
