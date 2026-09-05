@@ -16,7 +16,14 @@ import {
   List,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { USDT_ABI, USDT_ADDRESS } from '@/config/usdt';
+import {
+  USDT_ABI,
+  USDT_ADDRESS,
+  USDT_CHAIN_ID,
+  USDT_CHAIN_NAME,
+  USDT_EXPLORER_URL,
+  USDT_RPC_URL,
+} from '@/config/usdt';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
@@ -80,9 +87,9 @@ export default function MyWalletsPage() {
     try {
       const provider = new ethers.BrowserProvider(window.ethereum as any);
       const network = await provider.getNetwork();
-      if (network.chainId !== 1n) {
+      if (network.chainId !== USDT_CHAIN_ID) {
         setLiveUsdtBalance(null);
-        setLiveUsdtError('Switch MetaMask to Ethereum Mainnet to read live USDT.');
+        setLiveUsdtError(`Switch MetaMask to ${USDT_CHAIN_NAME} to read live USDT.`);
         return;
       }
       const contract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, provider);
@@ -126,6 +133,24 @@ export default function MyWalletsPage() {
 
     setIsMetamaskConnecting(true);
     try {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: `0x${USDT_CHAIN_ID.toString(16)}` }],
+        });
+      } catch (switchError) {
+        if ((switchError as { code?: number }).code !== 4902) throw switchError;
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: `0x${USDT_CHAIN_ID.toString(16)}`,
+            chainName: USDT_CHAIN_NAME,
+            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+            rpcUrls: [USDT_RPC_URL],
+            blockExplorerUrls: [USDT_EXPLORER_URL],
+          }],
+        });
+      }
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }) as string[];
       const account = accounts?.[0] ?? null;
       setMetamaskAccount(account);
@@ -276,7 +301,7 @@ export default function MyWalletsPage() {
         </div>
         {asset.symbol.toUpperCase() === 'USDT' && (watchAssetMessage || liveUsdtError || isLiveUsdtLoading || metamaskAccount) && (
           <p role="status" className="mt-3 text-xs text-white/50">
-            {watchAssetMessage || liveUsdtError || (isLiveUsdtLoading ? 'Reading live Ethereum USDT balance…' : metamaskAccount ? 'Live balance from Ethereum Mainnet' : null)}
+            {watchAssetMessage || liveUsdtError || (isLiveUsdtLoading ? `Reading live ${USDT_CHAIN_NAME} USDT balance…` : metamaskAccount ? `Live balance from ${USDT_CHAIN_NAME}` : null)}
           </p>
         )}
 
