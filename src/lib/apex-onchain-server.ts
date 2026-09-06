@@ -24,6 +24,8 @@ export function getApexServerConfig(): ApexServerConfig {
   const rpcUrl = process.env.APEX_ONCHAIN_RPC_URL || process.env.SEPOLIA_RPC_URL || process.env.NEXT_PUBLIC_APEX_RPC_URL || '';
   const tokenAddress =
     process.env.APEX_ONCHAIN_TOKEN_ADDRESS ||
+    process.env.APXD_TOKEN_CONTRACT_ADDRESS ||
+    process.env.NEXT_PUBLIC_APXD_TOKEN_ADDRESS ||
     process.env.USDT_TOKEN_CONTRACT_ADDRESS ||
     process.env.NEXT_PUBLIC_APEX_TOKEN_ADDRESS ||
     '';

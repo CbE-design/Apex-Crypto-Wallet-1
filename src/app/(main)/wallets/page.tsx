@@ -24,6 +24,7 @@ import {
   USDT_EXPLORER_URL,
   USDT_RPC_URL,
 } from '@/config/usdt';
+import { APXD_ABI, APXD_ADDRESS, APXD_CHAIN_ID, APXD_CHAIN_NAME, APXD_DECIMALS, APXD_EXPLORER_URL, APXD_RPC_URL, isApxdConfigured } from '@/config/apxd';
 import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
@@ -69,7 +70,7 @@ declare global {
 }
 
 export default function MyWalletsPage() {
-  const { user } = useWallet();
+  const { user, wallet } = useWallet();
   const firestore = useFirestore();
   const { formatCurrency, currency: nativeCurrency } = useCurrency();
   const [viewMode, setViewMode] = React.useState<'grid' | 'list'>('grid');
@@ -79,6 +80,25 @@ export default function MyWalletsPage() {
   const [liveUsdtBalance, setLiveUsdtBalance] = React.useState<number | null>(null);
   const [liveUsdtError, setLiveUsdtError] = React.useState<string | null>(null);
   const [isLiveUsdtLoading, setIsLiveUsdtLoading] = React.useState(false);
+  const [liveApxdBalance, setLiveApxdBalance] = React.useState<number | null>(null);
+  const [liveApxdError, setLiveApxdError] = React.useState<string | null>(null);
+
+  const refreshLiveApxdBalance = React.useCallback(async (account: string) => {
+    if (!window.ethereum || !isApxdConfigured() || !ethers.isAddress(account)) return;
+    setLiveApxdError(null);
+    try {
+      const provider = new ethers.JsonRpcProvider(APXD_RPC_URL, { name: APXD_CHAIN_NAME, chainId: Number(APXD_CHAIN_ID) });
+      const network = await provider.getNetwork();
+      if (network.chainId !== APXD_CHAIN_ID) throw new Error('APXD network mismatch');
+      const contract = new ethers.Contract(APXD_ADDRESS, APXD_ABI, provider);
+      const rawBalance = await contract.balanceOf(account);
+      setLiveApxdBalance(Number(ethers.formatUnits(rawBalance, APXD_DECIMALS)));
+    } catch (error) {
+      console.error('[v0] Failed to read live APXD balance:', error);
+      setLiveApxdBalance(null);
+      setLiveApxdError('Live APXD balance is temporarily unavailable.');
+    }
+  }, []);
 
   const refreshLiveUsdtBalance = React.useCallback(async (account: string) => {
     if (!window.ethereum || !ethers.isAddress(account)) return;
@@ -107,11 +127,12 @@ export default function MyWalletsPage() {
   React.useEffect(() => {
     if (!metamaskAccount || !window.ethereum) return;
     void refreshLiveUsdtBalance(metamaskAccount);
+    void refreshLiveApxdBalance(metamaskAccount);
     const handleAccountsChanged = (accounts: unknown) => {
       const account = Array.isArray(accounts) ? String(accounts[0] ?? '') : '';
       setMetamaskAccount(account || null);
-      if (account) void refreshLiveUsdtBalance(account);
-      else setLiveUsdtBalance(null);
+      if (account) { void refreshLiveUsdtBalance(account); void refreshLiveApxdBalance(account); }
+      else { setLiveUsdtBalance(null); setLiveApxdBalance(null); }
     };
     const handleChainChanged = () => void refreshLiveUsdtBalance(metamaskAccount);
     window.ethereum.on?.('accountsChanged', handleAccountsChanged);
@@ -122,7 +143,7 @@ export default function MyWalletsPage() {
       window.ethereum?.removeListener?.('chainChanged', handleChainChanged);
       window.clearInterval(interval);
     };
-  }, [metamaskAccount, refreshLiveUsdtBalance]);
+  }, [metamaskAccount, refreshLiveUsdtBalance, refreshLiveApxdBalance]);
 
   const connectMetamask = async () => {
     setWatchAssetMessage(null);
@@ -163,6 +184,24 @@ export default function MyWalletsPage() {
       return null;
     } finally {
       setIsMetamaskConnecting(false);
+    }
+  };
+
+  const addApxdToMetamask = async () => {
+    setWatchAssetMessage(null);
+    if (!isApxdConfigured()) { setWatchAssetMessage('APXD is not configured yet.'); return; }
+    const account = metamaskAccount || await connectMetamask();
+    if (!account || !wallet || account.toLowerCase() !== wallet.address.toLowerCase()) {
+      setWatchAssetMessage('Connect the exact Apex APXD wallet address before adding APXD.');
+      return;
+    }
+    try {
+      await window.ethereum?.request({ method: 'wallet_watchAsset', params: { type: 'ERC20', options: { address: APXD_ADDRESS, symbol: 'APXD', decimals: APXD_DECIMALS } } });
+      await refreshLiveApxdBalance(account);
+      setWatchAssetMessage('APXD was added to MetaMask.');
+    } catch (error) {
+      console.error('[v0] Failed to add APXD to MetaMask:', error);
+      setWatchAssetMessage('MetaMask canceled the APXD request.');
     }
   };
 
@@ -216,7 +255,8 @@ export default function MyWalletsPage() {
       const priceUSD = prices[walletDoc.currency] ?? 0;
       const change24h = changes[walletDoc.currency] ?? 0;
       const isUsdt = walletDoc.currency.toUpperCase() === 'USDT';
-      const amount = isUsdt && liveUsdtBalance !== null ? liveUsdtBalance : walletDoc.balance;
+      const isApxd = walletDoc.currency.toUpperCase() === 'APXD';
+      const amount = isUsdt && liveUsdtBalance !== null ? liveUsdtBalance : isApxd && liveApxdBalance !== null ? liveApxdBalance : walletDoc.balance;
       return {
         symbol: walletDoc.currency,
         name: walletDoc.currency,
@@ -227,7 +267,7 @@ export default function MyWalletsPage() {
         icon: '',
       };
     });
-  }, [walletData, prices, changes, liveUsdtBalance]);
+  }, [walletData, prices, changes, liveUsdtBalance, liveApxdBalance]);
 
   const sortedAssets = React.useMemo(
     () => [...assets].sort((a, b) => b.valueUSD - a.valueUSD),
@@ -274,6 +314,11 @@ export default function MyWalletsPage() {
             <div>
               <div className="flex items-center gap-2">
                 <p className="font-bold text-white text-base">{asset.name}</p>
+                {asset.symbol.toUpperCase() === 'APXD' && (
+                  <Button type="button" variant="outline" size="sm" onClick={addApxdToMetamask} disabled={isMetamaskConnecting} aria-label="Connect exact APXD wallet and add APXD to MetaMask" className="h-6 rounded-md border-cyan-500/25 bg-cyan-500/5 px-2 text-[10px] font-semibold text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200">
+                    {isMetamaskConnecting ? 'Connecting…' : 'Connect APXD'}
+                  </Button>
+                )}
                 {asset.symbol.toUpperCase() === 'USDT' && (
                   <Button
                     type="button"
@@ -299,6 +344,11 @@ export default function MyWalletsPage() {
             </div>
           </div>
         </div>
+        {asset.symbol.toUpperCase() === 'APXD' && (watchAssetMessage || liveApxdError || liveApxdBalance !== null) && (
+          <p role="status" className="mt-3 text-xs text-white/50">
+            {watchAssetMessage || liveApxdError || `Live APXD balance on ${APXD_CHAIN_NAME}: ${liveApxdBalance?.toFixed(6)}`}
+          </p>
+        )}
         {asset.symbol.toUpperCase() === 'USDT' && (watchAssetMessage || liveUsdtError || isLiveUsdtLoading || metamaskAccount) && (
           <p role="status" className="mt-3 text-xs text-white/50">
             {watchAssetMessage || liveUsdtError || (isLiveUsdtLoading ? `Reading live ${USDT_CHAIN_NAME} USDT balance…` : metamaskAccount ? `Live balance from ${USDT_CHAIN_NAME}` : null)}
