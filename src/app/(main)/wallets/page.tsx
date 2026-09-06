@@ -134,8 +134,18 @@ export default function MyWalletsPage() {
       if (account) { void refreshLiveUsdtBalance(account); void refreshLiveApxdBalance(account); }
       else { setLiveUsdtBalance(null); setLiveApxdBalance(null); }
     };
-    const handleChainChanged = () => void refreshLiveUsdtBalance(metamaskAccount);
+    const handleChainChanged = () => {
+      setLiveApxdBalance(null);
+      void refreshLiveUsdtBalance(metamaskAccount);
+      void refreshLiveApxdBalance(metamaskAccount);
+    };
     window.ethereum.on?.('accountsChanged', handleAccountsChanged);
+    window.ethereum.on?.('chainChanged', handleChainChanged);
+    const interval = window.setInterval(() => {
+      setLiveApxdBalance(null);
+      void refreshLiveUsdtBalance(metamaskAccount);
+      void refreshLiveApxdBalance(metamaskAccount);
+    }, 15000);
     window.ethereum.on?.('chainChanged', handleChainChanged);
     const interval = window.setInterval(() => void refreshLiveUsdtBalance(metamaskAccount), 15000);
     return () => {
