@@ -15,6 +15,7 @@ import type { PortfolioAsset } from '@/lib/types';
 import { TrendingUp } from 'lucide-react';
 import { useLivePrices } from '@/hooks/use-live-prices';
 import { Button } from '@/components/ui/button';
+import { useLiveApxdBalance } from '@/hooks/use-live-apxd-balance';
 
 const allKnownCoins = [...staticAssets, ...marketCoins].reduce<Array<{ symbol: string; name: string }>>((acc, c) => {
   if (!acc.find(x => x.symbol === c.symbol)) acc.push({ symbol: c.symbol, name: c.name });
@@ -43,7 +44,12 @@ export function PortfolioOverview() {
     return query(collection(firestore, 'users', user.uid, 'wallets'));
   }, [user, firestore]);
 
-  const { data: walletData, isLoading: isWalletLoading } = useCollection<{ balance: number; currency: string }>(walletsQuery);
+  const { data: walletData, isLoading: isWalletLoading } = useCollection<{ balance: number; currency: string; address?: string }>(walletsQuery);
+  const apxdAddress = React.useMemo(
+    () => walletData?.find(walletDoc => walletDoc.currency.toUpperCase() === 'APXD')?.address,
+    [walletData],
+  );
+  const { balance: liveApxdBalance } = useLiveApxdBalance(apxdAddress);
 
   const portfolioSymbols = React.useMemo(() => {
     if (!walletData) return [];
@@ -62,17 +68,19 @@ export function PortfolioOverview() {
       const marketData = marketCoins.find(m => m.symbol === walletDoc.currency);
       const priceUSD = livePriceUSD !== undefined ? livePriceUSD : (staticAssetData?.priceUSD || marketData?.priceUSD || 0);
       const change24h = changes[walletDoc.currency] ?? staticAssetData?.change24h ?? marketData?.change24h ?? 0;
+      const isApxd = walletDoc.currency.toUpperCase() === 'APXD';
+      const amount = isApxd && liveApxdBalance !== null ? liveApxdBalance : walletDoc.balance;
       return {
         symbol: walletDoc.currency,
         name: staticAssetData?.name || marketData?.name || walletDoc.currency,
-        amount: walletDoc.balance,
-        valueUSD: walletDoc.balance * priceUSD,
+        amount,
+        valueUSD: amount * priceUSD,
         priceUSD,
         change24h,
         icon: staticAssetData?.icon || marketData?.icon || '',
       };
     }).filter(Boolean) as PortfolioAsset[];
-  }, [walletData, prices, changes]);
+  }, [walletData, prices, changes, liveApxdBalance]);
 
   const totalBalance = portfolioAssets.reduce((acc, asset) => acc + asset.valueUSD, 0);
 

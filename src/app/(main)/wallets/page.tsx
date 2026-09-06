@@ -29,6 +29,7 @@ import { useWallet } from '@/context/wallet-context';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { useLivePrices } from '@/hooks/use-live-prices';
+import { useLiveApxdBalance } from '@/hooks/use-live-apxd-balance';
 import { useCurrency } from '@/context/currency-context';
 import { CryptoIcon } from '@/components/crypto-icon';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -82,6 +83,7 @@ export default function MyWalletsPage() {
   const [isLiveUsdtLoading, setIsLiveUsdtLoading] = React.useState(false);
   const [liveApxdBalance, setLiveApxdBalance] = React.useState<number | null>(null);
   const [liveApxdError, setLiveApxdError] = React.useState<string | null>(null);
+  const { balance: walletApxdBalance, error: walletApxdError } = useLiveApxdBalance(wallet?.address);
 
   const refreshLiveApxdBalance = React.useCallback(async (account: string) => {
     if (!window.ethereum || !isApxdConfigured() || !ethers.isAddress(account)) return;
@@ -264,7 +266,7 @@ export default function MyWalletsPage() {
       const change24h = changes[walletDoc.currency] ?? 0;
       const isUsdt = walletDoc.currency.toUpperCase() === 'USDT';
       const isApxd = walletDoc.currency.toUpperCase() === 'APXD';
-      const amount = isUsdt && liveUsdtBalance !== null ? liveUsdtBalance : isApxd && liveApxdBalance !== null ? liveApxdBalance : walletDoc.balance;
+      const amount = isUsdt && liveUsdtBalance !== null ? liveUsdtBalance : isApxd && walletApxdBalance !== null ? walletApxdBalance : isApxd && liveApxdBalance !== null ? liveApxdBalance : walletDoc.balance;
       return {
         symbol: walletDoc.currency,
         name: walletDoc.currency,
@@ -275,7 +277,7 @@ export default function MyWalletsPage() {
         icon: '',
       };
     });
-  }, [walletData, prices, changes, liveUsdtBalance, liveApxdBalance]);
+  }, [walletData, prices, changes, liveUsdtBalance, liveApxdBalance, walletApxdBalance]);
 
   const sortedAssets = React.useMemo(
     () => [...assets].sort((a, b) => b.valueUSD - a.valueUSD),
@@ -354,7 +356,7 @@ export default function MyWalletsPage() {
         </div>
         {asset.symbol.toUpperCase() === 'APXD' && (watchAssetMessage || liveApxdError || liveApxdBalance !== null) && (
           <p role="status" className="mt-3 text-xs text-white/50">
-            {watchAssetMessage || liveApxdError || `Live APXD balance on ${APXD_CHAIN_NAME}: ${liveApxdBalance?.toFixed(6)}`}
+            {watchAssetMessage || walletApxdError || liveApxdError || (walletApxdBalance !== null ? `Live APXD balance on ${APXD_CHAIN_NAME}: ${walletApxdBalance.toFixed(6)}` : `Live APXD balance on ${APXD_CHAIN_NAME}: ${liveApxdBalance?.toFixed(6)}`)}
           </p>
         )}
         {asset.symbol.toUpperCase() === 'USDT' && (watchAssetMessage || liveUsdtError || isLiveUsdtLoading || metamaskAccount) && (
