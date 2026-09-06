@@ -128,6 +128,10 @@ export default function MyWalletsPage() {
 
   React.useEffect(() => {
     if (!metamaskAccount || !window.ethereum) return;
+    if (!wallet || metamaskAccount.toLowerCase() !== wallet.address.toLowerCase()) {
+      setLiveUsdtBalance(null);
+      return;
+    }
     void refreshLiveUsdtBalance(metamaskAccount);
     void refreshLiveApxdBalance(metamaskAccount);
     const handleAccountsChanged = (accounts: unknown) => {
@@ -217,7 +221,13 @@ export default function MyWalletsPage() {
 
   const addTokenToMetamask = async () => {
     setWatchAssetMessage(null);
-    if (!metamaskAccount && !(await connectMetamask())) return;
+    const account = metamaskAccount || await connectMetamask();
+    if (!account) return;
+    if (!wallet || account.toLowerCase() !== wallet.address.toLowerCase()) {
+      setWatchAssetMessage('Connect the exact Apex wallet address before adding USDT.');
+      setLiveUsdtBalance(null);
+      return;
+    }
     if (!window.ethereum) {
       setWatchAssetMessage('MetaMask is not installed in this browser.');
       return;

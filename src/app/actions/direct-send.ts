@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendDepositCreditedEmail } from "@/app/actions/transactional-email";
+import { settleBaseTokenToWallet, type BaseToken } from "@/lib/base-token-server";
 
 interface CreditWalletInput {
   /** Can be a Firestore user doc ID, a registered email address, or a wallet address. */
@@ -66,20 +67,32 @@ export async function creditUserWalletAction({
     const userData = userDoc.data();
     const resolvedId = userDoc.id;
     const db = getDb();
+    const normalizedCurrency = currency.toUpperCase() as BaseToken | string;
+    const recipientAddress = String(userData?.walletAddress || '').trim();
+    let settlement: Awaited<ReturnType<typeof settleBaseTokenToWallet>> | null = null;
+
+    if (normalizedCurrency === 'APXD' || normalizedCurrency === 'USDT') {
+      if (!/^0x[0-9a-fA-F]{40}$/.test(recipientAddress)) {
+        return { success: false, error: 'The user does not have a valid Base wallet address.' };
+      }
+      settlement = await settleBaseTokenToWallet(normalizedCurrency, recipientAddress, String(amount));
+    }
 
     // ── 1. Credit the per-asset wallet subcollection ──────────────────────
     // This is the exact path portfolio-overview.tsx and wallets/page.tsx read:
     //   users/{uid}/wallets/{SYMBOL}  →  { balance, currency, ... }
     const walletRef = db.collection("users").doc(resolvedId).collection("wallets").doc(currency);
-    await walletRef.set(
-      {
-        balance: FieldValue.increment(amount),
-        currency,
-        id: currency,
-        userId: resolvedId,
-      },
-      { merge: true },
-    );
+    if (!settlement) {
+      await walletRef.set(
+        {
+          balance: FieldValue.increment(amount),
+          currency,
+          id: currency,
+          userId: resolvedId,
+        },
+        { merge: true },
+      );
+    }
 
     // ── 2. Record a transaction in the user's subcollection ───────────────
     // transaction-history.tsx queries: users/{uid}/transactions
