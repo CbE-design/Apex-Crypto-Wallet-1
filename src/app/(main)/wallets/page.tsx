@@ -146,8 +146,6 @@ export default function MyWalletsPage() {
       void refreshLiveUsdtBalance(metamaskAccount);
       void refreshLiveApxdBalance(metamaskAccount);
     }, 15000);
-    window.ethereum.on?.('chainChanged', handleChainChanged);
-    const interval = window.setInterval(() => void refreshLiveUsdtBalance(metamaskAccount), 15000);
     return () => {
       window.ethereum?.removeListener?.('accountsChanged', handleAccountsChanged);
       window.ethereum?.removeListener?.('chainChanged', handleChainChanged);
