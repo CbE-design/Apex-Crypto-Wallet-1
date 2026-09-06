@@ -5,6 +5,7 @@ import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Providers } from './providers';
+import { ChunkLoadRecovery } from '@/components/chunk-load-recovery';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -95,6 +96,7 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
+        <ChunkLoadRecovery />
         <Providers>
           {children}
         </Providers>
