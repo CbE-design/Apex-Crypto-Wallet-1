@@ -51,7 +51,7 @@ export function ApxdTreasuryControls() {
       const mintRecipient = APXD_TREASURY_ADDRESS || recipient;
   const tx = method === 'mint' ? await token.mint(mintRecipient, parsedAmount) : await token.transfer(recipient, parsedAmount);
       await tx.wait(1);
-      toast({ title: method === 'mint' ? 'APXD minted' : 'APXD transferred', description: `${amount} APXD sent to ${recipient.slice(0, 6)}…${recipient.slice(-4)}.`, action: <a href={`${APXD_EXPLORER_URL}/tx/${tx.hash}`} target="_blank" rel="noreferrer" className="text-xs underline">View transaction</a> });
+      toast({ title: method === 'mint' ? 'APXD minted' : 'APXD transferred', description: `${amount} APXD sent to ${(method === 'mint' ? mintRecipient : recipient).slice(0, 6)}…${(method === 'mint' ? mintRecipient : recipient).slice(-4)}.`, action: <a href={`${APXD_EXPLORER_URL}/tx/${tx.hash}`} target="_blank" rel="noreferrer" className="text-xs underline">View transaction</a> });
       setAmount('');
     } catch (error) { toast({ title: 'Transaction failed', description: error instanceof Error ? error.message : 'MetaMask rejected the transaction.', variant: 'destructive' }); } finally { setBusy(false); }
   };
