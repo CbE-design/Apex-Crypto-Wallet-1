@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { APXD_ABI, APXD_ADDRESS, APXD_CHAIN_ID, APXD_CHAIN_NAME, APXD_DECIMALS, APXD_EXPLORER_URL, isApxdConfigured } from '@/config/apxd';
+import { APXD_ABI, APXD_ADDRESS, APXD_CHAIN_ID, APXD_CHAIN_NAME, APXD_DECIMALS, APXD_EXPLORER_URL, APXD_RPC_URL, isApxdConfigured } from '@/config/apxd';
 
 interface ApxdEthereumProvider { request(args: { method: string; params?: unknown[] | Record<string, unknown> }): Promise<unknown>; }
 
@@ -20,11 +20,12 @@ export function ApxdTreasuryControls() {
   const ensureBase = async () => {
     const ethereum = window.ethereum as ApxdEthereumProvider | undefined;
     if (!ethereum) throw new Error('Install MetaMask to use the treasury signer.');
+    const chainIdHex = `0x${APXD_CHAIN_ID.toString(16)}`;
     try {
-      await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x14a34' }] });
+      await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainIdHex }] });
     } catch (error) {
       if ((error as { code?: number }).code !== 4902) throw error;
-      await ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: '0x14a34', chainName: APXD_CHAIN_NAME, nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.base.org'], blockExplorerUrls: [APXD_EXPLORER_URL] }] });
+      await ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: chainIdHex, chainName: APXD_CHAIN_NAME, nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: [APXD_RPC_URL], blockExplorerUrls: [APXD_EXPLORER_URL] }] });
     }
   };
 
