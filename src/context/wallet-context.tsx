@@ -67,7 +67,7 @@ const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 // ── chain address derivation ───────────────────────────────────────────
 const deriveIdentityAddress = (symbol: string, ethAddress: string) => {
   if (!ethAddress) return '';
-  if (['ETH', 'LINK', 'BNB', 'USDT'].includes(symbol)) return ethAddress;
+  if (['ETH', 'LINK', 'BNB', 'USDT', 'APXD'].includes(symbol)) return ethAddress;
   if (symbol === 'SOL') return ethAddress.replace('0x', 'Sol') + 'Identity'.substring(0, 16);
   if (symbol === 'ADA') return 'addr1' + ethAddress.substring(2, 42);
   if (symbol === 'BTC') return '1' + ethAddress.substring(2, 35);

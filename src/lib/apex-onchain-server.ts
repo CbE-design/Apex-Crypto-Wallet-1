@@ -17,6 +17,7 @@ export interface ApexServerConfig {
   explorerUrl: string;
   rpcUrl: string;
   tokenAddress: string;
+  treasuryAddress: string;
   settlementPrivateKey: string;
 }
 
@@ -24,10 +25,13 @@ export function getApexServerConfig(): ApexServerConfig {
   const rpcUrl = process.env.APEX_ONCHAIN_RPC_URL || process.env.SEPOLIA_RPC_URL || process.env.NEXT_PUBLIC_APEX_RPC_URL || '';
   const tokenAddress =
     process.env.APEX_ONCHAIN_TOKEN_ADDRESS ||
+    process.env.APXD_TOKEN_CONTRACT_ADDRESS ||
+    process.env.NEXT_PUBLIC_APXD_TOKEN_ADDRESS ||
     process.env.USDT_TOKEN_CONTRACT_ADDRESS ||
     process.env.NEXT_PUBLIC_APEX_TOKEN_ADDRESS ||
     '';
   const settlementPrivateKey = process.env.APEX_ONCHAIN_PRIVATE_KEY || '';
+  const treasuryAddress = process.env.APXD_TREASURY_ADDRESS || process.env.NEXT_PUBLIC_APXD_TREASURY_ADDRESS || '';
   const chainId = Number(process.env.APEX_ONCHAIN_CHAIN_ID || process.env.NEXT_PUBLIC_APEX_CHAIN_ID || APEX_DEFAULT_CHAIN_ID);
   const chainName = process.env.APEX_ONCHAIN_CHAIN_NAME || process.env.NEXT_PUBLIC_APEX_CHAIN_NAME || APEX_DEFAULT_CHAIN_NAME;
   const explorerUrl = (process.env.APEX_ONCHAIN_EXPLORER_URL || process.env.NEXT_PUBLIC_APEX_EXPLORER_URL || APEX_DEFAULT_EXPLORER_URL).replace(/\/+$/, '');
@@ -38,6 +42,7 @@ export function getApexServerConfig(): ApexServerConfig {
     explorerUrl,
     rpcUrl,
     tokenAddress,
+    treasuryAddress,
     settlementPrivateKey,
   };
 }
@@ -47,6 +52,9 @@ export function assertApexServerConfig(config: ApexServerConfig): void {
   if (!ethers.isAddress(config.tokenAddress)) throw new Error('APEX_ONCHAIN_TOKEN_ADDRESS is not a valid contract address.');
   if (!/^0x[0-9a-fA-F]{64}$/.test(config.settlementPrivateKey)) {
     throw new Error('APEX_ONCHAIN_PRIVATE_KEY is not configured.');
+  }
+  if (config.treasuryAddress && !ethers.isAddress(config.treasuryAddress)) {
+    throw new Error('APXD_TREASURY_ADDRESS is not a valid EVM address.');
   }
 }
 
@@ -64,6 +72,9 @@ export async function getApexSettlementContext() {
   }
 
   const signer = new ethers.Wallet(config.settlementPrivateKey, provider);
+  if (config.treasuryAddress && signer.address.toLowerCase() !== config.treasuryAddress.toLowerCase()) {
+    throw new Error('APEX_ONCHAIN_PRIVATE_KEY does not match APXD_TREASURY_ADDRESS.');
+  }
   const token = new ethers.Contract(config.tokenAddress, APEX_ERC20_ABI, signer);
   const tokenDecimals = Number(await token.decimals());
   if (tokenDecimals !== APEX_DECIMALS) {

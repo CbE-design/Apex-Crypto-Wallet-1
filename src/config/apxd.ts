@@ -1,4 +1,5 @@
 export const APXD_ADDRESS = (process.env.NEXT_PUBLIC_APXD_TOKEN_ADDRESS || '') as `0x${string}` | '';
+export const APXD_TREASURY_ADDRESS = (process.env.NEXT_PUBLIC_APXD_TREASURY_ADDRESS || '') as `0x${string}` | '';
 export const APXD_CHAIN_ID = 8453n;
 export const APXD_CHAIN_NAME = 'Base';
 export const APXD_DECIMALS = 18;

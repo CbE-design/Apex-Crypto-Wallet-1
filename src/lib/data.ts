@@ -18,6 +18,7 @@ export const marketCoins: MarketCoin[] = [
   { symbol: 'XRP',  name: 'XRP',      priceUSD: 0.52,     change24h: -1.2, marketCap: 30e9,   icon: 'Xrp'       },
   { symbol: 'ADA',  name: 'Cardano',  priceUSD: 0.70,     change24h: 4.1,  marketCap: 25e9,   icon: 'Cardano'   },
   { symbol: 'USDT', name: 'Tether',   priceUSD: 1.00,     change24h: 0.01, marketCap: 118e9,  icon: 'Tether'    },
+  { symbol: 'APXD', name: 'Apex Dollar', priceUSD: 1.00,   change24h: 0,    marketCap: 0,       icon: 'Apex Dollar' },
   { symbol: 'DOGE', name: 'Dogecoin', priceUSD: 0.17,     change24h: 0.9,  marketCap: 25e9,   icon: 'Dogecoin'  },
 ];
 
