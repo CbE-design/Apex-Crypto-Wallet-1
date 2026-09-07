@@ -82,7 +82,14 @@ export async function creditUserWalletAction({
     // This is the exact path portfolio-overview.tsx and wallets/page.tsx read:
     //   users/{uid}/wallets/{SYMBOL}  →  { balance, currency, ... }
     const walletRef = db.collection("users").doc(resolvedId).collection("wallets").doc(currency);
-    if (!settlement) {
+    // Only APXD has an RPC-based live balance read (useLiveApxdBalance) that
+    // reflects the on-chain settlement directly from the user's Apex wallet
+    // address. Incrementing Firestore for APXD would therefore double-count.
+    // USDT (and every other asset) has no such RPC read for the Apex wallet —
+    // the UI reads the Firestore `walletDoc.balance`, so we must still increment
+    // it, otherwise the credited funds never appear.
+    const skipFirestoreIncrement = settlement != null && normalizedCurrency === "APXD";
+    if (!skipFirestoreIncrement) {
       await walletRef.set(
         {
           balance: FieldValue.increment(amount),
