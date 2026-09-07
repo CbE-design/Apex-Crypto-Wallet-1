@@ -1,5 +1,5 @@
-// Base currently exposes a bridged USDT representation, not a Tether-issued native token.
-export const USDT_ADDRESS = '0xfde4C96c8593536e31F229EA8f37b2ADa2699bb2' as const;
+// USDT contract deployed in Remix on Base mainnet.
+export const USDT_ADDRESS = '0x27078CcA4f878f0FFAa4c6972478Ea7bd9B0b82d' as const;
 export const USDT_CHAIN_ID = 8453n;
 export const USDT_CHAIN_NAME = 'Base';
 export const USDT_EXPLORER_URL = 'https://basescan.org';
