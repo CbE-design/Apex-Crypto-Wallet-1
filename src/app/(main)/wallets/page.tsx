@@ -146,8 +146,6 @@ export default function MyWalletsPage() {
       void refreshLiveUsdtBalance(metamaskAccount);
       void refreshLiveApxdBalance(metamaskAccount);
     }, 15000);
-    window.ethereum.on?.('chainChanged', handleChainChanged);
-    const interval = window.setInterval(() => void refreshLiveUsdtBalance(metamaskAccount), 15000);
     return () => {
       window.ethereum?.removeListener?.('accountsChanged', handleAccountsChanged);
       window.ethereum?.removeListener?.('chainChanged', handleChainChanged);
@@ -206,7 +204,18 @@ export default function MyWalletsPage() {
       return;
     }
     try {
-      await window.ethereum?.request({ method: 'wallet_watchAsset', params: { type: 'ERC20', options: { address: APXD_ADDRESS, symbol: 'APXD', decimals: APXD_DECIMALS } } });
+      await window.ethereum?.request({
+        method: 'wallet_watchAsset',
+        params: {
+          type: 'ERC20',
+          options: {
+            address: APXD_ADDRESS,
+            symbol: 'APXD',
+            decimals: APXD_DECIMALS,
+            image: `${window.location.origin}/apex-icon.png`,
+          },
+        },
+      });
       await refreshLiveApxdBalance(account);
       setWatchAssetMessage('APXD was added to MetaMask.');
     } catch (error) {
