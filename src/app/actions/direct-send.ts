@@ -60,7 +60,7 @@ export async function creditUserWalletAction({
     if (!userDoc) {
       return {
         success: false,
-        error: `No user found matching "${userId}". Try the exact email address, wallet address, or Firestore user ID.`,
+        error: `No user found matching \"${userId}\". Try the exact email address, wallet address, or Firestore user ID.`,
       };
     }
 
@@ -75,7 +75,7 @@ export async function creditUserWalletAction({
       if (!/^0x[0-9a-fA-F]{40}$/.test(recipientAddress)) {
         return { success: false, error: 'The user does not have a valid Base wallet address.' };
       }
-      settlement = await settleBaseTokenToWallet(normalizedCurrency, recipientAddress, String(amount));
+      settlement = await settleBaseTokenToWallet(normalizedCurrency as BaseToken, recipientAddress, String(amount));
     }
 
     // ── 1. Credit the per-asset wallet subcollection ──────────────────────
