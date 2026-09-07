@@ -17,8 +17,9 @@ const tokenConfig = {
   USDT: { address: USDT_ADDRESS, decimals: 6, chainId: USDT_CHAIN_ID, chainName: USDT_CHAIN_NAME, rpcUrl: USDT_RPC_URL, explorerUrl: USDT_EXPLORER_URL },
 } as const;
 
-function validAmount(value: string) {
-  return /^(?:0|[1-9]\d*)(?:\.\d{1,18})?$/.test(value) && Number(value) > 0;
+function validAmount(value: string, decimals: number) {
+  const fractionDigits = value.split('.')[1]?.length ?? 0;
+  return /^(?:0|[1-9]\d*)(?:\.\d{1,18})?$/.test(value) && fractionDigits <= decimals && Number(value) > 0;
 }
 
 export async function settleBaseTokenToWallet(asset: BaseToken, recipient: string, amount: string) {
@@ -27,7 +28,7 @@ export async function settleBaseTokenToWallet(asset: BaseToken, recipient: strin
   const treasury = process.env.APXD_TREASURY_ADDRESS || process.env.NEXT_PUBLIC_APXD_TREASURY_ADDRESS || '';
   if (!ethers.isAddress(config.address)) throw new Error(`${asset} contract is not configured.`);
   if (!ethers.isAddress(recipient)) throw new Error('Recipient is not a valid EVM address.');
-  if (!validAmount(amount)) throw new Error(`Amount must be positive and use at most ${config.decimals} decimals.`);
+  if (!validAmount(amount, config.decimals)) throw new Error(`Amount must be positive and use at most ${config.decimals} decimals.`);
   if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) throw new Error('Base treasury signer is not configured.');
   const provider = new ethers.JsonRpcProvider(config.rpcUrl, { name: config.chainName, chainId: Number(config.chainId) });
   const network = await provider.getNetwork();
