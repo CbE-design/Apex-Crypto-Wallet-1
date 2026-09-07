@@ -14,7 +14,7 @@ import { Waves, Plus, Minus, RefreshCw, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLivePrices } from '@/hooks/use-live-prices';
 import { useCurrency } from '@/context/currency-context';
-import { ApxdTreasuryControls } from '@/components/admin/apxd-treasury-controls';
+import { BaseTreasuryControls } from '@/components/admin/base-treasury-controls';
 
 interface WhaleBalances { [symbol: string]: number }
 
@@ -239,7 +239,7 @@ export default function WhaleAdminPage() {
           ))}
         </div>
 
-        <ApxdTreasuryControls />
+        <BaseTreasuryControls />
 
         {/* Balance grid */}
         {isLoading ? (
