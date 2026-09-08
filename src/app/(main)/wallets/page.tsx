@@ -241,7 +241,7 @@ export default function MyWalletsPage() {
             address: USDT_ADDRESS,
             symbol: 'USDT',
             decimals: 6,
-            image: 'https://cryptologos.cc/logos/tether-usdt-logo.png?v=040',
+            image: `${window.location.origin}/usdt-icon.svg`,
           },
         },
       });
