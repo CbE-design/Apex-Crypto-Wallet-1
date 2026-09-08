@@ -241,7 +241,8 @@ export default function MyWalletsPage() {
             address: USDT_ADDRESS,
             symbol: 'USDT',
             decimals: 6,
-            image: `${window.location.origin}/usdt-icon.svg`,
+            // MetaMask needs a publicly reachable HTTPS image URL when importing watched tokens.
+            image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdac17f958d2ee523a2206206994597c13d831ec7/logo.png',
           },
         },
       });
